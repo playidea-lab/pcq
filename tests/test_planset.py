@@ -232,6 +232,116 @@ def test_validate_planset_cli(tmp_path):
     assert "planset_validation" in ids
 
 
+# ── v4.2 GM-5: 멤버 dir 자족화 (workspace symlink) ───────────────────
+
+
+def test_apply_planset_symlinks_train_py_to_member_dirs(tmp_path):
+    """root 의 train.py / pyproject.toml 을 각 멤버 dir 에 link.
+
+    research/mcp-dogfood GM-5: 이전엔 멤버 dir 에 train.py 가 없어
+    `pcq run --path member/dir` 가 ScriptNotFoundError.
+    """
+    init_experiment(tmp_path, force=True, with_pyproject=True)
+    # init 이 train.py 와 pyproject.toml 모두 작성.
+    assert (tmp_path / "train.py").exists()
+    assert (tmp_path / "pyproject.toml").exists()
+
+    ps = ExperimentPlanSet(id="sw-link", plans=_make_plans(2))
+    result = apply_planset(tmp_path, ps, output_pattern="runs/exp{i}")
+    assert result.status == "applied"
+
+    for i in range(2):
+        member_dir = tmp_path / "runs" / f"exp{i}"
+        # train.py 가 멤버 dir 에서도 보임 (symlink 또는 copy).
+        assert (member_dir / "train.py").exists(), (
+            f"train.py missing in {member_dir}"
+        )
+        assert (member_dir / "pyproject.toml").exists(), (
+            f"pyproject.toml missing in {member_dir}"
+        )
+        # expanded entry 의 linked_files 에도 기록.
+        entry = result.expanded[i]
+        assert "linked_files" in entry
+        assert "train.py" in entry["linked_files"]
+        assert "pyproject.toml" in entry["linked_files"]
+
+
+def test_apply_planset_link_idempotent_when_file_exists(tmp_path):
+    """기존 파일이 있으면 덮어쓰지 않고 skip — 사용자 파일 보존."""
+    init_experiment(tmp_path, force=True)
+    member_pre = tmp_path / "runs" / "exp0"
+    member_pre.mkdir(parents=True)
+    custom_train = member_pre / "train.py"
+    custom_train.write_text("# custom member train\n", encoding="utf-8")
+
+    ps = ExperimentPlanSet(id="sw-link-idem", plans=_make_plans(1))
+    apply_planset(tmp_path, ps, output_pattern="runs/exp{i}", force=True)
+
+    # 기존 custom train.py 보존.
+    assert custom_train.read_text(encoding="utf-8") == "# custom member train\n"
+
+
+# ── v4.2 GM-6: output_dir 자동 fan-out ────────────────────────────────
+
+
+def test_apply_planset_injects_unique_output_dir_per_member(tmp_path):
+    """멤버 plan 에 output_dir 가 없으면 'output' 자동 주입.
+
+    이전엔 멤버가 root cq.yaml 의 output_dir 를 그대로 상속해 N 멤버가
+    같은 dir 에 artifact 작성 → 충돌. 이제 멤버 dir 기준 'output' 으로 격리.
+    """
+    init_experiment(tmp_path, force=True)
+    # base cq.yaml 에 output_dir 명시 — root 가 'shared_output' 사용.
+    from pcq.agent.yaml_io import read_yaml, write_yaml
+
+    base = read_yaml(tmp_path / "cq.yaml")
+    base.setdefault("configs", {})["output_dir"] = "shared_output"
+    write_yaml(base, tmp_path / "cq.yaml")
+
+    # 멤버는 output_dir 를 명시 안 함 — auto-injection 으로 'output' 강제.
+    ps = ExperimentPlanSet(id="sw-out", plans=_make_plans(3))
+    result = apply_planset(tmp_path, ps, output_pattern="runs/exp{i}")
+    assert result.status == "applied"
+
+    for i in range(3):
+        member_cq = read_yaml(tmp_path / "runs" / f"exp{i}" / "cq.yaml")
+        out_val = member_cq.get("configs", {}).get("output_dir")
+        # 기본 'output' (멤버 dir 기준).
+        assert out_val == "output", (
+            f"member exp{i} output_dir not auto-injected: got {out_val!r}"
+        )
+
+
+def test_apply_planset_respects_user_set_config_output_dir(tmp_path):
+    """멤버 plan 이 output_dir 명시 → 그대로 보존 (자동 주입하지 않음).
+
+    GM-6 의 핵심 invariant — 사용자 의도 우선. '_normalize_member_output_dir'
+    가 relative path 를 'output' 으로 normalize 하는 기존 동작은 유효.
+    이 테스트는 absolute path 를 명시했을 때 그대로 보존되는지 확인.
+    """
+    init_experiment(tmp_path, force=True)
+    abs_out = str((tmp_path / "elsewhere" / "exp0_out").resolve())
+    plans = [
+        ExperimentPlan(
+            id="exp-explicit-out",
+            base={},
+            changes=[
+                ChangeOp(op="set_config", key="output_dir", value=abs_out),
+                ChangeOp(op="set_config", key="lr", value=0.01),
+            ],
+        )
+    ]
+    ps = ExperimentPlanSet(id="sw-user-out", plans=plans)
+    result = apply_planset(tmp_path, ps, output_pattern="runs/exp{i}")
+    assert result.status == "applied"
+
+    from pcq.agent.yaml_io import read_yaml
+
+    member_cq = read_yaml(tmp_path / "runs" / "exp0" / "cq.yaml")
+    # 사용자 absolute output_dir 가 그대로 — 자동 주입의 'output' 이 아님.
+    assert member_cq["configs"]["output_dir"] == abs_out
+
+
 def test_apply_planset_cli(tmp_path):
     """`pcq apply-planset` subprocess 동작."""
     init_experiment(tmp_path, force=True)

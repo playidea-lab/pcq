@@ -35,7 +35,7 @@ from pcq.contract import (
 from pcq.core import config, input_dir, log, output_dir, seed_everything
 
 
-__version__ = "4.1.0"
+__version__ = "4.2.0"
 __all__ = [
     "ResolvedConfig",
     "RunContext",

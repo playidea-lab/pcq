@@ -205,6 +205,89 @@ def test_apply_plan_tool_plan_file(project: Path, tmp_path: Path):
     assert result["plan_id"] == "p2"
 
 
+# ── v4.2 GM-2: descriptor schema example ───────────────────────────
+
+
+def test_apply_plan_descriptor_contains_schema_example():
+    """apply_plan tool descriptor 의 plan.description 에 minimal example 포함.
+
+    research/mcp-dogfood GM-2: agent 가 source grep 없이 plan dict 를
+    한 번에 작성할 수 있도록 inputSchema 자체에 예시를 박아둠.
+    """
+    tool = _find_tool("apply_plan")
+    schema = tool.descriptor.inputSchema
+    plan_desc = schema["properties"]["plan"]["description"]
+    # 핵심 키가 모두 등장해야 함.
+    for token in (
+        "schema_version",
+        "id",
+        "changes",
+        "set_config",
+        "parent_run_id",
+        "parent_run_path",
+    ):
+        assert token in plan_desc, f"missing token in plan example: {token!r}"
+
+
+def test_apply_planset_descriptor_contains_schema_example():
+    """apply_planset tool descriptor 도 동일 — plans + members example."""
+    tool = _find_tool("apply_planset")
+    schema = tool.descriptor.inputSchema
+    ps_desc = schema["properties"]["planset"]["description"]
+    for token in ("schema_version", "id", "plans", "set_config"):
+        assert token in ps_desc, f"missing token in planset example: {token!r}"
+
+
+# ── v4.2 GM-3: schema-validation friendly error envelope ───────────
+
+
+def test_apply_plan_returns_friendly_schema_error(project: Path):
+    """malformed plan dict → raw TypeError 대신 status='rejected' envelope.
+
+    이전엔 from_dict 에서 string-indexed access 가 TypeError 로 터져
+    agent 가 사유를 알 수 없었다. 이제 reason='schema_invalid' + detail.
+    """
+    bad_plan = {
+        "id": "broken",
+        # changes 가 list 가 아닌 string — from_dict 가 iter 시 ChangeOp.from_dict
+        # 에서 attribute access 실패 → 친화적 envelope 으로 wrap.
+        "changes": "this should be a list",
+    }
+    tool = _find_tool("apply_plan")
+    result = _run(tool.handler({"path": str(project), "plan": bad_plan}))
+    assert result["status"] == "rejected"
+    assert result["reason"] in ("schema_invalid", "validation_failed")
+    # detail / errors 둘 중 하나는 존재해야 함.
+    assert "detail" in result or "errors" in result
+
+
+def test_apply_plan_returns_validation_failed_envelope(project: Path):
+    """plan 자체는 dict-shape 통과하지만 plan.validate() 가 fail —
+    reason='validation_failed' + errors list."""
+    invalid_plan = {
+        "id": "",  # required: non-empty
+        "changes": [],  # required: non-empty
+    }
+    tool = _find_tool("apply_plan")
+    result = _run(tool.handler({"path": str(project), "plan": invalid_plan}))
+    assert result["status"] == "rejected"
+    assert result["reason"] == "validation_failed"
+    assert isinstance(result["errors"], list)
+    assert len(result["errors"]) >= 1
+
+
+def test_apply_planset_returns_friendly_schema_error(project: Path):
+    """planset 도 동일 친화적 envelope 패턴."""
+    tool = _find_tool("apply_planset")
+    bad_ps = {
+        "id": "ps_bad",
+        "plans": "not_a_list",  # must be list of dicts
+    }
+    result = _run(tool.handler({"path": str(project), "planset": bad_ps}))
+    assert result["status"] == "rejected"
+    assert result["reason"] in ("schema_invalid", "validation_failed")
+
+
 # ── apply_planset ──────────────────────────────────────────────────
 
 

@@ -13,10 +13,41 @@ _BLOCK_END = "<!-- END PCQ AGENT RULES -->"
 # .mcp.json entry — agent runtime (Claude Code / Codex) 가 자동으로 pcq MCP
 # 서버에 attach 할 때 사용하는 명령. extras 미설치 환경에서는 명령이 실패해도
 # 경고만 보고 다른 도구는 계속 작동한다.
+#
+# v4.2 (GM-1): venv 감지 — project_root/.venv/bin/pcq 존재 시 글로벌 PATH 의 pcq
+# 대신 `uv run --directory <root> pcq mcp serve` wrapper 형태로 작성한다. fresh
+# Claude Code 세션이 uv venv 안에서만 install 된 pcq 의 MCP server 를 spawn 하지
+# 못해 "Failed to reconnect to pcq" 로 실패하는 dogfood 이슈 (research/mcp-dogfood
+# GM-1) 를 해결.
 _PCQ_MCP_SERVER_ENTRY: dict[str, object] = {
     "command": "pcq",
     "args": ["mcp", "serve"],
 }
+
+
+def _expected_mcp_entry(project_root: Path) -> dict[str, object]:
+    """프로젝트의 .venv/bin/pcq 가 있으면 uv wrapper, 없으면 글로벌 pcq 사용.
+
+    Windows 의 .venv/Scripts/pcq.exe 도 함께 감지한다.
+    """
+    venv_pcq_unix = project_root / ".venv" / "bin" / "pcq"
+    venv_pcq_win = project_root / ".venv" / "Scripts" / "pcq.exe"
+    if venv_pcq_unix.exists() or venv_pcq_win.exists():
+        return {
+            "command": "uv",
+            "args": [
+                "run",
+                "--directory",
+                str(project_root),
+                "pcq",
+                "mcp",
+                "serve",
+            ],
+        }
+    return {
+        "command": _PCQ_MCP_SERVER_ENTRY["command"],
+        "args": list(_PCQ_MCP_SERVER_ENTRY["args"]),  # type: ignore[arg-type]
+    }
 
 
 @dataclass
@@ -256,8 +287,9 @@ def _install_mcp_config(
     """
     mcp_path = root / ".mcp.json"
     rel = ".mcp.json"
-    expected = {"command": _PCQ_MCP_SERVER_ENTRY["command"],
-                "args": list(_PCQ_MCP_SERVER_ENTRY["args"])}  # type: ignore[arg-type]
+    # v4.2 (GM-1): venv 감지 → uv wrapper 사용. uv 없는 환경은 그대로 글로벌
+    # pcq command 사용 (기존 동작).
+    expected = _expected_mcp_entry(root)
 
     existing: dict | None = None
     if mcp_path.exists():

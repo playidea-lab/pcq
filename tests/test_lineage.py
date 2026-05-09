@@ -305,6 +305,126 @@ def test_lineage_node_to_dict_strips_empty_lists_and_dicts():
     assert "name" not in d           # empty string stripped
 
 
+# ── v4.2 GM-4: project-root-relative parent_run_path resolution ──────
+
+
+def _make_record_with_project_root(
+    project_root: Path,
+    out_subdir: str,
+    run_id: str,
+    parent_id: str | None = None,
+    parent_path: str | None = None,
+    best: float = 0.5,
+) -> Path:
+    """project_root 안에 cq.yaml 을 두고, output_subdir 에 run_record 작성."""
+    project_root.mkdir(parents=True, exist_ok=True)
+    cq = project_root / "cq.yaml"
+    if not cq.exists():
+        cq.write_text("name: lineage-test\nconfigs: {}\n", encoding="utf-8")
+    out_dir = project_root / out_subdir
+    out_dir.mkdir(parents=True, exist_ok=True)
+    rr: dict = {
+        "schema_version": 1,
+        "run": {"id": run_id, "status": "completed"},
+        "execution": {},
+        "source": {},
+        "environment": {},
+        "metrics": {"declared": [], "history_path": "metrics.json"},
+        "artifacts": [],
+        "summary": {
+            "target_metric": "eval_acc",
+            "best": {"epoch": 0, "metrics": {"eval_acc": best}},
+        },
+    }
+    if parent_id:
+        rr["run"]["parent_run_id"] = parent_id
+    if parent_path:
+        rr["run"]["parent_run_path"] = parent_path
+    rr_path = out_dir / "run_record.json"
+    rr_path.write_text(json.dumps(rr), encoding="utf-8")
+    return rr_path
+
+
+def test_lineage_resolves_relative_parent_path_from_project_root(tmp_path):
+    """parent_run_path='output_gen0' 은 project_root/output_gen0 으로 해석.
+
+    research/mcp-dogfood GM-4: apply_plan 이 _parent_run_path 를 project_root
+    기준 relative 로 작성하는데, 이전 lineage 는 child 의 output_dir 기준으로
+    잘못 해석해 output_gen1/output_gen0 (없음) 를 가리켰다.
+    """
+    project_root = tmp_path / "proj"
+    # gen0 — root
+    _make_record_with_project_root(
+        project_root, "output_gen0", "run_gen0", best=0.5
+    )
+    # gen1 — child, parent_run_path 는 project-root-relative.
+    _make_record_with_project_root(
+        project_root,
+        "output_gen1",
+        "run_gen1",
+        parent_id="run_gen0",
+        parent_path="output_gen0",  # NOT '../output_gen0'
+        best=0.7,
+    )
+
+    chain = lineage(project_root / "output_gen1")
+    assert len(chain.chain) == 2, (
+        f"expected chain of 2; got {len(chain.chain)}: {chain.to_dict()}"
+    )
+    assert chain.chain[0].run_id == "run_gen1"
+    assert chain.chain[1].run_id == "run_gen0"
+    # placeholder note ('not found') 가 없어야 함.
+    assert chain.chain[1].note is None or "not found" not in chain.chain[1].note
+
+
+def test_lineage_relative_path_dotdot_still_works(tmp_path):
+    """역호환: '../run_a' 처럼 명시적 sibling 표기는 child output 기준 그대로.
+
+    이 테스트는 기존 동작 보존을 보장 — project_root resolution 은 후보가
+    존재할 때만 우선이고, 없으면 current_output 기준으로 fallback.
+    """
+    # project_root 없는 일반 layout — fallback 경로로 ../ 처리.
+    _make_record(tmp_path / "run_a", "run_a")
+    _make_record(
+        tmp_path / "run_b",
+        "run_b",
+        parent_id="run_a",
+        parent_path="../run_a",
+    )
+    chain = lineage(tmp_path / "run_b")
+    assert [n.run_id for n in chain.chain] == ["run_b", "run_a"]
+
+
+def test_compare_runs_has_lineage_relation_with_relative_parent_path(tmp_path):
+    """compare_runs 에서 GM-4 fix 가 있으면 a_is_ancestor_of_b=True.
+
+    이전엔 _parent_run_path='output_gen0' 의 잘못된 resolution 으로 lineage
+    체인이 끊겨 has_lineage_relation 이 False 였음.
+    """
+    from pcq.agent.compare import compare_runs
+
+    project_root = tmp_path / "proj"
+    _make_record_with_project_root(
+        project_root, "output_gen0", "run_gen0", best=0.5
+    )
+    _make_record_with_project_root(
+        project_root,
+        "output_gen1",
+        "run_gen1",
+        parent_id="run_gen0",
+        parent_path="output_gen0",
+        best=0.7,
+    )
+
+    diff = compare_runs(
+        project_root / "output_gen0", project_root / "output_gen1"
+    )
+    # gen1 의 chain 에 gen0 가 있어야 → a (gen0) 가 b (gen1) 의 ancestor.
+    assert diff.a_is_ancestor_of_b is True
+    df = diff.to_dict().get("decision_facts", {})
+    assert df.get("has_lineage_relation") is True
+
+
 def test_finalize_run_propagates_yaml_top_level_name(tmp_path, monkeypatch):
     """v2.3: cq.yaml 의 top-level name 이 RunRecord.run.name 에 propagate.
 

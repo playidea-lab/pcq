@@ -219,6 +219,54 @@ class PlanSetApplyResult:
         }
 
 
+# v4.2 (GM-5): planset 멤버 dir 가 자족적으로 실행 가능하도록 root 의 workspace
+# 파일을 symlink 한다. dogfood research/mcp-dogfood: 멤버 cq.yaml 의 cmd
+# (`python train.py`) 가 가리키는 train.py 는 root 에만 있고 멤버 dir 에는 없어
+# `pcq run --path member/dir` 가 실패했음.
+_WORKSPACE_LINK_FILES = (
+    "train.py",
+    "pyproject.toml",
+    "uv.lock",
+    ".python-version",
+)
+
+
+def _link_workspace_files(root: Path, member_dir: Path) -> list[str]:
+    """root 의 workspace 파일을 member_dir 에 symlink (없으면 copy fallback).
+
+    v4.2 (GM-5): apply_planset 멤버가 root 와 동일하게 train.py / pyproject.toml
+    을 볼 수 있어야 `pcq run --path member/dir` 가 정상 동작한다. cq.yaml 은
+    이미 멤버 별 patch 본이 있으므로 link 대상이 아님.
+
+    Returns: 실제로 link/copy 된 파일 이름 list (이미 존재하거나 root 에 없는
+    파일은 skip).
+    """
+    import shutil
+
+    linked: list[str] = []
+    for fname in _WORKSPACE_LINK_FILES:
+        src = root / fname
+        if not src.exists():
+            continue
+        dst = member_dir / fname
+        if dst.exists() or dst.is_symlink():
+            continue
+        try:
+            # 절대 경로 symlink — member_dir 의 위치와 무관.
+            dst.symlink_to(src.resolve())
+            linked.append(fname)
+        except OSError:
+            # symlink 권한/지원 없으면 copy 로 fallback (Windows non-admin 등).
+            try:
+                shutil.copy2(src, dst)
+                linked.append(fname)
+            except OSError:
+                # copy 도 실패하면 graceful skip — 멤버 실행 시 명확한
+                # 'train.py not found' 에러로 노출되도록 둠.
+                pass
+    return linked
+
+
 def _normalize_member_output_dir(
     plan: ExperimentPlan, expanded_dir: Path
 ) -> ExperimentPlan:
@@ -255,6 +303,36 @@ def _normalize_member_output_dir(
     if not changed:
         return plan
     # ExperimentPlan 은 dataclass — 새 인스턴스로 바꿔준다.
+    return ExperimentPlan(
+        schema_version=plan.schema_version,
+        id=plan.id,
+        intent=plan.intent,
+        base=dict(plan.base),
+        target=dict(plan.target),
+        changes=new_changes,
+        validation_policy=plan.validation_policy,
+        parent_run_id=plan.parent_run_id,
+        parent_run_path=plan.parent_run_path,
+    )
+
+
+def _ensure_member_output_dir(plan: ExperimentPlan) -> ExperimentPlan:
+    """v4.2 (GM-6): plan 에 set_config(output_dir=...) 가 없으면 'output' 자동 주입.
+
+    이전 동작: 멤버가 output_dir 를 안 적으면 root cq.yaml 의 output_dir 를
+    그대로 상속 → N 멤버가 모두 같은 output_dir 를 공유 → artifact 충돌.
+    v4.2: 멤버가 output_dir 를 명시 안 하면 'output' (멤버 dir 기준) 자동 주입.
+    명시한 멤버는 그대로 — 사용자 의도 우선.
+    """
+    has_output_dir = any(
+        c.op == "set_config" and c.key == "output_dir"
+        for c in plan.changes
+    )
+    if has_output_dir:
+        return plan
+    new_changes = list(plan.changes) + [
+        ChangeOp(op="set_config", key="output_dir", value="output"),
+    ]
     return ExperimentPlan(
         schema_version=plan.schema_version,
         id=plan.id,
@@ -355,17 +433,27 @@ def apply_planset(
         # cq.yaml 복사 (base 그대로 — apply_plan 이 그 위에 patch).
         (target_dir / "cq.yaml").write_text(base_text, encoding="utf-8")
 
+        # v4.2 (GM-5): 멤버 dir 가 자족적으로 실행 가능하도록 train.py 등 link.
+        # link 결과는 expanded entry 에 기록 (debug 용).
+        linked_files = _link_workspace_files(root, target_dir)
+
         # v2.12 (G7-1): 멤버 plan 의 relative output_dir 은 'output' 으로 normalize.
         # absolute path 는 보존. 이중 nesting 방지.
         normalized_plan = _normalize_member_output_dir(plan, target_dir)
+        # v4.2 (GM-6): 멤버가 output_dir 를 명시 안 했으면 'output' 자동 주입.
+        # N 멤버가 root output_dir 를 공유해 충돌하던 dogfood 회귀 fix.
+        normalized_plan = _ensure_member_output_dir(normalized_plan)
         member_result = apply_plan(target_dir, normalized_plan)
         member_dict = member_result.to_dict()
-        expanded.append({
+        expanded_entry = {
             "plan_id": plan.id,
             "output_path": str(target_dir),
             "status": member_result.status,
             "apply": member_dict,
-        })
+        }
+        if linked_files:
+            expanded_entry["linked_files"] = linked_files
+        expanded.append(expanded_entry)
         # 멤버 reject 는 set 전체 reject 사유에 포함 — 단 이미 만든 dir 는 그대로.
         if member_result.status == "rejected":
             result.rejected_reasons.extend(

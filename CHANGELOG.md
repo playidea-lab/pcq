@@ -4,6 +4,94 @@ All notable changes to pcq. Format: [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [4.2.0] — 2026-05-10
+
+> **mcp-dogfood-driven hotfix release.**
+>
+> Third pcq dogfood (research/mcp-dogfood) ran 3 generations on the
+> v4.1.0 MCP loop and verified all three hypotheses (h1: 45% wall-time
+> savings vs subprocess, h2: decision_facts boolean branching reduced
+> token usage, h3: 12/14 tool descriptors self-contained). It also
+> surfaced 6 gaps (GM-1 through GM-6); this release fixes 5 at P0/P1
+> and 2 at P2.
+
+### Fixed
+- **GM-1 [P0]**: `pcq agent install --mcp` now detects
+  `.venv/bin/pcq` (or `.venv/Scripts/pcq.exe` on Windows) in the
+  project root and writes a `command="uv", args=["run", "--directory",
+  <root>, "pcq", "mcp", "serve"]` wrapper instead of the global `pcq`
+  command. Resolves "Failed to reconnect to pcq" failures observed when
+  fresh Claude Code sessions tried to spawn the MCP server from a uv
+  venv project where pcq is not on the global PATH.
+- **GM-3 [P2]**: `apply_plan` and `apply_planset` MCP handlers now run
+  `ExperimentPlan(Set).from_dict + .validate()` before delegating to
+  the apply engine. Returns
+  `{status: "rejected", reason: "schema_invalid"|"validation_failed",
+  detail|errors|raw_plan}` instead of raw `TypeError` from underlying
+  dict access. Agents now see a stable JSON envelope on bad input.
+- **GM-4 [P1]**: `lineage_chain` (and therefore `compare_runs`'
+  `decision_facts.has_lineage_relation`) now resolves a relative
+  `parent_run_path` against the project root (walked up from the
+  consuming run's `output_dir` until a `cq.yaml` is found) before
+  falling back to the consuming run's `output_dir`. Previously, a
+  `_parent_run_path: "output_gen0"` written by `apply_plan` into a
+  child run living at `output_gen1/` resolved to
+  `output_gen1/output_gen0` (missing). Absolute and `../sibling`
+  relative paths are unchanged.
+- **GM-5 [P1]**: `apply_planset` now symlinks workspace files
+  (`train.py`, `pyproject.toml`, `uv.lock`, `.python-version`) from
+  the project root into each expanded member directory. Falls back to
+  `shutil.copy2` when symlinks are not supported (Windows non-admin).
+  Members are now self-sufficient — `pcq run --path member/dir` can
+  find the script. Existing files in the member directory are
+  preserved.
+- **GM-6 [P1]**: `apply_planset` now auto-injects a
+  `set_config output_dir=output` change into each member plan when the
+  user has not provided one. Previously all members shared the root
+  `cq.yaml`'s `output_dir`, causing artifact collisions across the
+  fan-out. Members that already specify `output_dir` (relative or
+  absolute) are unchanged — user intent wins.
+
+### Added
+- **GM-2 [P2]**: `apply_plan` and `apply_planset` MCP tool descriptors
+  now include a minimal `ExperimentPlan` / `ExperimentPlanSet` example
+  in their `inputSchema.<key>.description`. Agents can construct a
+  valid plan in one shot without grepping the cqml source.
+- `_expected_mcp_entry(project_root)` helper in `pcq.agent.install` —
+  returns the `command`/`args` shape based on venv detection. Used by
+  both `_install_mcp_config` and the idempotency comparison.
+- `_link_workspace_files(root, member_dir)` and
+  `_ensure_member_output_dir(plan)` helpers in `pcq.agent.apply` —
+  GM-5 / GM-6 logic kept testable in isolation.
+
+### Compat
+- All fixes are additive or strict bug fixes. Existing absolute-path
+  `parent_run_path` users unaffected. Existing `apply_planset` users
+  who already set `output_dir` per plan unaffected. Existing
+  `_parent_run_path: "../sibling"` style paths fall through the
+  project-root-first resolver to the original `output_dir`-relative
+  behaviour.
+- `.mcp.json` files written by v4.1.0 still work: they reference the
+  global `pcq` command, which works whenever pcq is globally
+  installed. v4.2 just generates the `uv run` wrapper form by default
+  when a project venv is detected — making it work in venv-only
+  installations too.
+- 14 MCP tool names and `inputSchema` keys are unchanged; GM-2 only
+  enriches the `description` field of the existing `plan` / `planset`
+  property (and adds `additionalProperties: true`, which was the
+  effective behaviour already).
+- 430 → 445 tests (+15: 3 GM-1, 2 GM-2, 3 GM-3, 3 GM-4, 2 GM-5, 2
+  GM-6).
+
+### Resolved (dogfood evidence)
+- GM-1 / GM-2 / GM-3 / GM-4 / GM-5 / GM-6 — all from
+  `research/mcp-dogfood`.
+
+### See also
+- `docs/case-studies/mcp-dogfood-2026-05-10.md` — case study added in
+  this release with the full hypothesis verification + gap list +
+  termination-question answers.
+
 ## [4.1.0] — 2026-05-10
 
 > **Phase 6: MCP integration. agent runtime이 subprocess shell parsing

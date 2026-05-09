@@ -123,6 +123,53 @@ def _is_remote_uri(path_str: str) -> bool:
     return False
 
 
+def _find_project_root(start: Path) -> Path | None:
+    """start 에서 위로 올라가며 첫 번째 cq.yaml 보유 dir 반환.
+
+    v4.2 (GM-4): apply_plan 이 `_parent_run_path` 를 project_root 기준 relative
+    (예: "output_gen0") 로 작성하면, child 의 output_dir 기준이 아니라 project
+    root 기준으로 resolve 해야 한다. dogfood research/mcp-dogfood 회귀 fix.
+    """
+    cur = start.resolve()
+    # 무한루프 방지 — Path.parents 는 root 까지 자연 종료.
+    for candidate in (cur, *cur.parents):
+        if (candidate / "cq.yaml").exists():
+            return candidate
+    return None
+
+
+def _resolve_parent_path(
+    parent_path_str: str, current_output: Path
+) -> Path:
+    """parent_run_path 를 절대 경로로 해석.
+
+    우선순위:
+      1. absolute → 그대로 사용.
+      2. project_root 발견되고 해당 경로에 record 있음 → project_root 기준.
+      3. 그 외 → current_output 기준 (backward compat).
+
+    v4.2 (GM-4): 이전엔 항상 current_output 기준이라 child 가 output_gen1/
+    안에서 _parent_run_path="output_gen0" 을 만났을 때 output_gen1/output_gen0
+    로 잘못 해석했음. 이제 project_root/output_gen0 을 먼저 시도.
+    """
+    p = Path(parent_path_str)
+    if p.is_absolute():
+        return p
+
+    project_root = _find_project_root(current_output)
+    if project_root is not None:
+        candidate = (project_root / p).resolve()
+        # candidate 가 존재하고 record 가 읽히면 그것을 사용.
+        # candidate 가 없거나 record 없는 경우엔 current_output 기준 fallback —
+        # 기존 동작 보존 (relative parent_run_path 가 child's output_dir 기준
+        # 으로 의도된 케이스 — test_lineage_three_generations_relative_path 처럼
+        # ../run_a 같은 명시적 부모 디렉토리 표기).
+        if _read_record(candidate) is not None:
+            return candidate
+
+    return (current_output / p).resolve()
+
+
 def lineage(
     start: str | Path,
     max_depth: int = _DEFAULT_MAX_DEPTH,
@@ -189,11 +236,9 @@ def lineage(
             )
             break
 
-        parent_path = Path(parent_path_str)
-        if not parent_path.is_absolute():
-            # relative path 는 현재 output_dir 기준 — agent 가 working tree 에서
-            # 이동해도 lineage 가 깨지지 않게.
-            parent_path = (current_output / parent_path).resolve()
+        # v4.2 (GM-4): apply_plan 이 작성한 project-root-relative path 를
+        # 우선 시도, 없으면 child's output_dir 기준으로 fallback.
+        parent_path = _resolve_parent_path(str(parent_path_str), current_output)
 
         next_rr = _read_record(parent_path)
         if next_rr is None:

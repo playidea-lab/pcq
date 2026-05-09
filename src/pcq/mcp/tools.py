@@ -438,14 +438,64 @@ def _lineage_chain_tool() -> PcqTool:
 def _apply_plan_tool() -> PcqTool:
     async def handler(args: dict[str, Any]) -> dict[str, Any]:
         from pcq.agent.apply import apply_plan
+        from pcq.agent.plan import ExperimentPlan
 
         plan_data, err = _load_plan_payload(args, "plan")
         if err:
             return _err(err)
+
+        # v4.2 (GM-3): schema 검증 친화적 envelope. raw TypeError /
+        # KeyError 대신 {status: "rejected", reason: ..., detail/errors}
+        # 를 반환해 agent 가 사유를 즉시 파악할 수 있게 함.
+        try:
+            plan = ExperimentPlan.from_dict(plan_data)
+        except (TypeError, KeyError, ValueError, AttributeError) as e:
+            return {
+                "schema_version": 1,
+                "status": "rejected",
+                "reason": "schema_invalid",
+                "detail": str(e),
+                "raw_plan": plan_data,
+                "expected_schema": (
+                    "see tool descriptor for ExperimentPlan example"
+                ),
+            }
+
+        validation_errors = plan.validate()
+        if validation_errors:
+            return {
+                "schema_version": 1,
+                "status": "rejected",
+                "reason": "validation_failed",
+                "errors": validation_errors,
+                "plan_id": plan.id,
+            }
+
         result = apply_plan(
-            _coerce_str_path(args.get("path"), "."), plan_data
+            _coerce_str_path(args.get("path"), "."), plan
         )
         return result.to_dict()
+
+    # v4.2 (GM-2): inputSchema.plan.description 에 minimal ExperimentPlan
+    # example 을 inline 으로 박아 agent 가 grep 없이 한 번에 plan dict 를
+    # 작성할 수 있게 한다 (research/mcp-dogfood GM-2).
+    _plan_example_text = (
+        "Inline ExperimentPlan dict. Minimal example:\n"
+        "{\n"
+        '  "schema_version": 1,\n'
+        '  "id": "exp-001",\n'
+        '  "intent": "try larger lr",\n'
+        '  "base": {"baseline": "gen0"},\n'
+        '  "parent_run_id": "run_...",\n'
+        '  "parent_run_path": "/abs/path/output_gen0",\n'
+        '  "changes": [\n'
+        '    {"op": "set_config", "key": "lr", "value": 0.01}\n'
+        "  ]\n"
+        "}\n"
+        "Required: id (non-empty string), changes (non-empty list of "
+        "{op: 'set_config', key: <str>, value: <any>}). Optional: intent, "
+        "base, target, parent_run_id, parent_run_path, validation_policy."
+    )
 
     return PcqTool(
         name="apply_plan",
@@ -454,7 +504,8 @@ def _apply_plan_tool() -> PcqTool:
             description=(
                 "Apply ExperimentPlan to project (modifies cq.yaml.configs "
                 "only — never train.py). Provenance recorded under "
-                ".pcq/plans/<plan_id>.json."
+                ".pcq/plans/<plan_id>.json. Returns rejected envelope with "
+                "reason='schema_invalid'|'validation_failed' on bad input."
             ),
             inputSchema={
                 "type": "object",
@@ -462,7 +513,8 @@ def _apply_plan_tool() -> PcqTool:
                     "path": {"type": "string", "default": "."},
                     "plan": {
                         "type": "object",
-                        "description": "Inline ExperimentPlan dict",
+                        "description": _plan_example_text,
+                        "additionalProperties": True,
                     },
                     "plan_file": {
                         "type": "string",
@@ -478,17 +530,62 @@ def _apply_plan_tool() -> PcqTool:
 def _apply_planset_tool() -> PcqTool:
     async def handler(args: dict[str, Any]) -> dict[str, Any]:
         from pcq.agent.apply import apply_planset
+        from pcq.agent.plan import ExperimentPlanSet
 
         ps_data, err = _load_plan_payload(args, "planset")
         if err:
             return _err(err)
+
+        # v4.2 (GM-3): apply_plan 과 동일한 친화적 envelope.
+        try:
+            planset = ExperimentPlanSet.from_dict(ps_data)
+        except (TypeError, KeyError, ValueError, AttributeError) as e:
+            return {
+                "schema_version": 1,
+                "status": "rejected",
+                "reason": "schema_invalid",
+                "detail": str(e),
+                "raw_planset": ps_data,
+                "expected_schema": (
+                    "see tool descriptor for ExperimentPlanSet example"
+                ),
+            }
+        validation_errors = planset.validate()
+        if validation_errors:
+            return {
+                "schema_version": 1,
+                "status": "rejected",
+                "reason": "validation_failed",
+                "errors": validation_errors,
+                "set_id": planset.id,
+            }
+
         result = apply_planset(
             _coerce_str_path(args.get("path"), "."),
-            ps_data,
+            planset,
             output_pattern=args.get("output_pattern", "runs/exp{i}"),
             force=bool(args.get("force", False)),
         )
         return result.to_dict()
+
+    # v4.2 (GM-2): inline ExperimentPlanSet example for self-sufficient
+    # tool descriptor.
+    _planset_example_text = (
+        "Inline ExperimentPlanSet dict. Minimal example:\n"
+        "{\n"
+        '  "schema_version": 1,\n'
+        '  "id": "sweep-001",\n'
+        '  "intent": "lr sweep",\n'
+        '  "parent_run_id": "run_baseline",\n'
+        '  "plans": [\n'
+        '    {"id": "exp-000", "changes": [\n'
+        '      {"op": "set_config", "key": "lr", "value": 0.01}]},\n'
+        '    {"id": "exp-001", "changes": [\n'
+        '      {"op": "set_config", "key": "lr", "value": 0.001}]}\n'
+        "  ]\n"
+        "}\n"
+        "Required: id, plans (non-empty, each member is an ExperimentPlan)."
+    )
 
     return PcqTool(
         name="apply_planset",
@@ -496,7 +593,9 @@ def _apply_planset_tool() -> PcqTool:
             name="apply_planset",
             description=(
                 "Expand ExperimentPlanSet members into N output directories, "
-                "each with its own cq.yaml + plan provenance."
+                "each with its own cq.yaml + plan provenance. Returns rejected "
+                "envelope with reason='schema_invalid'|'validation_failed' on "
+                "bad input."
             ),
             inputSchema={
                 "type": "object",
@@ -504,7 +603,8 @@ def _apply_planset_tool() -> PcqTool:
                     "path": {"type": "string", "default": "."},
                     "planset": {
                         "type": "object",
-                        "description": "Inline ExperimentPlanSet dict",
+                        "description": _planset_example_text,
+                        "additionalProperties": True,
                     },
                     "planset_file": {
                         "type": "string",

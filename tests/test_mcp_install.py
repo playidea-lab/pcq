@@ -157,3 +157,76 @@ def test_cli_mcp_serve_subcommand_registered():
     with pytest.raises(SystemExit) as exc:
         main(["mcp", "serve", "--help"])
     assert exc.value.code == 0
+
+
+# ── v4.2 GM-1: uv venv 감지 ────────────────────────────────────────────
+
+
+def test_install_mcp_uses_global_pcq_when_no_venv(tmp_path: Path):
+    """프로젝트에 .venv 가 없으면 기존 동작 — global pcq command."""
+    from pcq.agent.init import init_experiment
+    from pcq.agent.install import install_agent_assets
+
+    init_experiment(output_dir=tmp_path, name="no-venv", force=True)
+    install_agent_assets(
+        tmp_path, target="claude", force=False, dry_run=False, mcp=True
+    )
+
+    data = json.loads((tmp_path / ".mcp.json").read_text(encoding="utf-8"))
+    pcq_entry = data["mcpServers"]["pcq"]
+    assert pcq_entry["command"] == "pcq"
+    assert pcq_entry["args"] == ["mcp", "serve"]
+
+
+def test_install_mcp_uses_uv_wrapper_when_venv_exists(tmp_path: Path):
+    """.venv/bin/pcq 가 있으면 uv run --directory 래퍼로 작성.
+
+    fresh Claude Code 세션이 글로벌 PATH 에서 pcq 를 못 찾는 dogfood 회귀
+    (research/mcp-dogfood GM-1) 을 방지.
+    """
+    from pcq.agent.init import init_experiment
+    from pcq.agent.install import install_agent_assets
+
+    init_experiment(output_dir=tmp_path, name="with-venv", force=True)
+    # 가짜 venv 구조 생성 — 실제 pcq 바이너리 내용은 무관, 존재 여부만 본다.
+    venv_bin = tmp_path / ".venv" / "bin"
+    venv_bin.mkdir(parents=True, exist_ok=True)
+    (venv_bin / "pcq").write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+
+    install_agent_assets(
+        tmp_path, target="claude", force=False, dry_run=False, mcp=True
+    )
+
+    data = json.loads((tmp_path / ".mcp.json").read_text(encoding="utf-8"))
+    pcq_entry = data["mcpServers"]["pcq"]
+    assert pcq_entry["command"] == "uv"
+    # args 첫 번째는 'run', 그 다음 '--directory <abs>', 마지막은 'pcq mcp serve'
+    args = pcq_entry["args"]
+    assert args[0] == "run"
+    assert args[1] == "--directory"
+    assert Path(args[2]).resolve() == tmp_path.resolve()
+    assert args[-3:] == ["pcq", "mcp", "serve"]
+
+
+def test_install_mcp_uv_wrapper_skip_idempotent(tmp_path: Path):
+    """venv 있는 상태에서 두 번 install — 두 번째는 skip (idempotent)."""
+    from pcq.agent.init import init_experiment
+    from pcq.agent.install import install_agent_assets
+
+    init_experiment(output_dir=tmp_path, name="idem-uv", force=True)
+    venv_bin = tmp_path / ".venv" / "bin"
+    venv_bin.mkdir(parents=True, exist_ok=True)
+    (venv_bin / "pcq").write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+
+    install_agent_assets(
+        tmp_path, target="claude", force=False, dry_run=False, mcp=True
+    )
+    result2 = install_agent_assets(
+        tmp_path, target="claude", force=False, dry_run=False, mcp=True
+    )
+    # 두 번째 install — pcq entry 가 이미 expected 와 일치하므로 mcp_config skip
+    mcp_ops = [
+        op for op in result2.operations if op.kind == "mcp_config"
+    ]
+    assert mcp_ops, "expected mcp_config op in result"
+    assert all(op.action == "skip" for op in mcp_ops)
