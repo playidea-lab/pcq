@@ -61,20 +61,24 @@ CQ: locally, in CI, in notebooks, and inside third-party orchestrators.
 
 ```bash
 uv add pcq
+# Optional — to expose pcq as MCP tools to agent runtimes:
+uv add 'pcq[mcp]'
 ```
 
 `pyproject.toml`:
 
 ```toml
 [project]
-dependencies = ["pcq"]
+dependencies = ["pcq"]              # core only
+# or:
+dependencies = ["pcq[mcp]"]         # core + Model Context Protocol server
 ```
 
 For a tag, branch, or private fork:
 
 ```toml
 [tool.uv.sources]
-pcq = { git = "https://github.com/playidea-lab/pcq.git", tag = "v3.0.4" }
+pcq = { git = "https://github.com/playidea-lab/pcq.git", tag = "v4.1.0" }
 ```
 
 The PyPI distribution, import name, CLI command, GitHub repository, runtime
@@ -202,6 +206,19 @@ pcq agent install --target claude --path .
 pcq agent install --target both --path . --dry-run --json
 pcq agent status --target both --path . --json
 ```
+
+To also wire the project for MCP-aware agents (Claude Code, Codex), install
+`pcq[mcp]` and pass `--mcp`:
+
+```bash
+uv add 'pcq[mcp]'
+pcq agent install --target claude --path . --mcp     # writes .mcp.json
+pcq mcp serve                                         # stdio (default)
+```
+
+This exposes 14 `mcp__pcq__*` tools (`resolve_project`, `validate_run`,
+`describe_run`, `compare_runs`, ...) so agents call pcq directly without
+subprocess parsing. See [MCP Integration](docs/MCP_INTEGRATION.md).
 
 Reusable assets:
 

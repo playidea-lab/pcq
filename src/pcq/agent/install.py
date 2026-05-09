@@ -1,6 +1,7 @@
 """Install pcq agent runtime assets into project discovery paths."""
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from importlib.resources import files
 from pathlib import Path
@@ -9,6 +10,13 @@ from pathlib import Path
 _VALID_TARGETS = ("codex", "claude", "both")
 _BLOCK_START = "<!-- BEGIN PCQ AGENT RULES -->"
 _BLOCK_END = "<!-- END PCQ AGENT RULES -->"
+# .mcp.json entry — agent runtime (Claude Code / Codex) 가 자동으로 pcq MCP
+# 서버에 attach 할 때 사용하는 명령. extras 미설치 환경에서는 명령이 실패해도
+# 경고만 보고 다른 도구는 계속 작동한다.
+_PCQ_MCP_SERVER_ENTRY: dict[str, object] = {
+    "command": "pcq",
+    "args": ["mcp", "serve"],
+}
 
 
 @dataclass
@@ -136,6 +144,7 @@ def install_agent_assets(
     target: str = "codex",
     force: bool = False,
     dry_run: bool = False,
+    mcp: bool = False,
 ) -> AgentInstallResult:
     """Install pcq agent instructions/skills into a project.
 
@@ -144,6 +153,11 @@ def install_agent_assets(
 
     - Codex: `AGENTS.md`, `.agents/skills/pcq/SKILL.md`
     - Claude Code: `CLAUDE.md`, `.claude/skills/pcq/SKILL.md`
+
+    When ``mcp=True``, also writes/merges ``.mcp.json`` so the agent runtime
+    auto-attaches to the pcq MCP server (``pcq mcp serve``). Existing
+    ``mcpServers`` entries are preserved; only the ``pcq`` key is added.
+    Existing ``pcq`` entries are kept unless ``force=True``.
 
     Existing instruction files are never destructively overwritten without
     `force=True`; pcq rules are appended in a marked block when possible.
@@ -212,7 +226,127 @@ def install_agent_assets(
             kind="skill",
         )
 
+    if mcp:
+        _install_mcp_config(
+            root,
+            target=target,
+            force=force,
+            dry_run=dry_run,
+            result=result,
+        )
+
     return result
+
+
+def _install_mcp_config(
+    root: Path,
+    *,
+    target: str,
+    force: bool,
+    dry_run: bool,
+    result: AgentInstallResult,
+) -> None:
+    """Merge a ``pcq`` MCP server entry into ``.mcp.json``.
+
+    Behavior:
+      - file missing → create with ``{"mcpServers": {"pcq": {...}}}``
+      - file present, no ``pcq`` key → add it
+      - file present, has ``pcq`` key matching expected → skip (idempotent)
+      - file present, has ``pcq`` key differing → skip unless ``force=True``
+    """
+    mcp_path = root / ".mcp.json"
+    rel = ".mcp.json"
+    expected = {"command": _PCQ_MCP_SERVER_ENTRY["command"],
+                "args": list(_PCQ_MCP_SERVER_ENTRY["args"])}  # type: ignore[arg-type]
+
+    existing: dict | None = None
+    if mcp_path.exists():
+        try:
+            existing = json.loads(mcp_path.read_text(encoding="utf-8"))
+            if not isinstance(existing, dict):
+                result.warnings.append(
+                    f"{rel}: not a JSON object; skipped (rewrite manually)"
+                )
+                result.add_op(
+                    path=rel,
+                    action="skip",
+                    kind="mcp_config",
+                    agent=target,
+                    reason="existing .mcp.json is not a JSON object",
+                )
+                return
+        except json.JSONDecodeError as e:
+            result.warnings.append(f"{rel}: invalid JSON ({e}); skipped")
+            result.add_op(
+                path=rel,
+                action="skip",
+                kind="mcp_config",
+                agent=target,
+                reason=f"existing .mcp.json invalid: {e}",
+            )
+            return
+
+    if existing is None:
+        merged = {"mcpServers": {"pcq": expected}}
+        action = "create"
+        reason = "new .mcp.json with pcq entry"
+    else:
+        servers = existing.setdefault("mcpServers", {})
+        if not isinstance(servers, dict):
+            result.warnings.append(
+                f"{rel}: mcpServers is not an object; skipped"
+            )
+            result.add_op(
+                path=rel,
+                action="skip",
+                kind="mcp_config",
+                agent=target,
+                reason="mcpServers is not an object",
+            )
+            return
+        current = servers.get("pcq")
+        if current == expected:
+            result.add_op(
+                path=rel,
+                action="skip",
+                kind="mcp_config",
+                agent=target,
+                reason="pcq entry already matches expected configuration",
+            )
+            return
+        if current is not None and not force:
+            result.add_op(
+                path=rel,
+                action="skip",
+                kind="mcp_config",
+                agent=target,
+                reason="pcq entry exists; use --force to overwrite",
+            )
+            result.warnings.append(
+                f"{rel}: existing pcq entry differs; skipped without --force"
+            )
+            return
+        servers["pcq"] = expected
+        merged = existing
+        if current is None:
+            action = "update"
+            reason = "added pcq entry to existing .mcp.json"
+        else:
+            action = "update"
+            reason = "overwrote pcq entry by --force"
+
+    if not dry_run:
+        mcp_path.parent.mkdir(parents=True, exist_ok=True)
+        mcp_path.write_text(
+            json.dumps(merged, indent=2) + "\n", encoding="utf-8"
+        )
+    result.add_op(
+        path=rel,
+        action=action,
+        kind="mcp_config",
+        agent=target,
+        reason=reason,
+    )
 
 
 def agent_assets_status(

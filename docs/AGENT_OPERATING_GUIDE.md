@@ -99,6 +99,22 @@ pcq agent status --target both --path . --json
 Use `pcq agent status --json` as a read-only health check before assuming an
 agent runtime can see pcq instructions.
 
+## MCP Server (v4.1.0)
+
+To let the agent runtime call pcq directly without subprocess parsing:
+
+```bash
+uv add 'pcq[mcp]'
+pcq agent install --target claude --path . --mcp   # auto-wires .mcp.json
+pcq mcp serve                                       # stdio (default)
+pcq mcp serve --transport sse --port 8765          # HTTP SSE
+```
+
+After `--mcp`, the project's `.mcp.json` contains a `pcq` server entry pointing
+at `pcq mcp serve`. Claude Code (and any MCP-aware client) auto-attaches and
+exposes 14 `mcp__pcq__*` tools matching the 14 CLI subcommands. See
+[MCP Integration](MCP_INTEGRATION.md) for the full tool list and architecture.
+
 ## Initial Triage
 
 When given a project:

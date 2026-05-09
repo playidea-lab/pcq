@@ -4,6 +4,57 @@ All notable changes to pcq. Format: [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [4.1.0] — 2026-05-10
+
+> **Phase 6: MCP integration. agent runtime이 subprocess shell parsing
+> 없이 pcq CLI 14 surface를 직접 호출.**
+>
+> v2.13의 JSON_CONTRACTS registry가 MCP tool schema의 source of truth로
+> 직접 매핑. Claude Code / Codex / 임의 LLM이 mcp__pcq__* tool을 호출하면
+> pcq Python API가 in-process로 실행되어 결과 dict를 반환한다 (subprocess
+> 우회). `run_experiment`만 사용자 cmd 실행을 위해 subprocess 사용.
+
+### Added
+- `pcq mcp serve [--transport stdio|sse] [--host HOST] [--port PORT]` —
+  MCP server entry point. stdio (Claude Code/Codex 표준), SSE (HTTP)
+  두 transport 지원.
+- 14 MCP tool 등록 — `pcq.mcp.tools.build_tools()` 가 canonical list 반환:
+  `resolve_project`, `inspect_project`, `validate_project`,
+  `validate_run`, `describe_run`, `compare_runs`, `lineage_chain`,
+  `apply_plan`, `apply_planset`, `init_experiment`, `finalize_run`,
+  `agent_install`, `agent_status`, `run_experiment`.
+- `pcq agent install --mcp` flag — 프로젝트 루트의 `.mcp.json` 에
+  `pcq mcp serve` 엔트리를 자동 등록 (기존 mcpServers entry는 보존).
+- `install_agent_assets(..., mcp=True)` Python API.
+- `pcq[mcp]` optional extras (`mcp>=0.5`) — Anthropic 공식 SDK.
+- `docs/MCP_INTEGRATION.md` — 사용법 / 아키텍처 / trade-off 가이드.
+
+### Architecture
+- MCP tool handler는 pcq Python API 직접 호출 (subprocess 우회).
+- Tool schema 는 JSON Schema 로 손수 작성 — JSON_CONTRACTS 의 input
+  shape 와 등가하지만 MCP InputSchema 형태로 표현.
+- 모든 read-only tool (resolve / inspect / validate / describe / compare /
+  lineage / status) 은 file-system side-effect 0.
+- 모든 handler 는 async dict-in / dict-out — MCP server adapter 가
+  `TextContent(json.dumps(result))` 로 wrap.
+- Tool handler 예외는 catch → `{status: "error", tool: name, error: ...}`
+  envelope 으로 변환. agent 가 항상 stable JSON 받음.
+
+### Compat
+- 100% additive. 기존 14 CLI subcommand / Python API / JSON_CONTRACTS
+  변경 없음. `mcp` extras 미설치 시 `pcq mcp serve` 만 명확한 안내 메시지
+  남기고 종료 (다른 CLI/Python surface 영향 없음).
+- `agent_install.result` contract 의 `operations[].kind` 는 enum 이 아니어서
+  새로 추가된 `mcp_config` value 도 contract 통과.
+
+### Tests
+- 400 → 430 (+30). MCP server initialization, 14 tool individual,
+  `--mcp` install flag (CLI + Python API + dry-run + merge + force).
+
+### Roadmap
+- Phase 6 (CQ Service / MCP Integration) 완료. 남은 Phase 7 (Release
+  Hardening) 은 PyPI publish + 실서비스 attach 검증으로 자연 진행.
+
 ## [4.0.0] — 2026-05-10
 
 > **Hard remove. Identity collapse to contract runtime + agent CLI.**

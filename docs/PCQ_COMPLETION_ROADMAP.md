@@ -447,27 +447,39 @@ Implementation status:
 
 - `pcq agent status` is the Phase 6 read-only diagnostics surface.
 
-### Phase 7: CQ Service / MCP Integration
+### Phase 7: CQ Service / MCP Integration  ✅ Done (v4.1.0, 2026-05-10)
 
-Tasks:
+Implemented natively in `pcq` rather than only in the managed CQ service —
+agent runtimes get the same surface from the open-source library.
 
-- Implement MCP wrappers in CQ service for:
-  - `cq_resolve_project`
-  - `cq_inspect_project`
-  - `cq_validate_project`
-  - `cq_scaffold_experiment`
-  - `cq_scaffold_atom`
-  - `cq_finalize_run`
-  - `cq_validate_run`
-  - `cq_describe_run`
-- Keep read-only tools side-effect free.
-- Keep write tools explicit.
-- Preserve CLI/API JSON schemas in tool outputs.
+Delivered:
+
+- `pcq.mcp.server.create_server()` — Anthropic MCP SDK based server,
+  stdio + SSE transports.
+- 14 MCP tools wrapping the 14 pcq CLI subcommands (subprocess-free):
+  `resolve_project`, `inspect_project`, `validate_project`,
+  `validate_run`, `describe_run`, `compare_runs`, `lineage_chain`,
+  `apply_plan`, `apply_planset`, `init_experiment`, `finalize_run`,
+  `agent_install`, `agent_status`, `run_experiment`.
+- `pcq mcp serve [--transport stdio|sse]` CLI entry point.
+- `pcq agent install --mcp` flag — auto-wires `.mcp.json` in the project
+  root with the `pcq mcp serve` server entry (preserves existing
+  mcpServers, idempotent without `--force`).
+- `pcq[mcp]` optional extras (`mcp>=0.5`).
+- Read-only tools (resolve / inspect / validate / describe / compare /
+  lineage / status) have no file-system side-effects.
+- Write tools mirror the same explicit semantics as their CLI peers.
+- Tool I/O reuses the JSON_CONTRACTS registry — schemas stay anchored.
+- Tool exceptions surface as `{status: "error", tool: name, error: ...}`
+  envelopes instead of propagating.
 
 Acceptance:
 
-- CQ service can run the full E2E without ad hoc shell parsing.
-- Tool failures are structured and recoverable by an agent.
+- ✅ CQ service can run the full E2E without ad hoc shell parsing.
+- ✅ Tool failures are structured and recoverable by an agent.
+
+The CQ managed service can either embed `pcq.mcp.tools.build_tools()`
+directly or proxy to a hosted `pcq mcp serve` instance.
 
 ### Phase 8: Release Hardening
 

@@ -10,7 +10,7 @@ Commands:
   pcq init-experiment [--output DIR] [--name NAME] [--force]
                        [--with-pyproject] [--agent codex|claude|both] [--json]
   pcq agent install [--target codex|claude|both] [--path DIR]
-                     [--dry-run] [--force] [--json]
+                     [--dry-run] [--force] [--mcp] [--json]
   pcq agent status [--target codex|claude|both] [--path DIR] [--json]
   pcq apply-plan PLAN_FILE [--path DIR] [--json]
   pcq apply-planset PLANSET_FILE [--path DIR] [--output-pattern PAT]
@@ -23,6 +23,7 @@ Commands:
   pcq resolve [PATH] [--cq-yaml PATH] [--json]
   pcq run [--path PATH] [--config-only] [--json] [--jsonl]
           [--events PATH]
+  pcq mcp serve [--transport stdio|sse] [--host HOST] [--port PORT]
 
 Exit codes:
   0  success
@@ -606,6 +607,7 @@ def cmd_agent(args: argparse.Namespace) -> int:
                 target=args.target,
                 force=args.force,
                 dry_run=args.dry_run,
+                mcp=getattr(args, "mcp", False),
             )
         except Exception as e:  # noqa: BLE001
             err = {"schema_version": 1, "error": str(e)}
@@ -653,6 +655,35 @@ def cmd_resolve(args: argparse.Namespace) -> int:
         _print_json(out)
     else:
         _print_human(out, "Resolved Project")
+    return 0
+
+
+def cmd_mcp(args: argparse.Namespace) -> int:
+    """Run the pcq MCP server.
+
+    Requires the ``pcq[mcp]`` optional extras. Without them, prints a clear
+    install hint and exits 1.
+    """
+    if args.mcp_action != "serve":
+        print(
+            f"unknown mcp action: {args.mcp_action!r}", file=sys.stderr
+        )
+        return 1
+    try:
+        from pcq.mcp.server import main_sse, main_stdio
+    except ImportError as e:
+        print(
+            f"[pcq] mcp extras not installed: {e}\n"
+            "      Install with: uv add 'pcq[mcp]'  (or pip install pcq[mcp])",
+            file=sys.stderr,
+        )
+        return 1
+
+    transport = getattr(args, "transport", "stdio")
+    if transport == "sse":
+        main_sse(host=args.host, port=args.port)
+    else:
+        main_stdio()
     return 0
 
 
@@ -973,6 +1004,14 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="overwrite managed blocks and skill files when they differ",
     )
+    p_agent_install.add_argument(
+        "--mcp",
+        action="store_true",
+        help=(
+            "also wire .mcp.json with `pcq mcp serve` entry — auto-attach "
+            "the agent runtime to the pcq MCP server"
+        ),
+    )
     p_agent_install.add_argument("--json", action="store_true")
 
     p_agent_status = agent_sub.add_parser(
@@ -1124,6 +1163,36 @@ def main(argv: list[str] | None = None) -> int:
     p_res.add_argument("--cq-yaml", default=None, help="explicit cq.yaml path")
     p_res.add_argument("--json", action="store_true")
     p_res.set_defaults(func=cmd_resolve)
+
+    # mcp ────────────────────────────────────────────────────────────────
+    p_mcp = sub.add_parser(
+        "mcp",
+        help="run pcq MCP server (Anthropic Model Context Protocol)",
+    )
+    mcp_sub = p_mcp.add_subparsers(dest="mcp_action", required=True)
+    p_mcp_serve = mcp_sub.add_parser(
+        "serve",
+        help="start the MCP server (default transport: stdio)",
+    )
+    p_mcp_serve.add_argument(
+        "--transport",
+        choices=["stdio", "sse"],
+        default="stdio",
+        help="MCP transport: stdio (Claude Code/Codex) or sse (HTTP)",
+    )
+    p_mcp_serve.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help="bind host for sse transport (default: 127.0.0.1)",
+    )
+    p_mcp_serve.add_argument(
+        "--port",
+        type=int,
+        default=8765,
+        help="bind port for sse transport (default: 8765)",
+    )
+    p_mcp_serve.set_defaults(func=cmd_mcp)
+    p_mcp.set_defaults(func=cmd_mcp)
 
     # run ────────────────────────────────────────────────────────────────
     p_run = sub.add_parser(
