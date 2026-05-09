@@ -1,11 +1,13 @@
 {
   "schema_version": 1,
   "name": "pcq",
-  "description": "Framework-neutral evidence and control layer for agent-run ML experiments.",
+  "version": "4.1.0",
+  "description": "Framework-neutral evidence and control layer for agent-run ML experiments. Includes a Model Context Protocol server exposing 14 tools to Claude Code, Codex, and custom MCP runtimes.",
   "license": "Apache-2.0",
   "package": {
     "pypi": "pcq",
     "install": "uv add pcq",
+    "install_with_mcp": "uv add 'pcq[mcp]'",
     "import": "pcq",
     "cli": "pcq"
   },
@@ -17,7 +19,8 @@
     "llms_full": "https://playidea-lab.github.io/pcq/llms-full.txt",
     "v4_direction": "https://github.com/playidea-lab/pcq/blob/main/docs/V4_DIRECTION.md",
     "json_contracts": "https://github.com/playidea-lab/pcq/blob/main/docs/JSON_CONTRACTS.md",
-    "agent_operating_guide": "https://github.com/playidea-lab/pcq/blob/main/docs/AGENT_OPERATING_GUIDE.md"
+    "agent_operating_guide": "https://github.com/playidea-lab/pcq/blob/main/docs/AGENT_OPERATING_GUIDE.md",
+    "mcp_integration": "https://github.com/playidea-lab/pcq/blob/main/docs/MCP_INTEGRATION.md"
   },
   "contract": {
     "project_file": "cq.yaml",
@@ -41,7 +44,8 @@
     {"name": "validate_run", "argv": ["pcq", "validate-run", "output", "--strictness", "3", "--json"], "mode": "snapshot"},
     {"name": "describe_run", "argv": ["pcq", "describe-run", "output", "--json"], "mode": "snapshot"},
     {"name": "compare_runs", "argv": ["pcq", "compare-runs", "A", "B", "--json"], "mode": "snapshot"},
-    {"name": "lineage", "argv": ["pcq", "lineage", "output", "--json"], "mode": "snapshot"}
+    {"name": "lineage", "argv": ["pcq", "lineage", "output", "--json"], "mode": "snapshot"},
+    {"name": "mcp_serve", "argv": ["pcq", "mcp", "serve"], "mode": "stream"}
   ],
   "json_contracts": [
     "pcq.run.envelope",
@@ -52,6 +56,59 @@
     "pcq.agent_install.result",
     "pcq.agent_status.result"
   ],
+  "mcp": {
+    "available": true,
+    "since_version": "4.1.0",
+    "extras": "pcq[mcp]",
+    "transports": ["stdio", "sse"],
+    "default_transport": "stdio",
+    "wire_up_command": "pcq agent install --target claude --path . --mcp",
+    "config_file": ".mcp.json",
+    "config_example": {
+      "mcpServers": {
+        "pcq": {
+          "command": "pcq",
+          "args": ["mcp", "serve"]
+        }
+      }
+    },
+    "tools": [
+      {"name": "resolve_project", "read_only": true,  "maps_to": "pcq resolve"},
+      {"name": "inspect_project", "read_only": true,  "maps_to": "pcq inspect"},
+      {"name": "validate_project", "read_only": true, "maps_to": "pcq validate"},
+      {"name": "validate_run", "read_only": true,     "maps_to": "pcq validate-run"},
+      {"name": "describe_run", "read_only": true,     "maps_to": "pcq describe-run"},
+      {"name": "compare_runs", "read_only": true,     "maps_to": "pcq compare-runs"},
+      {"name": "lineage_chain", "read_only": true,    "maps_to": "pcq lineage"},
+      {"name": "apply_plan", "read_only": false,      "maps_to": "pcq apply-plan"},
+      {"name": "apply_planset", "read_only": false,   "maps_to": "pcq apply-planset"},
+      {"name": "init_experiment", "read_only": false, "maps_to": "pcq init-experiment"},
+      {"name": "finalize_run", "read_only": false,    "maps_to": "pcq finalize"},
+      {"name": "agent_install", "read_only": false,   "maps_to": "pcq agent install"},
+      {"name": "agent_status", "read_only": true,     "maps_to": "pcq agent status"},
+      {"name": "run_experiment", "read_only": false,  "maps_to": "pcq run"}
+    ],
+    "guarantees": {
+      "read_only_tools_never_mkdir": true,
+      "read_only_tools_never_mutate_cq_yaml": true,
+      "read_only_tools_never_spawn_subprocess": true,
+      "schema_frozen_since": "v2.13"
+    }
+  },
+  "examples": [
+    {
+      "name": "sklearn-iris",
+      "framework": "scikit-learn",
+      "cq_yaml_url": "https://github.com/playidea-lab/pcq/blob/main/examples/contract_sklearn.cq.yaml",
+      "script_url": "https://github.com/playidea-lab/pcq/blob/main/examples/contract_sklearn.py"
+    },
+    {
+      "name": "numpy-zero-deps",
+      "framework": "numpy",
+      "cq_yaml_url": "https://github.com/playidea-lab/pcq/blob/main/examples/contract_numpy.cq.yaml",
+      "script_url": "https://github.com/playidea-lab/pcq/blob/main/examples/contract_numpy.py"
+    }
+  ],
   "agent_policy": {
     "prefer_machine_surfaces": true,
     "do_not_scrape_human_output": true,
@@ -59,6 +116,7 @@
     "cq_service_required": false,
     "framework_adapters_required": false,
     "training_loop_owned_by_pcq": false,
-    "project_local_training_code_first_class": true
+    "project_local_training_code_first_class": true,
+    "prefer_mcp_when_available": true
   }
 }

@@ -3,14 +3,135 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>pcq - Agent-operable experiment evidence and control</title>
+    <title>pcq — Agent-operable experiment evidence, control & MCP for ML</title>
     <meta
       name="description"
-      content="pcq is an Apache-2.0 Python library for agent-operable experiment evidence and control. Bring any training code; pcq standardizes the run boundary."
+      content="pcq is an Apache-2.0 Python library for agent-operable ML experiment evidence and control. Bring any training code (PyTorch, sklearn, HF Trainer, Lightning, XGBoost). pcq standardizes the run boundary and exposes 14 MCP tools for Claude Code, Codex, and custom agents."
     >
-    <link rel="alternate" type="text/plain" href="llms.txt" title="Agent guide">
+    <meta name="keywords" content="pcq, ML experiment tracking, agent-operable ML, MCP, Model Context Protocol, Claude Code MCP, Codex MCP, cq.yaml, run record, experiment contract, reproducible ML, JSONL events, validate-run, describe-run, compare-runs, lineage">
+    <meta name="author" content="playidea-lab">
+    <meta name="theme-color" content="#0f5132">
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large">
+    <link rel="canonical" href="https://playidea-lab.github.io/pcq/">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="pcq">
+    <meta property="og:title" content="pcq — Agent-operable experiment evidence, control & MCP for ML">
+    <meta property="og:description" content="Bring any training code; pcq standardizes the run boundary and exposes 14 MCP tools for Claude Code, Codex, and custom agents.">
+    <meta property="og:url" content="https://playidea-lab.github.io/pcq/">
+    <meta property="og:image" content="https://playidea-lab.github.io/pcq/og-image.svg">
+    <meta property="og:image:type" content="image/svg+xml">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:locale" content="en_US">
+
+    <!-- Twitter / X -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="pcq — Agent-operable experiment evidence, control & MCP">
+    <meta name="twitter:description" content="Run anything. Standardize the evidence. 14 MCP tools for Claude Code & Codex.">
+    <meta name="twitter:image" content="https://playidea-lab.github.io/pcq/og-image.svg">
+
+    <!-- Agent-readable surfaces (GEO / LLM discovery) -->
+    <link rel="alternate" type="text/plain" href="llms.txt" title="Agent guide (llms.txt)">
+    <link rel="alternate" type="text/plain" href="llms-full.txt" title="Full agent guide">
     <link rel="alternate" type="application/json" href="agent-manifest.json" title="Agent manifest">
+
     <link rel="stylesheet" href="styles.css">
+
+    <!-- JSON-LD: SoftwareApplication / SoftwareSourceCode -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "SoftwareApplication",
+          "name": "pcq",
+          "alternateName": "pcq — experiment contracts",
+          "applicationCategory": "DeveloperApplication",
+          "applicationSubCategory": "MachineLearning",
+          "operatingSystem": "macOS, Linux, Windows",
+          "description": "Apache-2.0 Python library for agent-operable ML experiment evidence and control. Standardizes the run boundary around any training code and exposes 14 Model Context Protocol tools.",
+          "url": "https://playidea-lab.github.io/pcq/",
+          "downloadUrl": "https://pypi.org/project/pcq/",
+          "softwareVersion": "4.1.0",
+          "license": "https://www.apache.org/licenses/LICENSE-2.0",
+          "programmingLanguage": "Python",
+          "author": { "@type": "Organization", "name": "playidea-lab", "url": "https://github.com/playidea-lab" },
+          "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+          "keywords": "ML, experiment tracking, MCP, Model Context Protocol, agent, Claude Code, Codex, reproducibility, cq.yaml"
+        },
+        {
+          "@type": "SoftwareSourceCode",
+          "name": "pcq source",
+          "codeRepository": "https://github.com/playidea-lab/pcq",
+          "programmingLanguage": "Python",
+          "license": "https://www.apache.org/licenses/LICENSE-2.0",
+          "runtimePlatform": "Python 3.10+"
+        },
+        {
+          "@type": "FAQPage",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "What is pcq?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "pcq is an Apache-2.0 Python library that standardizes the boundary around any ML training code. It loads config, captures metrics, writes standard artifacts, finalizes a run record, and exposes JSON/JSONL/MCP surfaces so coding agents, CI jobs, notebooks, and services can run, validate, describe, compare, and trace experiments without scraping terminal output."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Does pcq replace PyTorch, Hugging Face Trainer, sklearn, or Lightning?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "No. pcq does not own the training loop. The user's project keeps any framework — PyTorch, Hugging Face Trainer, Lightning, sklearn, TabPFN, PyCaret, XGBoost, shell scripts, or custom Python. pcq standardizes the surrounding evidence: cq.yaml, metric emission, artifact layout, validation, comparison, lineage, and the final run_record.json."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "How does pcq work with MCP (Model Context Protocol) and Claude Code or Codex?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Install with 'uv add pcq[mcp]', then run 'pcq mcp serve' (stdio by default). Wire it into a project with 'pcq agent install --target claude --path . --mcp', which writes .mcp.json. Agents then call 14 mcp__pcq__* tools (resolve_project, inspect_project, validate_project, run_experiment, validate_run, describe_run, compare_runs, lineage_chain, apply_plan, apply_planset, init_experiment, finalize_run, agent_install, agent_status) directly without subprocess parsing."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Is the CQ managed service required to use pcq?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "No. pcq is useful standalone — locally, in CI, in notebooks, and inside third-party orchestrators. CQ is one managed consumer of the same contract."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "What artifacts does a pcq run produce?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "config.json, metrics.json, manifest.json, run_summary.json, run_record.json, and validation_report.json. run_record.json is the canonical completion object combining execution, source identity, environment, input identity, metric schema, artifact manifest, validation, and summary evidence."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "How should an agent decide whether a run passed?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Run 'pcq validate-run output --strictness 3 --json' for pass/warn/fail facts and 'pcq describe-run output --json' for decision facts. pcq deliberately reports facts instead of deciding policy; the agent or service chooses whether to continue, rollback, or accept."
+              }
+            }
+          ]
+        },
+        {
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            { "@type": "ListItem", "position": 1, "name": "pcq", "item": "https://playidea-lab.github.io/pcq/" }
+          ]
+        }
+      ]
+    }
+    </script>
   </head>
   <body>
     <header class="topbar">
@@ -21,8 +142,11 @@
       <nav class="nav" aria-label="Primary navigation">
         <a href="#why">Why</a>
         <a href="#contract">Contract</a>
+        <a href="#examples">Examples</a>
+        <a href="#mcp">MCP</a>
         <a href="#agents">Agents</a>
         <a href="#quickstart">Quickstart</a>
+        <a href="#faq">FAQ</a>
         <a href="llms.txt">llms.txt</a>
         <a href="https://github.com/playidea-lab/pcq">GitHub</a>
       </nav>
@@ -31,20 +155,23 @@
     <main id="top">
       <section class="hero">
         <div class="hero-inner">
-          <p class="eyebrow">Apache-2.0 Python library</p>
+          <p class="eyebrow">Apache-2.0 · Python · MCP-ready</p>
           <h1>Run anything. Standardize the evidence.</h1>
           <p class="lead">
             pcq turns ML experiments into agent-operable, reproducible units.
             Keep your existing training stack; pcq standardizes the run
-            boundary: contract, live evidence, validation, comparison, lineage,
-            and final run record.
+            boundary — contract, live evidence, validation, comparison,
+            lineage, final run record — and exposes
+            <strong>14 Model Context Protocol tools</strong> for Claude Code,
+            Codex, and custom agents.
           </p>
           <div class="hero-actions" aria-label="Primary actions">
             <a class="button primary" href="https://pypi.org/project/pcq/">Install from PyPI</a>
-            <a class="button secondary" href="https://github.com/playidea-lab/pcq/blob/main/docs/V4_DIRECTION.md">Read the v4 direction</a>
+            <a class="button secondary" href="#mcp">MCP integration</a>
+            <a class="button secondary" href="https://github.com/playidea-lab/pcq/blob/main/docs/V4_DIRECTION.md">v4 direction</a>
           </div>
           <div class="install-line" aria-label="Install command">
-            <span>uv add pcq</span>
+            <span>uv add 'pcq[mcp]'</span>
           </div>
         </div>
 
@@ -63,6 +190,7 @@
 pcq run --json
 pcq validate-run output --json
 pcq describe-run output --json
+pcq compare-runs prev/ output --json
 
 output/
   config.json
@@ -90,9 +218,9 @@ output/
           <article class="feature">
             <h3>Agent-readable</h3>
             <p>
-              JSON CLI surfaces, strictness gates, manifests, lineage, and run
-              summaries are designed for coding agents, CI jobs, and services
-              that need facts rather than prose.
+              JSON/JSONL CLI surfaces, strictness gates, manifests, lineage,
+              and run summaries are designed for coding agents, CI jobs, and
+              services that need facts rather than prose.
             </p>
           </article>
           <article class="feature">
@@ -101,6 +229,29 @@ output/
               Config, metrics, source identity, environment, inputs, artifacts,
               validation, and best/last results converge into one
               <code>run_record.json</code>.
+            </p>
+          </article>
+          <article class="feature">
+            <h3>MCP-ready</h3>
+            <p>
+              <code>pcq[mcp]</code> exposes 14 tools to Claude Code, Codex, and
+              any MCP-aware runtime. No subprocess, no stdout scraping —
+              structured input/output anchored in frozen JSON contracts.
+            </p>
+          </article>
+          <article class="feature">
+            <h3>CI-friendly</h3>
+            <p>
+              <code>--json</code> for one final object; <code>--jsonl</code> for
+              live event streams; <code>--events</code> to persist evidence
+              alongside the run for post-hoc audits.
+            </p>
+          </article>
+          <article class="feature">
+            <h3>Service-ready</h3>
+            <p>
+              The CQ managed service consumes the same contract for queueing,
+              dashboards, and agent loops. pcq stays useful without it.
             </p>
           </article>
         </div>
@@ -116,7 +267,8 @@ output/
             <p>
               pcq keeps the model code free-form and makes the run boundary
               explicit. The project declares intent in <code>cq.yaml</code>,
-              the script emits metrics, and pcq finalizes the standard artifacts.
+              the script emits metrics, and pcq finalizes the standard
+              artifacts.
             </p>
             <ul class="check-list">
               <li><code>cq.yaml</code> declares command, config, metrics, inputs, and artifacts.</li>
@@ -136,27 +288,250 @@ output/
         </div>
       </section>
 
+      <section id="examples" class="section examples-section">
+        <div class="section-heading">
+          <p class="eyebrow">Examples</p>
+          <h2>Same contract, any framework.</h2>
+          <p class="section-lead">
+            The training code stays yours. pcq only requires three calls:
+            <code>pcq.config()</code>, <code>pcq.log(...)</code>, and
+            <code>pcq.save_all(...)</code>.
+          </p>
+        </div>
+
+        <div class="example">
+          <div class="example-head">
+            <h3>1. Minimal <code>cq.yaml</code></h3>
+            <p>The contract that turns a directory into a runnable, validatable experiment.</p>
+          </div>
+          <pre><code># cq.yaml
+name: sklearn-baseline
+cmd: uv run python train.py
+configs:
+  output_dir: output
+  seed: 42
+  n_estimators: 100
+  monitor: eval_acc
+  mode: max
+metrics:
+  - epoch
+  - eval_acc
+artifacts:
+  - output/</code></pre>
+        </div>
+
+        <div class="example">
+          <div class="example-head">
+            <h3>2. sklearn — RandomForest on Iris</h3>
+            <p>No adapter, no Trainer subclass. Three pcq calls.</p>
+          </div>
+          <pre><code># train.py
+import pcq
+import joblib
+from sklearn.datasets import load_iris
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+
+cfg = pcq.config()
+out = pcq.output_dir()
+pcq.seed_everything(cfg.get("seed", 42))
+
+X, y = load_iris(return_X_y=True)
+X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.2,
+                                          random_state=cfg["seed"])
+
+model = RandomForestClassifier(n_estimators=cfg.get("n_estimators", 100))
+model.fit(X_tr, y_tr)
+acc = float(model.score(X_te, y_te))
+
+pcq.log(epoch=0, eval_acc=acc)
+joblib.dump(model, out / "model.pkl")
+pcq.save_all(history=[{"epoch": 0, "eval_acc": acc}],
+             artifacts={"model": "model.pkl"})</code></pre>
+        </div>
+
+        <div class="example">
+          <div class="example-head">
+            <h3>3. PyTorch — training loop</h3>
+            <p>Keep your own model, optimizer, dataloader. pcq sits at the boundary.</p>
+          </div>
+          <pre><code># train.py
+import pcq, torch
+from torch import nn
+
+cfg = pcq.config()
+out = pcq.output_dir()
+pcq.seed_everything(cfg.get("seed", 42))
+
+model = nn.Linear(cfg["in_dim"], cfg["out_dim"])
+opt = torch.optim.Adam(model.parameters(), lr=cfg["lr"])
+
+history = []
+for epoch in range(cfg["epochs"]):
+    train_loss = train_one_epoch(model, opt)        # your code
+    val_acc = evaluate(model)                       # your code
+    pcq.log(epoch=epoch, train_loss=train_loss, val_acc=val_acc)
+    history.append({"epoch": epoch,
+                    "train_loss": train_loss,
+                    "val_acc": val_acc})
+
+torch.save(model.state_dict(), out / "model.pt")
+pcq.save_all(history=history, artifacts={"model": "model.pt"})</code></pre>
+        </div>
+
+        <div class="example">
+          <div class="example-head">
+            <h3>4. NumPy — zero-dependency demo</h3>
+            <p>Proof that pcq does not require a framework.</p>
+          </div>
+          <pre><code># train.py
+import numpy as np, pcq
+
+cfg = pcq.config()
+out = pcq.output_dir()
+rng = np.random.default_rng(cfg.get("seed", 42))
+
+w = rng.normal(scale=0.1, size=4)
+history = []
+for epoch in range(cfg.get("epochs", 3)):
+    loss = float(np.mean(w ** 2))
+    w *= 0.9
+    pcq.log(epoch=epoch, train_loss=loss)
+    history.append({"epoch": epoch, "train_loss": loss})
+
+np.savez(out / "model.npz", weights=w)
+pcq.save_all(history=history, artifacts={"model": "model.npz"})</code></pre>
+        </div>
+
+        <div class="example">
+          <div class="example-head">
+            <h3>5. Run, validate, compare</h3>
+            <p>The same five commands work for every example above.</p>
+          </div>
+          <pre><code># Final JSON envelope
+pcq run --path . --json
+
+# Live newline-delimited events (run.started, stdout, metric, run.completed)
+pcq run --path . --jsonl
+
+# Final JSON + persisted event log
+pcq run --path . --events output/events.jsonl --json
+
+# Post-run facts for an agent or CI
+pcq validate-run output --strictness 3 --json
+pcq describe-run output --json
+pcq compare-runs prev_output output --json
+pcq lineage output --json</code></pre>
+        </div>
+      </section>
+
+      <section id="mcp" class="section mcp-section">
+        <div class="section-heading">
+          <p class="eyebrow">Model Context Protocol</p>
+          <h2>Talk to pcq with structured tools, not stdout scraping.</h2>
+          <p class="section-lead">
+            Phase 6 (v4.1.0) ships an MCP server that exposes 14 of pcq's
+            CLI surfaces as native tools for Claude Code, Codex, and any
+            MCP-aware runtime. Read-only tools never mkdir, never mutate
+            <code>cq.yaml</code>, and never spawn subprocesses.
+          </p>
+        </div>
+
+        <div class="mcp-grid">
+          <div class="mcp-step">
+            <h3>1. Install</h3>
+            <pre><code>uv add 'pcq[mcp]'
+# or:
+pip install 'pcq[mcp]'</code></pre>
+          </div>
+          <div class="mcp-step">
+            <h3>2. Wire into a project</h3>
+            <pre><code>pcq init-experiment --output ./my-exp --agent claude
+pcq agent install --target claude --path ./my-exp --mcp</code></pre>
+            <p>The <code>--mcp</code> flag merges a <code>pcq</code> entry into <code>.mcp.json</code>; existing entries are preserved.</p>
+          </div>
+          <div class="mcp-step">
+            <h3>3. Serve</h3>
+            <pre><code># stdio (Claude Code, Codex)
+pcq mcp serve
+
+# HTTP/SSE (web services, remote clients)
+pcq mcp serve --transport sse --host 127.0.0.1 --port 8765</code></pre>
+          </div>
+          <div class="mcp-step">
+            <h3><code>.mcp.json</code></h3>
+            <pre><code>{
+  "mcpServers": {
+    "pcq": {
+      "command": "pcq",
+      "args": ["mcp", "serve"]
+    }
+  }
+}</code></pre>
+          </div>
+        </div>
+
+        <div class="mcp-tools" aria-label="MCP tools">
+          <h3>14 MCP tools</h3>
+          <table class="tool-table">
+            <thead>
+              <tr><th scope="col">Tool</th><th scope="col">Read-only</th><th scope="col">Maps to</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>resolve_project</code></td><td>yes</td><td><code>pcq resolve</code></td></tr>
+              <tr><td><code>inspect_project</code></td><td>yes</td><td><code>pcq inspect</code></td></tr>
+              <tr><td><code>validate_project</code></td><td>yes</td><td><code>pcq validate</code></td></tr>
+              <tr><td><code>validate_run</code></td><td>yes</td><td><code>pcq validate-run</code></td></tr>
+              <tr><td><code>describe_run</code></td><td>yes</td><td><code>pcq describe-run</code></td></tr>
+              <tr><td><code>compare_runs</code></td><td>yes</td><td><code>pcq compare-runs</code></td></tr>
+              <tr><td><code>lineage_chain</code></td><td>yes</td><td><code>pcq lineage</code></td></tr>
+              <tr><td><code>apply_plan</code></td><td>no</td><td><code>pcq apply-plan</code></td></tr>
+              <tr><td><code>apply_planset</code></td><td>no</td><td><code>pcq apply-planset</code></td></tr>
+              <tr><td><code>init_experiment</code></td><td>no</td><td><code>pcq init-experiment</code></td></tr>
+              <tr><td><code>finalize_run</code></td><td>no</td><td><code>pcq finalize</code></td></tr>
+              <tr><td><code>agent_install</code></td><td>no</td><td><code>pcq agent install</code></td></tr>
+              <tr><td><code>agent_status</code></td><td>yes</td><td><code>pcq agent status</code></td></tr>
+              <tr><td><code>run_experiment</code></td><td>no</td><td><code>pcq run</code></td></tr>
+            </tbody>
+          </table>
+          <p class="mcp-foot">
+            Every tool's input/output is anchored in <code>pcq.agent.json_contracts.JSON_CONTRACTS</code>,
+            frozen since v2.13. Long multi-hour training should stay on the
+            CQ service queue rather than blocking <code>run_experiment</code>.
+            Full details: <a href="https://github.com/playidea-lab/pcq/blob/main/docs/MCP_INTEGRATION.md">docs/MCP_INTEGRATION.md</a>.
+          </p>
+        </div>
+      </section>
+
       <section id="agents" class="section split-section">
         <div>
           <p class="eyebrow">Agent-operable by design</p>
           <h2>Enough structure for an agent to inspect, run, validate, and decide.</h2>
           <p>
             pcq gives agents stable machine-readable surfaces while leaving
-            policy to the agent or service. The library reports facts: what ran,
-            what changed, what passed, what failed, which artifacts exist, and
-            how a candidate compares with its parent.
+            policy to the agent or service. The library reports facts: what
+            ran, what changed, what passed, what failed, which artifacts
+            exist, and how a candidate compares with its parent.
+          </p>
+          <p class="agent-links">
+            <a href="llms.txt">llms.txt</a> ·
+            <a href="llms-full.txt">llms-full.txt</a> ·
+            <a href="agent-manifest.json">agent-manifest.json</a>
           </p>
         </div>
         <div class="surface-grid" aria-label="Agent JSON surfaces">
+          <span>resolve</span>
           <span>inspect</span>
           <span>validate</span>
-          <span>run</span>
+          <span>run --json</span>
           <span>run --jsonl</span>
           <span>validate-run</span>
           <span>describe-run</span>
           <span>compare-runs</span>
           <span>lineage</span>
-          <span>agent status</span>
+          <span>apply-plan</span>
+          <span>agent install</span>
+          <span>mcp serve</span>
         </div>
       </section>
 
@@ -165,13 +540,55 @@ output/
           <p class="eyebrow">Quickstart</p>
           <h2>Create a contract project and produce a run record.</h2>
         </div>
-        <pre><code>uv add pcq
-pcq init-experiment --style script --output ./my-exp --with-pyproject
+        <pre><code>uv add 'pcq[mcp]'
+pcq init-experiment --style script --output ./my-exp --with-pyproject --agent claude
 cd ./my-exp
 uv sync
+pcq agent install --target claude --path . --mcp
 pcq run --json
 pcq validate-run output --json
 pcq describe-run output --json</code></pre>
+      </section>
+
+      <section id="faq" class="section faq-section">
+        <div class="section-heading">
+          <p class="eyebrow">FAQ</p>
+          <h2>Common questions.</h2>
+        </div>
+        <div class="faq-list">
+          <details>
+            <summary>Does pcq replace PyTorch / HF Trainer / Lightning / sklearn?</summary>
+            <p>No. pcq does not own the training loop. Your project keeps any framework. pcq only standardizes the surrounding evidence: <code>cq.yaml</code>, metric emission, artifact layout, validation, comparison, lineage, and the final <code>run_record.json</code>.</p>
+          </details>
+          <details>
+            <summary>Is the CQ managed service required?</summary>
+            <p>No. pcq is useful standalone — locally, in CI, in notebooks, and inside third-party orchestrators. CQ is one managed consumer of the same contract.</p>
+          </details>
+          <details>
+            <summary>How does pcq integrate with Claude Code or Codex?</summary>
+            <p>Install <code>pcq[mcp]</code>, run <code>pcq agent install --target claude --path . --mcp</code> to write <code>.mcp.json</code>, and start <code>pcq mcp serve</code>. The agent then sees 14 <code>mcp__pcq__*</code> tools and calls them with structured arguments instead of parsing stdout.</p>
+          </details>
+          <details>
+            <summary>What artifacts does a run produce?</summary>
+            <p><code>config.json</code>, <code>metrics.json</code>, <code>manifest.json</code>, <code>run_summary.json</code>, <code>run_record.json</code>, and <code>validation_report.json</code>. <code>run_record.json</code> is the canonical completion object.</p>
+          </details>
+          <details>
+            <summary>How does an agent decide whether a run passed?</summary>
+            <p>Use <code>pcq validate-run output --strictness 3 --json</code> for pass/warn/fail facts and <code>pcq describe-run output --json</code> for decision facts. pcq deliberately reports facts; the agent or service chooses policy.</p>
+          </details>
+          <details>
+            <summary>Can I emit live events from long training runs?</summary>
+            <p>Yes. <code>pcq run --path . --jsonl</code> streams newline-delimited events (<code>run.started</code>, <code>stdout</code>, <code>metric</code>, <code>run.completed</code>, <code>run.failed</code>). Add <code>--events output/events.jsonl</code> to persist the same evidence to a file.</p>
+          </details>
+          <details>
+            <summary>What strictness levels exist for validation?</summary>
+            <p>Strictness 0–3. Lower levels warn, higher levels fail. Use 2 for project validation during authoring and 3 for run validation during gating. See <a href="https://github.com/playidea-lab/pcq/blob/main/docs/STRICTNESS.md">docs/STRICTNESS.md</a>.</p>
+          </details>
+          <details>
+            <summary>Where is the pcq Python and JSON contract specified?</summary>
+            <p>See <a href="https://github.com/playidea-lab/pcq/blob/main/docs/JSON_CONTRACTS.md">docs/JSON_CONTRACTS.md</a> and <a href="https://github.com/playidea-lab/pcq/blob/main/docs/CQ_YAML_RUNTIME_CONTRACT.md">docs/CQ_YAML_RUNTIME_CONTRACT.md</a>. Both are frozen in v2.13 onwards.</p>
+          </details>
+        </div>
       </section>
 
       <section class="section cq-section">
@@ -182,11 +599,11 @@ pcq describe-run output --json</code></pre>
         <div class="cq-grid">
           <article>
             <h3>pcq</h3>
-            <p>Open-source authoring, validation, artifact, and run-evidence library.</p>
+            <p>Open-source authoring, validation, artifact, and run-evidence library. Apache-2.0. Useful standalone.</p>
           </article>
           <article>
             <h3>CQ</h3>
-            <p>Managed execution, queueing, artifact collection, dashboards, and agent loops.</p>
+            <p>Managed execution, queueing, artifact collection, dashboards, and agent loops. Consumes the same contract.</p>
           </article>
         </div>
       </section>
@@ -197,6 +614,7 @@ pcq describe-run output --json</code></pre>
       <a href="https://github.com/playidea-lab/pcq">Source</a>
       <a href="https://pypi.org/project/pcq/">PyPI</a>
       <a href="https://github.com/playidea-lab/pcq/blob/main/README.md">README</a>
+      <a href="https://github.com/playidea-lab/pcq/blob/main/docs/MCP_INTEGRATION.md">MCP</a>
       <a href="llms.txt">llms.txt</a>
       <a href="agent-manifest.json">Agent manifest</a>
     </footer>

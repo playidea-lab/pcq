@@ -183,6 +183,154 @@ Do not:
 - Add framework adapters when direct contract code is enough.
 - Edit pcq internals for one project-specific experiment.
 
+## MCP Integration (v4.1.0)
+
+pcq ships an optional Model Context Protocol server so agent runtimes
+(Claude Code, Codex, custom LLM clients) can call pcq with structured
+JSON instead of shelling out and parsing stdout.
+
+Install:
+
+```bash
+uv add 'pcq[mcp]'
+```
+
+Wire the project:
+
+```bash
+pcq init-experiment --output ./my-exp --agent claude
+pcq agent install --target claude --path ./my-exp --mcp
+```
+
+The `--mcp` flag merges the following into `.mcp.json` (existing entries
+preserved):
+
+```json
+{
+  "mcpServers": {
+    "pcq": {
+      "command": "pcq",
+      "args": ["mcp", "serve"]
+    }
+  }
+}
+```
+
+Serve:
+
+```bash
+pcq mcp serve                                            # stdio (default)
+pcq mcp serve --transport sse --host 127.0.0.1 --port 8765
+```
+
+14 MCP tools (read-only tools never mkdir, never mutate cq.yaml, never
+spawn subprocesses):
+
+| Tool | Read-only | Maps to |
+|------|-----------|---------|
+| `resolve_project` | yes | `pcq resolve` |
+| `inspect_project` | yes | `pcq inspect` |
+| `validate_project` | yes | `pcq validate` |
+| `validate_run` | yes | `pcq validate-run` |
+| `describe_run` | yes | `pcq describe-run` |
+| `compare_runs` | yes | `pcq compare-runs` |
+| `lineage_chain` | yes | `pcq lineage` |
+| `apply_plan` | no | `pcq apply-plan` |
+| `apply_planset` | no | `pcq apply-planset` |
+| `init_experiment` | no | `pcq init-experiment` |
+| `finalize_run` | no | `pcq finalize` |
+| `agent_install` | no | `pcq agent install` |
+| `agent_status` | yes | `pcq agent status` |
+| `run_experiment` | no | `pcq run` |
+
+Every tool's input/output is anchored in the
+`pcq.agent.json_contracts.JSON_CONTRACTS` registry frozen since v2.13.
+
+Long multi-hour GPU training should not block the in-process
+`run_experiment` tool. For that workload, prefer the CQ service queue
+which consumes the same contract.
+
+Embed the registry directly without the MCP server wrapper:
+
+```python
+from pcq.mcp.tools import build_tools
+import asyncio
+
+tools = build_tools()
+resolve = next(t for t in tools if t.name == "resolve_project")
+result = asyncio.run(resolve.handler({"path": "."}))
+```
+
+## Examples
+
+### sklearn — RandomForest on Iris
+
+```yaml
+# cq.yaml
+name: sklearn-baseline
+cmd: uv run python train.py
+configs:
+  output_dir: output
+  seed: 42
+  n_estimators: 100
+  monitor: eval_acc
+  mode: max
+metrics:
+  - epoch
+  - eval_acc
+artifacts:
+  - output/
+```
+
+```python
+# train.py
+import pcq, joblib
+from sklearn.datasets import load_iris
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+
+cfg = pcq.config()
+out = pcq.output_dir()
+pcq.seed_everything(cfg.get("seed", 42))
+
+X, y = load_iris(return_X_y=True)
+X_tr, X_te, y_tr, y_te = train_test_split(
+    X, y, test_size=0.2, random_state=cfg["seed"]
+)
+model = RandomForestClassifier(n_estimators=cfg.get("n_estimators", 100))
+model.fit(X_tr, y_tr)
+acc = float(model.score(X_te, y_te))
+
+pcq.log(epoch=0, eval_acc=acc)
+joblib.dump(model, out / "model.pkl")
+pcq.save_all(history=[{"epoch": 0, "eval_acc": acc}],
+             artifacts={"model": "model.pkl"})
+```
+
+### PyTorch — agnostic training loop
+
+```python
+import pcq, torch
+from torch import nn
+
+cfg = pcq.config()
+out = pcq.output_dir()
+pcq.seed_everything(cfg.get("seed", 42))
+
+model = nn.Linear(cfg["in_dim"], cfg["out_dim"])
+opt = torch.optim.Adam(model.parameters(), lr=cfg["lr"])
+
+history = []
+for epoch in range(cfg["epochs"]):
+    train_loss = train_one_epoch(model, opt)   # user code
+    val_acc = evaluate(model)                   # user code
+    pcq.log(epoch=epoch, train_loss=train_loss, val_acc=val_acc)
+    history.append({"epoch": epoch, "train_loss": train_loss, "val_acc": val_acc})
+
+torch.save(model.state_dict(), out / "model.pt")
+pcq.save_all(history=history, artifacts={"model": "model.pt"})
+```
+
 ## Related Docs
 
 - v4 direction: https://github.com/playidea-lab/pcq/blob/main/docs/V4_DIRECTION.md
@@ -191,3 +339,4 @@ Do not:
 - Agent guide: https://github.com/playidea-lab/pcq/blob/main/docs/AGENT_OPERATING_GUIDE.md
 - Strictness: https://github.com/playidea-lab/pcq/blob/main/docs/STRICTNESS.md
 - Runtime contract: https://github.com/playidea-lab/pcq/blob/main/docs/CQ_YAML_RUNTIME_CONTRACT.md
+- MCP integration: https://github.com/playidea-lab/pcq/blob/main/docs/MCP_INTEGRATION.md

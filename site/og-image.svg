@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" role="img"
+     aria-label="pcq — Agent-operable experiment evidence and control">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f7f8f5"/>
+      <stop offset="1" stop-color="#e7f2ea"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect x="56" y="56" width="120" height="90" rx="14" fill="#0f5132"/>
+  <text x="116" y="120" text-anchor="middle"
+        font-family="ui-monospace, SFMono-Regular, Menlo, monospace"
+        font-size="48" font-weight="800" fill="#e7f2ea">pcq</text>
+  <text x="56" y="260"
+        font-family="Inter, system-ui, sans-serif"
+        font-size="64" font-weight="800" fill="#17202a">Run anything.</text>
+  <text x="56" y="340"
+        font-family="Inter, system-ui, sans-serif"
+        font-size="64" font-weight="800" fill="#17202a">Standardize the evidence.</text>
+  <text x="56" y="420"
+        font-family="Inter, system-ui, sans-serif"
+        font-size="28" font-weight="600" fill="#5a6675">
+    Apache-2.0 Python library · cq.yaml contract · MCP-ready · JSON/JSONL surfaces
+  </text>
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, monospace"
+     font-size="26" font-weight="700" fill="#0f5132">
+    <text x="56" y="520">$ uv add 'pcq[mcp]'</text>
+    <text x="56" y="560">$ pcq mcp serve</text>
+  </g>
+  <text x="1144" y="600" text-anchor="end"
+        font-family="Inter, system-ui, sans-serif"
+        font-size="22" font-weight="700" fill="#0f5132">playidea-lab.github.io/pcq</text>
+</svg>

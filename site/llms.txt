@@ -17,6 +17,8 @@ Install:
 
 ```bash
 uv add pcq
+# Optional — expose pcq as MCP tools to Claude Code, Codex, custom agents:
+uv add 'pcq[mcp]'
 ```
 
 Canonical resources:
@@ -25,6 +27,7 @@ Canonical resources:
 - Repository: https://github.com/playidea-lab/pcq
 - PyPI: https://pypi.org/project/pcq/
 - v4 direction: https://github.com/playidea-lab/pcq/blob/main/docs/V4_DIRECTION.md
+- MCP integration: https://github.com/playidea-lab/pcq/blob/main/docs/MCP_INTEGRATION.md
 - Full agent guide: https://playidea-lab.github.io/pcq/llms-full.txt
 - Machine manifest: https://playidea-lab.github.io/pcq/agent-manifest.json
 
@@ -50,7 +53,15 @@ pcq describe-run output --json
 pcq compare-runs old_output new_output --json
 pcq lineage output --json
 pcq apply-plan experiment.plan.json --json
+pcq mcp serve
 ```
+
+MCP tools (with `pcq[mcp]` installed):
+
+`resolve_project`, `inspect_project`, `validate_project`, `validate_run`,
+`describe_run`, `compare_runs`, `lineage_chain`, `apply_plan`,
+`apply_planset`, `init_experiment`, `finalize_run`, `agent_install`,
+`agent_status`, `run_experiment`.
 
 Runtime surfaces:
 
