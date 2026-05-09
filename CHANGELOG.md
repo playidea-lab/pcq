@@ -4,6 +4,20 @@ All notable changes to pcq. Format: [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [3.0.4] — 2026-05-10
+
+> **Agent-readable site files + live run events.**
+> Adds the web-facing files an agent should read from GitHub Pages and the
+> runtime JSONL surface an agent should consume during long-running jobs.
+
+### Added
+- GitHub Pages agent-readable files: `llms.txt`, `llms-full.txt`,
+  `agent-manifest.json`, `robots.txt`, and `sitemap.xml`.
+- `pcq run --jsonl` live event stream for agents.
+- `pcq run --events PATH` to persist JSONL events while preserving `--json`
+  final-envelope stdout.
+- Public JSON contract entry `pcq.run.event`.
+
 ## [3.0.3] — 2026-05-10
 
 > **`pcq compare-runs` config_changes fallback — dogfood-driven hotfix.**

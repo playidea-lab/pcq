@@ -1,0 +1,182 @@
+# pcq Agent Guide
+
+pcq is an agent-operable experiment contract library for machine learning
+projects. It is not a training framework, model zoo, or experiment tracking
+SaaS. It is a small Python package that makes arbitrary ML code inspectable,
+reproducible, and collectable through standard files and JSON surfaces.
+
+## Identity
+
+- Package: pcq
+- Import: `import pcq`
+- CLI: `pcq`
+- License: Apache-2.0
+- Repository: https://github.com/playidea-lab/pcq
+- PyPI: https://pypi.org/project/pcq/
+- Website: https://playidea-lab.github.io/pcq/
+
+The runtime contract keeps these CQ names:
+
+- `cq.yaml`
+- `CQ_CONFIG_JSON`
+- `cq://`
+
+These names are part of the experiment contract and do not mean the library is
+usable only with the managed CQ service.
+
+## What pcq Standardizes
+
+An experiment project has a `cq.yaml` file:
+
+```yaml
+name: mnist-mlp
+cmd: uv run python train.py
+configs:
+  seed: 42
+  epochs: 3
+  output_dir: output
+metrics:
+  - name: eval_acc
+    direction: max
+artifacts:
+  - output/model.pt
+```
+
+The training code can use any ML stack. It should read config, emit metrics,
+and save standard artifacts:
+
+```python
+import pcq
+
+cfg = pcq.config()
+out = pcq.output_dir()
+
+# Run any training code here.
+score = 0.82
+
+pcq.log(epoch=0, eval_acc=score)
+pcq.save_all(
+    history=[{"epoch": 0, "eval_acc": score}],
+    status="completed",
+    artifacts={"model": "model.pt"},
+)
+```
+
+## Read Path For Agents
+
+Use these commands before editing or running:
+
+```bash
+pcq resolve --json
+pcq inspect . --json
+pcq validate . --strictness 2 --json
+```
+
+The agent should identify:
+
+- project root
+- selected `cq.yaml`
+- command to run
+- declared metrics
+- output directory
+- existing artifacts
+- implementation style: script, Experiment, Trainer, or project-local atoms
+
+## Run Path For Agents
+
+For a final result object only:
+
+```bash
+pcq run --path . --json
+```
+
+For live events:
+
+```bash
+pcq run --path . --jsonl
+```
+
+For a final JSON object plus event evidence in a file:
+
+```bash
+pcq run --path . --events output/events.jsonl --json
+```
+
+JSONL events are newline-delimited JSON objects. Each event includes at least:
+
+- `schema_version`
+- `seq`
+- `time`
+- `event`
+
+Important event types:
+
+- `run.started`
+- `stdout`
+- `stderr`
+- `metric`
+- `run.completed`
+- `run.failed`
+- `run.error`
+
+Metric events are derived from `pcq.log(...)` stdout lines in `@key=value`
+format.
+
+## Post-Run Path For Agents
+
+After the process exits:
+
+```bash
+pcq validate-run output --strictness 3 --json
+pcq describe-run output --json
+```
+
+For comparing two iterations:
+
+```bash
+pcq compare-runs old_output new_output --json
+pcq lineage new_output --json
+```
+
+`describe-run` and `compare-runs` expose decision facts. They intentionally do
+not decide whether to continue, rollback, or accept a run.
+
+## Standard Artifacts
+
+A valid run should produce:
+
+- `config.json`
+- `metrics.json`
+- `manifest.json`
+- `run_summary.json`
+- `run_record.json`
+- `validation_report.json`
+
+`run_record.json` is the canonical completion record. It should contain source,
+environment, input, metric, artifact, validation, lineage, and summary evidence.
+
+## Agent Behavior
+
+Do:
+
+- Prefer JSON/JSONL surfaces over scraping terminal prose.
+- Keep project-specific model, dataset, loss, optimizer, and scheduler code in
+  the user's project.
+- Use built-in atoms only as examples and smoke baselines.
+- Declare metrics in `cq.yaml` before emitting them with `pcq.log(...)`.
+- Use `pcq.output_dir()` rather than hard-coded `output/` paths.
+
+Do not:
+
+- Treat process exit code alone as experiment success.
+- Assume pcq owns the training loop.
+- Assume CQ service is required.
+- Add framework adapters when direct contract code is enough.
+
+## Related Docs
+
+- Introduction: https://github.com/playidea-lab/pcq/blob/main/docs/INTRODUCTION.md
+- JSON contracts: https://github.com/playidea-lab/pcq/blob/main/docs/JSON_CONTRACTS.md
+- Agent guide: https://github.com/playidea-lab/pcq/blob/main/docs/AGENT_OPERATING_GUIDE.md
+- Strictness: https://github.com/playidea-lab/pcq/blob/main/docs/STRICTNESS.md
+- Runtime contract: https://github.com/playidea-lab/pcq/blob/main/docs/CQ_YAML_RUNTIME_CONTRACT.md

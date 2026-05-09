@@ -148,6 +148,17 @@ The child process streams are captured to `.pcq/run_stdout.log` and
 JSON result. Use `pcq run --path .` without `--json` when a human wants live
 terminal streaming.
 
+When an agent needs live progress, use JSONL events:
+
+```bash
+pcq run --path . --jsonl
+pcq run --path . --events output/events.jsonl --json
+```
+
+`--jsonl` emits `run.started`, `stdout`, `stderr`, `metric`, and final
+`run.completed` / `run.failed` events. `--events PATH --json` keeps stdout as a
+final JSON envelope and writes the same event stream to a file.
+
 Inside `train.py`, `pcq.config()` falls back to `cq.yaml.configs` even when
 `CQ_CONFIG_JSON` is unset, so direct `python train.py` works without
 ceremony for ad-hoc local runs.

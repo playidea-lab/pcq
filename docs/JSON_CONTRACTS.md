@@ -62,6 +62,41 @@ When a command is executed, the envelope also includes child process evidence:
 Important boundary: stdout is pure JSON in `--json` mode. Child stdout/stderr
 are captured into files and summarized in the envelope.
 
+### `pcq run --jsonl`
+
+Contract name: `pcq.run.event`
+
+`pcq run --jsonl` emits newline-delimited JSON events while the child process is
+running. Each line is independently parseable.
+
+Required fields:
+
+- `schema_version: int`
+- `seq: int`
+- `time: string`
+- `event: string`
+
+Stable event names:
+
+- `run.started`
+- `stdout`
+- `stderr`
+- `metric`
+- `run.completed`
+- `run.failed`
+- `run.error`
+- `run.config_only`
+
+Metric events are derived from `pcq.log(...)` stdout lines in `@key=value`
+format:
+
+```json
+{"schema_version":1,"seq":2,"event":"metric","metrics":{"epoch":1,"eval_acc":0.9}}
+```
+
+Use `pcq run --events output/events.jsonl --json` when an agent or service wants
+a final JSON envelope on stdout and live event evidence persisted in a file.
+
 ### `pcq describe-run --json`
 
 Contract name: `pcq.describe_run.record`

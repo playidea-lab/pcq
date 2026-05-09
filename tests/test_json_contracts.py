@@ -51,6 +51,7 @@ def _assert_contract(name: str, payload: dict) -> None:
 def test_json_contract_registry_is_json_serializable():
     contracts = get_json_contracts()
     assert "pcq.run.envelope" in contracts
+    assert "pcq.run.event" in contracts
     assert "pcq.describe_run.record" in contracts
     assert "pcq.compare_runs.diff" in contracts
     assert "pcq.validation_report" in contracts
@@ -96,6 +97,32 @@ def test_pcq_run_json_envelope_contract_success_and_error(
     _assert_contract("pcq.run.envelope", payload)
     assert payload["status"] == "error"
     assert "cq.yaml" in payload["error"]
+
+
+def test_pcq_run_jsonl_event_contract(tmp_path: Path, capfd):
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "cq.yaml").write_text(
+        "name: run-event-contract\n"
+        f"cmd: {sys.executable} train.py\n",
+        encoding="utf-8",
+    )
+    (project / "train.py").write_text(
+        "import pcq\n"
+        "pcq.log(epoch=1, eval_acc=0.9)\n",
+        encoding="utf-8",
+    )
+
+    rc = cli_main(["run", "--path", str(project), "--jsonl"])
+    captured = capfd.readouterr()
+    assert rc == 0
+    events = [json.loads(line) for line in captured.out.splitlines()]
+    assert events
+    for event in events:
+        _assert_contract("pcq.run.event", event)
+    assert events[0]["event"] == "run.started"
+    assert any(event["event"] == "metric" for event in events)
+    assert events[-1]["event"] == "run.completed"
 
 
 def test_describe_compare_and_validate_run_json_contracts(tmp_path, monkeypatch):

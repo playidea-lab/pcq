@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://playidea-lab.github.io/pcq/</loc>
+  </url>
+  <url>
+    <loc>https://playidea-lab.github.io/pcq/llms.txt</loc>
+  </url>
+  <url>
+    <loc>https://playidea-lab.github.io/pcq/llms-full.txt</loc>
+  </url>
+  <url>
+    <loc>https://playidea-lab.github.io/pcq/agent-manifest.json</loc>
+  </url>
+</urlset>

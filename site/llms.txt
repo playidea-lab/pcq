@@ -1,0 +1,65 @@
+# pcq
+
+pcq is an Apache-2.0 Python library for agent-operable ML experiment contracts.
+
+Use pcq when an agent, CI job, service worker, or human needs to run ML code
+and collect reproducible evidence through a stable project contract.
+
+Install:
+
+```bash
+uv add pcq
+```
+
+Canonical resources:
+
+- Website: https://playidea-lab.github.io/pcq/
+- Repository: https://github.com/playidea-lab/pcq
+- PyPI: https://pypi.org/project/pcq/
+- Full agent guide: https://playidea-lab.github.io/pcq/llms-full.txt
+- Machine manifest: https://playidea-lab.github.io/pcq/agent-manifest.json
+
+Core idea:
+
+- `cq.yaml` declares the run command, config, metrics, inputs, and artifacts.
+- Training code can use PyTorch, Hugging Face Trainer, sklearn, TabPFN,
+  PyCaret, XGBoost, or custom Python.
+- pcq standardizes config loading, metric emission, artifact layout,
+  validation, and final run evidence.
+- CQ is a managed service consumer of the contract. pcq is the open-source
+  library and remains useful without CQ.
+
+Primary agent commands:
+
+```bash
+pcq resolve --json
+pcq inspect . --json
+pcq validate . --strictness 2 --json
+pcq run --path . --json
+pcq run --path . --jsonl
+pcq validate-run output --strictness 3 --json
+pcq describe-run output --json
+pcq compare-runs old_output new_output --json
+pcq lineage output --json
+```
+
+Runtime surfaces:
+
+- `--json` emits one final parseable JSON object.
+- `--jsonl` emits live newline-delimited JSON events.
+- `--events PATH` writes live events to a JSONL file while preserving the
+  selected stdout mode.
+
+Standard artifacts:
+
+- `config.json`
+- `metrics.json`
+- `manifest.json`
+- `run_summary.json`
+- `run_record.json`
+- `validation_report.json`
+
+Agent rule:
+
+Prefer JSON/JSONL commands over scraping prose. Use `describe-run` and
+`compare-runs` for decision facts; pcq reports facts and does not select policy.

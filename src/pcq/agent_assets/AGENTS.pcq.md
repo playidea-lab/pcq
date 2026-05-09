@@ -57,6 +57,7 @@ pcq atoms smoke <kind> <name> --load-project .
 After a serious run:
 
 ```bash
+pcq run --path . --jsonl
 pcq validate-run <output_dir> --strictness 3 --json
 pcq describe-run <output_dir> --json
 ```

@@ -120,6 +120,7 @@ Agents need structured surfaces, not prose-only instructions. `pcq` provides:
 - `pcq inspect --json`
 - `pcq validate --json`
 - `pcq run --json`
+- `pcq run --jsonl`
 - `pcq validate-run --json`
 - `pcq describe-run --json`
 - `pcq compare-runs --json`
@@ -177,6 +178,7 @@ pcq init-experiment --style script --output ./my-exp --with-pyproject
 cd ./my-exp
 uv sync
 pcq run --json
+pcq run --jsonl
 pcq validate-run output --json
 pcq describe-run output --json
 ```

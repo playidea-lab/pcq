@@ -28,7 +28,8 @@ Commands:
   pcq compare-runs A B [--json]
   pcq lineage [OUTPUT_DIR] [--max-depth N] [--json]
   pcq resolve [PATH] [--cq-yaml PATH] [--json]
-  pcq run [--path PATH] [--config-only] [--json]
+  pcq run [--path PATH] [--config-only] [--json] [--jsonl]
+          [--events PATH]
 
 Exit codes:
   0  success
@@ -39,7 +40,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -62,6 +65,237 @@ def _read_text_tail(path: Path, *, max_chars: int = 20_000) -> tuple[str, bool]:
     if len(text) <= max_chars:
         return text, False
     return text[-max_chars:], True
+
+
+def _utc_now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _parse_metric_line(line: str) -> dict[str, int | float] | None:
+    """Parse pcq.log stdout lines: `@key=value @other=value`.
+
+    Returns None when the line is not entirely made of metric tokens.
+    """
+    stripped = line.strip()
+    if not stripped or not stripped.startswith("@"):
+        return None
+
+    metrics: dict[str, int | float] = {}
+    for token in stripped.split():
+        if not token.startswith("@") or "=" not in token:
+            return None
+        key, raw_value = token[1:].split("=", 1)
+        if not key:
+            return None
+        try:
+            if any(ch in raw_value.lower() for ch in (".", "e")):
+                value: int | float = float(raw_value)
+            else:
+                value = int(raw_value)
+        except ValueError:
+            try:
+                value = float(raw_value)
+            except ValueError:
+                return None
+        if isinstance(value, float) and not math.isfinite(value):
+            return None
+        metrics[key] = value
+    return metrics or None
+
+
+def _emit_jsonl_line(sink: Any, payload: dict[str, Any]) -> None:
+    line = json.dumps(payload, separators=(",", ":"), default=str)
+    if sink is not None:
+        sink.write(line + "\n")
+        sink.flush()
+    else:
+        print(line, flush=True)
+
+
+def _resolve_events_path(
+    raw_path: str | None,
+    *,
+    project_root: Path,
+    pcq_dir: Path,
+    default_when_enabled: bool,
+) -> Path | None:
+    if raw_path:
+        path = Path(raw_path)
+        if not path.is_absolute():
+            path = project_root / path
+        return path
+    if default_when_enabled:
+        return pcq_dir / "events.jsonl"
+    return None
+
+
+def _run_with_events(
+    *,
+    cmd: str,
+    project_root: Path,
+    env: dict[str, str],
+    out_payload: dict[str, Any],
+    stdout_path: Path,
+    stderr_path: Path,
+    events_path: Path | None,
+    emit_jsonl_stdout: bool,
+    mirror_child_streams: bool,
+) -> tuple[int, dict[str, Any]]:
+    """Run a command while producing structured JSONL run events."""
+    import queue
+    import subprocess
+    import threading
+
+    seq = 0
+    events_sink = None
+    if events_path is not None:
+        events_path.parent.mkdir(parents=True, exist_ok=True)
+        events_sink = events_path.open("w", encoding="utf-8")
+
+    def emit(event: dict[str, Any]) -> None:
+        nonlocal seq
+        seq += 1
+        payload = {
+            "schema_version": 1,
+            "seq": seq,
+            "time": _utc_now_iso(),
+            **event,
+        }
+        if events_sink is not None:
+            _emit_jsonl_line(events_sink, payload)
+        if emit_jsonl_stdout:
+            _emit_jsonl_line(None, payload)
+
+    try:
+        emit(
+            {
+                "event": "run.started",
+                "status": "running",
+                "cmd": cmd,
+                "project_root": str(project_root),
+                "runtime_cfg_path": out_payload["runtime_cfg_path"],
+            }
+        )
+
+        process = subprocess.Popen(
+            cmd,
+            shell=True,
+            cwd=str(project_root),
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            bufsize=1,
+        )
+
+        stream_queue: queue.Queue[tuple[str, str | None]] = queue.Queue()
+
+        def reader(name: str, stream: Any) -> None:
+            try:
+                for line in stream:
+                    stream_queue.put((name, line))
+            finally:
+                stream_queue.put((name, None))
+
+        threads = [
+            threading.Thread(
+                target=reader, args=("stdout", process.stdout), daemon=True
+            ),
+            threading.Thread(
+                target=reader, args=("stderr", process.stderr), daemon=True
+            ),
+        ]
+        for thread in threads:
+            thread.start()
+
+        done_streams = 0
+        with (
+            stdout_path.open("w", encoding="utf-8") as stdout_file,
+            stderr_path.open("w", encoding="utf-8") as stderr_file,
+        ):
+            while done_streams < 2:
+                stream_name, line = stream_queue.get()
+                if line is None:
+                    done_streams += 1
+                    continue
+
+                if stream_name == "stdout":
+                    stdout_file.write(line)
+                    stdout_file.flush()
+                    if mirror_child_streams:
+                        sys.stdout.write(line)
+                        sys.stdout.flush()
+                    metrics = _parse_metric_line(line)
+                    if metrics is not None:
+                        emit(
+                            {
+                                "event": "metric",
+                                "stream": "stdout",
+                                "metrics": metrics,
+                                "raw": line.rstrip("\n"),
+                            }
+                        )
+                    else:
+                        emit(
+                            {
+                                "event": "stdout",
+                                "stream": "stdout",
+                                "text": line.rstrip("\n"),
+                            }
+                        )
+                else:
+                    stderr_file.write(line)
+                    stderr_file.flush()
+                    if mirror_child_streams:
+                        sys.stderr.write(line)
+                        sys.stderr.flush()
+                    emit(
+                        {
+                            "event": "stderr",
+                            "stream": "stderr",
+                            "text": line.rstrip("\n"),
+                        }
+                    )
+
+        returncode = process.wait()
+        for thread in threads:
+            thread.join(timeout=1)
+
+        final_status = "completed" if returncode == 0 else "failed"
+        final_event = "run.completed" if returncode == 0 else "run.failed"
+        emit(
+            {
+                "event": final_event,
+                "status": final_status,
+                "exit_code": returncode,
+                "stdout_path": str(stdout_path),
+                "stderr_path": str(stderr_path),
+                "events_path": str(events_path) if events_path else "",
+            }
+        )
+
+        stdout_tail, stdout_truncated = _read_text_tail(stdout_path)
+        stderr_tail, stderr_truncated = _read_text_tail(stderr_path)
+        out_payload.update(
+            {
+                "status": final_status,
+                "exit_code": returncode,
+                "stdout_path": str(stdout_path),
+                "stderr_path": str(stderr_path),
+                "stdout_tail": stdout_tail,
+                "stderr_tail": stderr_tail,
+                "stdout_tail_truncated": stdout_truncated,
+                "stderr_tail_truncated": stderr_truncated,
+            }
+        )
+        if events_path is not None:
+            out_payload["events_path"] = str(events_path)
+        return returncode, out_payload
+    finally:
+        if events_sink is not None:
+            events_sink.close()
 
 
 def _print_atoms_list_human(data: dict) -> None:
@@ -650,6 +884,18 @@ def cmd_run(args: argparse.Namespace) -> int:
 
     from pcq.agent.resolver import resolve_project
 
+    if args.json and args.jsonl:
+        err = {
+            "schema_version": 1,
+            "status": "error",
+            "error": "--json and --jsonl are mutually exclusive",
+            "project_root": str(Path(args.path).resolve()),
+            "runtime_cfg_path": "",
+            "cmd": "",
+        }
+        _print_json(err)
+        return 2
+
     project_path = Path(args.path).resolve()
     rc = resolve_project(path=project_path)
 
@@ -666,7 +912,18 @@ def cmd_run(args: argparse.Namespace) -> int:
             "runtime_cfg_path": "",
             "cmd": "",
         }
-        if args.json:
+        if args.jsonl:
+            _emit_jsonl_line(
+                None,
+                {
+                    "schema_version": 1,
+                    "seq": 1,
+                    "time": _utc_now_iso(),
+                    "event": "run.error",
+                    **err,
+                },
+            )
+        elif args.json:
             _print_json(err)
         else:
             print(err["error"], file=sys.stderr)
@@ -686,7 +943,18 @@ def cmd_run(args: argparse.Namespace) -> int:
             "runtime_cfg_path": "",
             "cmd": "",
         }
-        if args.json:
+        if args.jsonl:
+            _emit_jsonl_line(
+                None,
+                {
+                    "schema_version": 1,
+                    "seq": 1,
+                    "time": _utc_now_iso(),
+                    "event": "run.error",
+                    **err,
+                },
+            )
+        elif args.json:
             _print_json(err)
         else:
             print(err["error"], file=sys.stderr)
@@ -709,7 +977,18 @@ def cmd_run(args: argparse.Namespace) -> int:
             "project_root": str(project_root),
             "cmd": cmd,
         }
-        if args.json:
+        if args.jsonl:
+            _emit_jsonl_line(
+                None,
+                {
+                    "schema_version": 1,
+                    "seq": 1,
+                    "time": _utc_now_iso(),
+                    "event": "run.config_only",
+                    **out,
+                },
+            )
+        elif args.json:
             _print_json(out)
         else:
             _print_human(out, "Run (config-only)")
@@ -731,6 +1010,35 @@ def cmd_run(args: argparse.Namespace) -> int:
     #
     # JSON mode is machine contract mode: stdout must be parseable JSON only.
     # Child streams are captured to files and summarized in the envelope.
+    #
+    # JSONL/event mode is live agent mode: child streams are captured while
+    # structured events are emitted to stdout and/or an events.jsonl file.
+    events_path = _resolve_events_path(
+        args.events,
+        project_root=project_root,
+        pcq_dir=pcq_dir,
+        default_when_enabled=args.jsonl,
+    )
+    if args.jsonl or events_path is not None:
+        stdout_path = pcq_dir / "run_stdout.log"
+        stderr_path = pcq_dir / "run_stderr.log"
+        returncode, out_payload = _run_with_events(
+            cmd=cmd,
+            project_root=project_root,
+            env=env,
+            out_payload=out_payload,
+            stdout_path=stdout_path,
+            stderr_path=stderr_path,
+            events_path=events_path,
+            emit_jsonl_stdout=args.jsonl,
+            mirror_child_streams=not (args.json or args.jsonl),
+        )
+        if args.json:
+            _print_json(out_payload)
+        elif not args.jsonl:
+            _print_human(out_payload, "Run")
+        return returncode
+
     if args.json:
         stdout_path = pcq_dir / "run_stdout.log"
         stderr_path = pcq_dir / "run_stderr.log"
@@ -1364,6 +1672,22 @@ def main(argv: list[str] | None = None) -> int:
         help=(
             "emit a pure JSON envelope; child stdout/stderr are captured to "
             ".pcq log files"
+        ),
+    )
+    p_run.add_argument(
+        "--jsonl",
+        action="store_true",
+        help=(
+            "emit newline-delimited JSON run events; child stdout/stderr are "
+            "captured to .pcq log files"
+        ),
+    )
+    p_run.add_argument(
+        "--events",
+        default=None,
+        help=(
+            "write newline-delimited JSON run events to PATH; relative paths "
+            "are resolved from the project root"
         ),
     )
     p_run.set_defaults(func=cmd_run)

@@ -29,6 +29,10 @@ runtime names `cq.yaml`, `CQ_CONFIG_JSON`, and `cq://` remain unchanged.
 [CASE_STUDY: MNIST Dogfood](docs/case-studies/mnist-dogfood-2026-05-08.md) |
 [CASE_STUDY: Tabular Dogfood](docs/case-studies/tabular-dogfood-2026-05-09.md)
 
+Agent-readable site files: [llms.txt](site/llms.txt),
+[llms-full.txt](site/llms-full.txt), and
+[agent-manifest.json](site/agent-manifest.json).
+
 ```text
 pcq = open-source agent-operable experiment contract
 cq   = managed execution + orchestration + result loop
@@ -75,7 +79,7 @@ patch under review), use a git source:
 
 ```toml
 [tool.uv.sources]
-pcq = { git = "https://github.com/playidea-lab/pcq.git", tag = "v3.0.2" }
+pcq = { git = "https://github.com/playidea-lab/pcq.git", tag = "v3.0.4" }
 ```
 
 ### Current Scope (v3.x)
@@ -1202,6 +1206,8 @@ pcq validate . --strictness 2 --json       # ValidationReport (fail → exit 1)
 pcq validate-run output --strictness 3 --json
 pcq summarize-run output/ --json           # RunSummary JSON
 pcq run --path . --json                    # execute cq.yaml.cmd; pure JSON envelope
+pcq run --path . --jsonl                   # live JSONL event stream
+pcq run --path . --events output/events.jsonl --json
 pcq init-experiment --style script --output ./tabular-exp --json
 pcq agent install --target codex --path ./tabular-exp --json
 pcq agent status --target codex --path ./tabular-exp --json
@@ -1220,6 +1226,11 @@ pcq agent status --target codex --path ./tabular-exp --json
 stdout 에 **envelope JSON 만** 출력하고, child process stdout/stderr 는
 `.pcq/run_stdout.log` / `.pcq/run_stderr.log` 로 캡처한 뒤 JSON 의
 `stdout_path`, `stderr_path`, `stdout_tail`, `stderr_tail` 로 요약합니다.
+`pcq run --jsonl` 은 실행 중 `run.started`, `stdout`, `stderr`, `metric`,
+`run.completed` / `run.failed` event 를 newline-delimited JSON 으로 stdout 에
+출력하고 `.pcq/events.jsonl` 에도 저장합니다. `--events PATH --json` 을 쓰면
+stdout 은 최종 JSON envelope 로 유지하면서 live event evidence 를 별도 JSONL
+파일로 남깁니다.
 v3.x 동안 public JSON contract 는 additive 변경을 원칙으로 합니다. exit code 는
 0 (성공) / 1 (실패·검증 fail) / 2 (argparse error) 입니다.
 
@@ -1231,7 +1242,7 @@ v3.x 동안 public JSON contract 는 additive 변경을 원칙으로 합니다. 
 | `dry-run` | entrypoint 의 preset 으로 Trainer 조립 plan | 1 if no preset |
 | `validate [--plan PLAN.json] [--strictness 0..4]` | static + recipe contract + strictness evidence validation | 1 if blocking fail |
 | `summarize-run` | 완료된 output 의 best/last/provenance 요약 | 1 if status=failed |
-| `run` | `cq.yaml.cmd` 실행 + `CQ_CONFIG_JSON` 자동 wiring; `--json` 은 pure JSON envelope | cmd exit code |
+| `run` | `cq.yaml.cmd` 실행 + `CQ_CONFIG_JSON` 자동 wiring; `--json` 은 pure JSON envelope, `--jsonl` 은 live event stream | cmd exit code |
 | `init-experiment` | `--style trainer|experiment|script` 로 cq.yaml + train.py scaffold (v1.13+) | 1 if invalid style/preset |
 | `agent install` | Codex/Claude instruction + skill runtime assets 설치 | 1 if invalid |
 | `agent status` | Codex/Claude instruction + skill runtime assets 상태 검사 (read-only) | 1 if invalid |

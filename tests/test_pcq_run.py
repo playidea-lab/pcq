@@ -4,7 +4,7 @@
 dump 후 CQ_CONFIG_JSON 자동 wiring. fresh-user 의 first-class 진입점.
 
 Surface:
-  pcq run [--path PATH] [--config-only] [--json]
+  pcq run [--path PATH] [--config-only] [--json] [--jsonl]
 
 기본 동작:
   - cq.yaml 읽음. cmd 없으면 reject.
@@ -154,6 +154,99 @@ def test_pcq_run_forwards_exit_code(
     payload = json.loads(captured.out)
     assert payload["exit_code"] == 7
     assert payload["status"] == "failed"
+
+
+def test_pcq_run_jsonl_emits_live_events_and_events_file(
+    tmp_path: Path, capfd: pytest.CaptureFixture[str]
+):
+    """--jsonl stdout is parseable line-delimited events."""
+    project = tmp_path / "proj"
+    project.mkdir()
+    train_py = project / "train.py"
+    train_py.write_text(
+        "import pcq, sys\n"
+        "print('plain-line')\n"
+        "pcq.log(epoch=1, eval_acc=0.75)\n"
+        "print('warn-line', file=sys.stderr)\n",
+        encoding="utf-8",
+    )
+    _write_cq_yaml(
+        project,
+        f"{sys.executable} train.py",
+        configs={"metrics": []},
+    )
+
+    rc = cli_main(["run", "--path", str(project), "--jsonl"])
+    captured = capfd.readouterr()
+    assert rc == 0
+    events = [json.loads(line) for line in captured.out.splitlines()]
+    assert [event["seq"] for event in events] == list(range(1, len(events) + 1))
+    assert events[0]["event"] == "run.started"
+    assert any(event["event"] == "stdout" for event in events)
+    metric_events = [event for event in events if event["event"] == "metric"]
+    assert metric_events
+    assert metric_events[0]["metrics"] == {"epoch": 1, "eval_acc": 0.75}
+    assert any(event["event"] == "stderr" for event in events)
+    assert events[-1]["event"] == "run.completed"
+    events_path = Path(events[-1]["events_path"])
+    assert events_path.exists()
+    file_events = [
+        json.loads(line) for line in events_path.read_text(encoding="utf-8").splitlines()
+    ]
+    assert file_events == events
+
+
+def test_pcq_run_events_file_with_final_json_envelope(
+    tmp_path: Path, capfd: pytest.CaptureFixture[str]
+):
+    """--events + --json keeps stdout as final JSON while writing event JSONL."""
+    project = tmp_path / "proj"
+    project.mkdir()
+    train_py = project / "train.py"
+    train_py.write_text(
+        "import pcq\n"
+        "pcq.log(epoch=2, loss=0.125)\n",
+        encoding="utf-8",
+    )
+    _write_cq_yaml(project, f"{sys.executable} train.py")
+
+    rc = cli_main(
+        [
+            "run",
+            "--path",
+            str(project),
+            "--events",
+            "output/events.jsonl",
+            "--json",
+        ]
+    )
+    captured = capfd.readouterr()
+    assert rc == 0
+    payload = json.loads(captured.out)
+    assert payload["status"] == "completed"
+    events_path = Path(payload["events_path"])
+    assert events_path == project / "output" / "events.jsonl"
+    events = [
+        json.loads(line) for line in events_path.read_text(encoding="utf-8").splitlines()
+    ]
+    assert events[0]["event"] == "run.started"
+    assert any(event["event"] == "metric" for event in events)
+    assert events[-1]["event"] == "run.completed"
+
+
+def test_pcq_run_json_and_jsonl_are_mutually_exclusive(
+    tmp_path: Path, capfd: pytest.CaptureFixture[str]
+):
+    project = tmp_path / "proj"
+    project.mkdir()
+    _write_cq_yaml(project, f'{sys.executable} -c "print(1)"')
+
+    rc = cli_main(["run", "--path", str(project), "--json", "--jsonl"])
+    captured = capfd.readouterr()
+    assert rc == 2
+    payload = json.loads(captured.out)
+    assert payload["status"] == "error"
+    assert "mutually exclusive" in payload["error"]
 
 
 def test_pcq_run_rejects_missing_cmd(

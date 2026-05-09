@@ -168,6 +168,13 @@ pcq validate-run <output_dir> --strictness 3 --json
 pcq describe-run <output_dir> --json
 ```
 
+For live agent observation during execution:
+
+```bash
+pcq run --path . --jsonl
+pcq run --path . --events output/events.jsonl --json
+```
+
 For comparisons:
 
 ```bash
