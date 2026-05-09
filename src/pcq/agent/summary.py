@@ -1,13 +1,14 @@
-"""pcq.agent.summary — completed-run summary builder + reader.
+"""pcq.agent.summary — completed-run summary reader.
 
-build_run_summary(experiment): Experiment.fit() 내부에서 호출. run_summary.json 작성용.
-summarize_run(output_dir): 외부에서 output 디렉토리 읽어 요약 (training code import X).
+summarize_run(output_dir): output 디렉토리 읽어 RunSummary 합성 (training code import X).
+
+v4.0: build_run_summary(Experiment) 제거 — pcq.Experiment 자체가 사라짐.
+contract script 는 cq.save_run_summary() 가 직접 호출.
 """
 from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
 
 from pcq.agent.schema import EpochSummary, RunSummary
 
@@ -52,38 +53,51 @@ def _last_epoch(history: list[dict]) -> EpochSummary | None:
     )
 
 
-def build_run_summary(exp: Any) -> RunSummary:
-    """Experiment.fit() 안에서 호출. RunSummary 객체 생성.
+def build_run_summary(
+    *,
+    history: list[dict],
+    monitor_key: str | None,
+    monitor_mode: str = "min",
+    recipe: str | None = None,
+    output_dir: str | Path | None = None,
+    provenance: dict | None = None,
+    early_stopped_at: int | None = None,
+    status: str = "completed",
+) -> RunSummary:
+    """RunSummary 객체 합성 — contract script 가 직접 호출 가능한 형태.
 
-    fit() 종료 시점의 self 상태(history, _monitor_*, output_dir 등)에서
-    요약을 합성한다. 디스크 쓰기는 호출자가 담당.
+    v4.0: Experiment 인스턴스 의존을 제거하고 explicit kwargs 만 받는다.
+    history, monitor 정보는 contract script 가 자체 관리.
     """
-    monitor = {"name": exp._monitor_key, "mode": exp._monitor_mode}
-    target = monitor   # v1.7 에서는 monitor 와 동일
+    monitor = (
+        {"name": monitor_key, "mode": monitor_mode}
+        if monitor_key
+        else None
+    )
 
     summary = RunSummary(
-        status="completed",
-        recipe=exp.cfg.get("_recipe"),
+        status=status,
+        recipe=recipe,
         monitor=monitor,
-        target=target,
-        best=_find_best(exp.history, exp._monitor_key, exp._monitor_mode),
-        last=_last_epoch(exp.history),
+        target=monitor,   # target == monitor (v1.7 이후 동일)
+        best=_find_best(history, monitor_key, monitor_mode),
+        last=_last_epoch(history),
         artifacts={
-            "model": "model.pt",
             "config": "config.json",
             "metrics": "metrics.json",
             "manifest": "manifest.json",
-            "last_checkpoint": "last.ckpt",
         },
-        provenance={
-            "git_sha": exp.cfg.get("_git_sha"),
-            "pcq_version": exp.cfg.get("_pcq_version"),
-            "overrides": exp.cfg.get("_overrides", []),
-        },
-        early_stopped_at=getattr(exp, "_early_stopped_at", None),
+        provenance=dict(provenance or {}),
+        early_stopped_at=early_stopped_at,
     )
-    if (exp.output_dir / "best.ckpt").exists():
-        summary.artifacts["best_checkpoint"] = "best.ckpt"
+    out_path = Path(output_dir) if output_dir is not None else None
+    if out_path is not None:
+        if (out_path / "best.ckpt").exists():
+            summary.artifacts["best_checkpoint"] = "best.ckpt"
+        if (out_path / "last.ckpt").exists():
+            summary.artifacts["last_checkpoint"] = "last.ckpt"
+        if (out_path / "model.pt").exists():
+            summary.artifacts["model"] = "model.pt"
     return summary
 
 

@@ -219,31 +219,11 @@ def _detect_entrypoint(project_root: Path, cmd: str | None) -> EntrypointInfo:
 
 
 def _list_recipes_for_inspection() -> list[RecipeInfo]:
-    """Heavy import 피하면서 recipe metadata 만 빠르게 수집.
+    """v4.0: pcq 내장 recipe 카탈로그가 사라졌으므로 항상 빈 리스트.
 
-    recipe_meta() 는 recipe 함수를 호출하므로 부분적으로 import 비용이 있다.
-    하지만 모델 학습은 하지 않는다 (factory 호출 정도).
+    하위 호환을 위해 schema 의 recipes 필드는 유지하되 콘텐츠는 항상 [].
     """
-    from pcq.trainer import Trainer
-
-    recipes: list[RecipeInfo] = []
-    for name in Trainer.list_presets():
-        try:
-            from pcq.agent import recipe_meta
-
-            meta = recipe_meta(name)
-            recipes.append(
-                RecipeInfo(
-                    name=name,
-                    task=meta.get("task"),
-                    requires_extras=meta.get("requires_extras", []),
-                    smoke_safe=meta.get("smoke_safe"),
-                )
-            )
-        except Exception:
-            # recipe import 실패해도 전체 inspect 가 깨지지 않게 fallback
-            recipes.append(RecipeInfo(name=name, task=None))
-    return recipes
+    return []
 
 
 def _detect_outputs(
@@ -373,14 +353,6 @@ def inspect_project(
         insp.entrypoint = _detect_entrypoint(project_root, insp.cq_yaml.cmd)
         # v2.0.2: Trainer.from_cfg(cfg) 패턴은 preset이 cq.yaml.configs.preset
         # 에 있음. AST 추출이 None이면 cq.yaml에서 fallback 추출.
-        if (
-            insp.entrypoint
-            and insp.entrypoint.kind == "trainer"
-            and not insp.entrypoint.preset
-        ):
-            cfg_preset = rc.cfg.get("preset")
-            if isinstance(cfg_preset, str) and cfg_preset:
-                insp.entrypoint.preset = cfg_preset
         if not insp.cq_yaml.declared_metrics:
             insp.warnings.append("cq.yaml has no declared metrics")
         # v2.5 (P2 #4): malformed cq.yaml — parse_errors → insp.errors.
@@ -390,28 +362,11 @@ def inspect_project(
         insp.warnings.append("no cq.yaml found")
         insp.entrypoint = EntrypointInfo(path=None)
 
-    # Project atom discovery imports user code. Keep default inspect read-only
-    # and let callers opt in when dynamic registry loading is desired.
-    if load_project_atoms:
-        from pcq.registry.loader import load_project_atoms as _load_project_atoms
-
-        load_report = _load_project_atoms(project_root)
-        if load_report.atoms_registered:
-            insp.warnings.append(
-                f"loaded {len(load_report.atoms_registered)} project atoms from "
-                f"{', '.join(load_report.modules_loaded)}"
-            )
-        if load_report.errors:
-            for err in load_report.errors:
-                insp.errors.append(
-                    f"project atom import {err['module']}: {err['error']}"
-                )
-        insp.project_atoms_loaded = load_report.to_dict()
-    else:
-        insp.project_atoms_loaded = {
-            "loaded": False,
-            "reason": "load_project_atoms disabled",
-        }
+    # v4.0: project-local atom system 제거. load_project_atoms 인자는 받지만 noop.
+    insp.project_atoms_loaded = {
+        "loaded": False,
+        "reason": "atom registry removed in v4.0",
+    }
 
     # 등록된 recipe 카탈로그
     insp.recipes = _list_recipes_for_inspection()

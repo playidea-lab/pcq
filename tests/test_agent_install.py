@@ -293,7 +293,6 @@ def test_cli_agent_status_json_missing_returns_zero(tmp_path):
 def test_cli_init_experiment_can_install_agent_assets(tmp_path):
     rc, out, _ = _run_cli(
         "init-experiment",
-        "--style", "script",
         "--output", str(tmp_path),
         "--agent", "claude",
         "--json",

@@ -1,9 +1,10 @@
 # pcq Agent Guide
 
-pcq is an agent-operable experiment contract library for machine learning
-projects. It is not a training framework, model zoo, or experiment tracking
-SaaS. It is a small Python package that makes arbitrary ML code inspectable,
-reproducible, and collectable through standard files and JSON surfaces.
+pcq is an agent-operable experiment evidence and control library for machine
+learning projects. It is not a training framework, model zoo, framework adapter
+matrix, or experiment tracking SaaS. It is a small Python package that makes
+arbitrary ML code inspectable, reproducible, verifiable, comparable, and
+repeatable through standard files and JSON surfaces.
 
 ## Identity
 
@@ -15,14 +16,20 @@ reproducible, and collectable through standard files and JSON surfaces.
 - PyPI: https://pypi.org/project/pcq/
 - Website: https://playidea-lab.github.io/pcq/
 
-The runtime contract keeps these CQ names:
+Core sentence:
+
+```text
+pcq does not operate the model.
+pcq operates the experiment boundary.
+```
+
+Runtime contract names:
 
 - `cq.yaml`
 - `CQ_CONFIG_JSON`
 - `cq://`
 
-These names are part of the experiment contract and do not mean the library is
-usable only with the managed CQ service.
+These names do not mean pcq is usable only with the managed CQ service.
 
 ## What pcq Standardizes
 
@@ -35,15 +42,16 @@ configs:
   seed: 42
   epochs: 3
   output_dir: output
+  monitor: eval_acc
+  mode: max
 metrics:
-  - name: eval_acc
-    direction: max
+  - epoch
+  - eval_acc
 artifacts:
-  - output/model.pt
+  - output/
 ```
 
-The training code can use any ML stack. It should read config, emit metrics,
-and save standard artifacts:
+The training code can use any ML stack:
 
 ```python
 import pcq
@@ -80,7 +88,8 @@ The agent should identify:
 - declared metrics
 - output directory
 - existing artifacts
-- implementation style: script, Experiment, Trainer, or project-local atoms
+- previous run records
+- validation warnings or blocking failures
 
 ## Run Path For Agents
 
@@ -160,11 +169,11 @@ environment, input, metric, artifact, validation, lineage, and summary evidence.
 Do:
 
 - Prefer JSON/JSONL surfaces over scraping terminal prose.
-- Keep project-specific model, dataset, loss, optimizer, and scheduler code in
-  the user's project.
-- Use built-in atoms only as examples and smoke baselines.
+- Keep project-specific model, dataset, loss, optimizer, scheduler, and
+  framework code in the user's project.
 - Declare metrics in `cq.yaml` before emitting them with `pcq.log(...)`.
 - Use `pcq.output_dir()` rather than hard-coded `output/` paths.
+- Treat failed runs as evidence when partial artifacts can be preserved.
 
 Do not:
 
@@ -172,9 +181,11 @@ Do not:
 - Assume pcq owns the training loop.
 - Assume CQ service is required.
 - Add framework adapters when direct contract code is enough.
+- Edit pcq internals for one project-specific experiment.
 
 ## Related Docs
 
+- v4 direction: https://github.com/playidea-lab/pcq/blob/main/docs/V4_DIRECTION.md
 - Introduction: https://github.com/playidea-lab/pcq/blob/main/docs/INTRODUCTION.md
 - JSON contracts: https://github.com/playidea-lab/pcq/blob/main/docs/JSON_CONTRACTS.md
 - Agent guide: https://github.com/playidea-lab/pcq/blob/main/docs/AGENT_OPERATING_GUIDE.md

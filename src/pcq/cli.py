@@ -1,21 +1,14 @@
 """pcq CLI — JSON-stable agent interface.
 
+v4.0: contract runtime + agent CLI surface only. atoms/recipe-meta/dry-run 제거.
+
 Commands:
-  pcq inspect [PATH] [--load-project-atoms] [--json]
-  pcq recipe-meta NAME [--json]
-  pcq dry-run [PATH] [--json]
+  pcq inspect [PATH] [--json]
   pcq validate [PATH] [--plan PLAN_FILE] [--planset PLANSET_FILE]
                        [--strictness 0..4] [--json]
   pcq summarize-run OUTPUT_DIR [--json]
-  pcq atoms list [--kind KIND] [--source SRC] [--load-project PATH] [--json]
-  pcq atoms show KIND NAME [--json]
-  pcq atoms validate-ref REF_FILE [--json]
-  pcq atoms scaffold KIND NAME [--output FILE] [--path DIR] [--force] [--json]
-  pcq atoms validate-local [PATH] [--json]
-  pcq atoms smoke KIND NAME [--load-project PATH] [--json]
-  pcq init-experiment [--style trainer|experiment|script] [--preset NAME]
-                       [--output DIR] [--name NAME] [--force]
-                       [--agent codex|claude|both] [--json]
+  pcq init-experiment [--output DIR] [--name NAME] [--force]
+                       [--with-pyproject] [--agent codex|claude|both] [--json]
   pcq agent install [--target codex|claude|both] [--path DIR]
                      [--dry-run] [--force] [--json]
   pcq agent status [--target codex|claude|both] [--path DIR] [--json]
@@ -119,13 +112,13 @@ def _resolve_events_path(
     pcq_dir: Path,
     default_when_enabled: bool,
 ) -> Path | None:
-    if raw_path:
-        path = Path(raw_path)
-        if not path.is_absolute():
-            path = project_root / path
-        return path
+    if raw_path is not None:
+        p = Path(raw_path).expanduser()
+        if not p.is_absolute():
+            p = project_root / p
+        return p.resolve()
     if default_when_enabled:
-        return pcq_dir / "events.jsonl"
+        return (pcq_dir / "events.jsonl").resolve()
     return None
 
 
@@ -141,205 +134,153 @@ def _run_with_events(
     emit_jsonl_stdout: bool,
     mirror_child_streams: bool,
 ) -> tuple[int, dict[str, Any]]:
-    """Run a command while producing structured JSONL run events."""
-    import queue
+    """Execute child cmd while emitting structured run events.
+
+    Captures child stdout/stderr to log files and emits NDJSON events to
+    stdout (when emit_jsonl_stdout) and/or events_path. Honors
+    mirror_child_streams for non-JSON modes.
+    """
     import subprocess
     import threading
 
     seq = 0
-    events_sink = None
+    sink = None
     if events_path is not None:
         events_path.parent.mkdir(parents=True, exist_ok=True)
-        events_sink = events_path.open("w", encoding="utf-8")
+        sink = events_path.open("w", encoding="utf-8")
+
+    # 동시 emit 방지 — stdout/stderr reader thread 가 같은 sink 에 쓴다.
+    emit_lock = threading.Lock()
 
     def emit(event: dict[str, Any]) -> None:
         nonlocal seq
-        seq += 1
-        payload = {
-            "schema_version": 1,
-            "seq": seq,
-            "time": _utc_now_iso(),
-            **event,
+        with emit_lock:
+            seq += 1
+            payload = {
+                "schema_version": 1,
+                "seq": seq,
+                "time": _utc_now_iso(),
+                **event,
+            }
+            if emit_jsonl_stdout:
+                _emit_jsonl_line(None, payload)
+            if sink is not None:
+                _emit_jsonl_line(sink, payload)
+
+    emit(
+        {
+            "event": "run.started",
+            "cmd": cmd,
+            "project_root": str(project_root),
+            "runtime_cfg_path": out_payload.get("runtime_cfg_path"),
         }
-        if events_sink is not None:
-            _emit_jsonl_line(events_sink, payload)
-        if emit_jsonl_stdout:
-            _emit_jsonl_line(None, payload)
+    )
 
     try:
-        emit(
-            {
-                "event": "run.started",
-                "status": "running",
-                "cmd": cmd,
-                "project_root": str(project_root),
-                "runtime_cfg_path": out_payload["runtime_cfg_path"],
-            }
-        )
-
-        process = subprocess.Popen(
+        proc = subprocess.Popen(
             cmd,
             shell=True,
             cwd=str(project_root),
             env=env,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
             bufsize=1,
+            text=True,
         )
-
-        stream_queue: queue.Queue[tuple[str, str | None]] = queue.Queue()
-
-        def reader(name: str, stream: Any) -> None:
-            try:
-                for line in stream:
-                    stream_queue.put((name, line))
-            finally:
-                stream_queue.put((name, None))
-
-        threads = [
-            threading.Thread(
-                target=reader, args=("stdout", process.stdout), daemon=True
-            ),
-            threading.Thread(
-                target=reader, args=("stderr", process.stderr), daemon=True
-            ),
-        ]
-        for thread in threads:
-            thread.start()
-
-        done_streams = 0
-        with (
-            stdout_path.open("w", encoding="utf-8") as stdout_file,
-            stderr_path.open("w", encoding="utf-8") as stderr_file,
-        ):
-            while done_streams < 2:
-                stream_name, line = stream_queue.get()
-                if line is None:
-                    done_streams += 1
-                    continue
-
-                if stream_name == "stdout":
-                    stdout_file.write(line)
-                    stdout_file.flush()
-                    if mirror_child_streams:
-                        sys.stdout.write(line)
-                        sys.stdout.flush()
-                    metrics = _parse_metric_line(line)
-                    if metrics is not None:
-                        emit(
-                            {
-                                "event": "metric",
-                                "stream": "stdout",
-                                "metrics": metrics,
-                                "raw": line.rstrip("\n"),
-                            }
-                        )
-                    else:
-                        emit(
-                            {
-                                "event": "stdout",
-                                "stream": "stdout",
-                                "text": line.rstrip("\n"),
-                            }
-                        )
-                else:
-                    stderr_file.write(line)
-                    stderr_file.flush()
-                    if mirror_child_streams:
-                        sys.stderr.write(line)
-                        sys.stderr.flush()
-                    emit(
-                        {
-                            "event": "stderr",
-                            "stream": "stderr",
-                            "text": line.rstrip("\n"),
-                        }
-                    )
-
-        returncode = process.wait()
-        for thread in threads:
-            thread.join(timeout=1)
-
-        final_status = "completed" if returncode == 0 else "failed"
-        final_event = "run.completed" if returncode == 0 else "run.failed"
-        emit(
-            {
-                "event": final_event,
-                "status": final_status,
-                "exit_code": returncode,
-                "stdout_path": str(stdout_path),
-                "stderr_path": str(stderr_path),
-                "events_path": str(events_path) if events_path else "",
-            }
-        )
-
-        stdout_tail, stdout_truncated = _read_text_tail(stdout_path)
-        stderr_tail, stderr_truncated = _read_text_tail(stderr_path)
+    except OSError as e:
+        emit({"event": "run.error", "error": str(e)})
+        if sink is not None:
+            sink.close()
         out_payload.update(
             {
-                "status": final_status,
-                "exit_code": returncode,
-                "stdout_path": str(stdout_path),
-                "stderr_path": str(stderr_path),
-                "stdout_tail": stdout_tail,
-                "stderr_tail": stderr_tail,
-                "stdout_tail_truncated": stdout_truncated,
-                "stderr_tail_truncated": stderr_truncated,
+                "status": "error",
+                "exit_code": 1,
+                "error": str(e),
             }
         )
-        if events_path is not None:
-            out_payload["events_path"] = str(events_path)
-        return returncode, out_payload
-    finally:
-        if events_sink is not None:
-            events_sink.close()
+        return 1, out_payload
 
+    files = {
+        "stdout": stdout_path.open("w", encoding="utf-8"),
+        "stderr": stderr_path.open("w", encoding="utf-8"),
+    }
 
-def _print_atoms_list_human(data: dict) -> None:
-    """v2.4: `pcq atoms list` 인간 가독 출력.
+    def reader(name: str, stream: Any) -> None:
+        out_file = files[name]
+        for line in stream:
+            out_file.write(line)
+            out_file.flush()
+            if mirror_child_streams:
+                target = sys.stdout if name == "stdout" else sys.stderr
+                target.write(line)
+                target.flush()
+            text = line.rstrip("\n")
+            if name == "stdout":
+                metrics = _parse_metric_line(text)
+                if metrics is not None:
+                    emit({"event": "metric", "metrics": metrics})
+                    continue
+            emit(
+                {
+                    "event": name,
+                    "stream": name,
+                    "line": text,
+                }
+            )
 
-    builtin atoms 에 [reference example] 태그를 붙여 contract example 임을 명시.
-    project / generated / external atoms 는 [<source>] 로 표시.
-    """
-    print("== Atoms (registered) ==")
-    for kind, entries in data.get("atoms", {}).items():
-        print(f"\n  {kind}:")
-        if not entries:
-            print("    (none)")
-            continue
-        for e in entries:
-            role = e.get("role", "")
-            src = e.get("source", "")
-            # role 우선 — reference_example 이면 명시 태그, 아니면 source 표시
-            if role == "reference_example":
-                role_tag = "[reference example]"
-            elif src and src != "builtin":
-                role_tag = f"[{src}]"
-            else:
-                role_tag = f"[{role or src or 'unknown'}]"
-            tasks = e.get("tasks") or []
-            tasks_str = f" tasks={tasks}" if tasks else ""
-            extras = e.get("requires_extras") or []
-            extras_str = f" requires={extras}" if extras else ""
-            print(f"    {e['name']:24s} {role_tag:22s}{tasks_str}{extras_str}")
-    print()
-    print(
-        "Note: 'reference example' atoms exist for contract verification + "
-        "onboarding + smoke baselines."
+    threads = [
+        threading.Thread(
+            target=reader, args=("stdout", proc.stdout), daemon=True
+        ),
+        threading.Thread(
+            target=reader, args=("stderr", proc.stderr), daemon=True
+        ),
+    ]
+    for t in threads:
+        t.start()
+    rc = proc.wait()
+    for t in threads:
+        t.join()
+    for f in files.values():
+        f.close()
+
+    stdout_tail, stdout_truncated = _read_text_tail(stdout_path)
+    stderr_tail, stderr_truncated = _read_text_tail(stderr_path)
+    out_payload.update(
+        {
+            "status": "completed" if rc == 0 else "failed",
+            "exit_code": rc,
+            "stdout_path": str(stdout_path),
+            "stderr_path": str(stderr_path),
+            "stdout_tail": stdout_tail,
+            "stderr_tail": stderr_tail,
+            "stdout_tail_truncated": stdout_truncated,
+            "stderr_tail_truncated": stderr_truncated,
+        }
     )
-    print(
-        "      Production atoms should be project-local — see "
-        "`pcq atoms scaffold`."
-    )
+    if events_path is not None:
+        out_payload["events_path"] = str(events_path)
+
+    end_event: dict[str, Any] = {
+        "event": (
+            "run.completed" if rc == 0 else "run.failed"
+        ),
+        "exit_code": rc,
+        "status": out_payload["status"],
+    }
+    if events_path is not None:
+        end_event["events_path"] = str(events_path)
+    emit(end_event)
+
+    if sink is not None:
+        sink.close()
+    return rc, out_payload
 
 
 def cmd_inspect(args: argparse.Namespace) -> int:
     from pcq.agent import inspect_project
 
-    insp = inspect_project(args.path, load_project_atoms=args.load_project_atoms)
+    insp = inspect_project(args.path)
     out = insp.to_dict()
     if args.json:
         _print_json(out)
@@ -348,102 +289,13 @@ def cmd_inspect(args: argparse.Namespace) -> int:
     return 1 if insp.errors else 0
 
 
-def cmd_recipe_meta(args: argparse.Namespace) -> int:
-    from pcq.agent import recipe_meta
-
-    try:
-        meta = recipe_meta(args.name)
-    except Exception as e:
-        err = {"schema_version": 1, "error": str(e), "name": args.name}
-        if args.json:
-            _print_json(err)
-        else:
-            print(f"error: {e}", file=sys.stderr)
-        return 1
-    out = {"schema_version": 1, **meta}
-    if args.json:
-        _print_json(out)
-    else:
-        _print_human(out, f"Recipe: {args.name}")
-    return 0
-
-
-def cmd_dry_run(args: argparse.Namespace) -> int:
-    """프로젝트 entrypoint detection 후 Trainer 조립 + dry_run plan.
-
-    v1.13: script/experiment style 은 graceful 처리 (preset 없음을 정상으로).
-    """
-    from pcq.agent import inspect_project
-    from pcq.trainer import Trainer
-
-    insp = inspect_project(args.path)
-    entry = insp.entrypoint
-
-    # v1.13: script / experiment / unknown — graceful exit (rc=0)
-    if entry is None or entry.kind in ("script", "experiment", "unknown"):
-        kind_str = entry.kind if entry else "unknown"
-        if entry and entry.kind == "script":
-            detail = (
-                "contract script — no preset/recipe to dry-run. "
-                "expected_artifacts are produced by save_all() / explicit "
-                "writes during the run."
-            )
-        elif entry and entry.kind == "experiment":
-            detail = (
-                "experiment-style — no preset to dry-run. Output via "
-                "Experiment.fit()."
-            )
-        else:
-            detail = "no entrypoint detected."
-        out = {
-            "schema_version": 1,
-            "kind": kind_str,
-            "entrypoint": entry.to_dict() if entry else None,
-            "detail": detail,
-            "expected_artifacts": [
-                "config.json", "metrics.json",
-                "manifest.json", "run_summary.json",
-            ],
-        }
-        if args.json:
-            _print_json(out)
-        else:
-            _print_human(out, "Dry Run")
-        return 0
-
-    # trainer style — preset literal 필수
-    if not entry.preset:
-        out = {
-            "schema_version": 1,
-            "kind": "trainer",
-            "detail": (
-                "trainer entrypoint detected but no preset literal found"
-            ),
-        }
-        if args.json:
-            _print_json(out)
-        else:
-            _print_human(out, "Dry Run")
-        return 0
-
-    trainer = Trainer(preset=entry.preset)
-    plan = trainer.dry_run()
-    out = {"schema_version": 1, "preset": entry.preset, **plan}
-    if args.json:
-        _print_json(out)
-    else:
-        _print_human(out, "Dry Run")
-    return 0
-
-
 def cmd_validate(args: argparse.Namespace) -> int:
     from pcq.agent import ExperimentPlan, ExperimentPlanSet, validate_project
     from pcq.agent.schema import ValidationCheck
 
     report = validate_project(args.path, strictness=args.strictness)
 
-    # PlanSet 검증 (선택) — --planset 시 schema + 멤버 검증 (registry-aware
-    # 검사는 멤버 별 apply 시점에 수행).
+    # PlanSet 검증 (선택)
     planset_file = getattr(args, "planset", None)
     if planset_file:
         ps_path = Path(planset_file)
@@ -475,7 +327,7 @@ def cmd_validate(args: argparse.Namespace) -> int:
                 for c in _validate_planset(planset):
                     report.add(c)
 
-    # Plan 검증 (선택) — --plan 옵션 시 ExperimentPlan + registry-aware 검사 추가
+    # Plan 검증 (선택)
     plan_file = getattr(args, "plan", None)
     if plan_file:
         plan_path = Path(plan_file)
@@ -503,40 +355,6 @@ def cmd_validate(args: argparse.Namespace) -> int:
                 )
             else:
                 plan_errors = plan.validate()
-                # registry-aware 검사: set_atom 의 ref 가 실제로 build 가능한지
-                try:
-                    from pcq import registry as registry_pkg
-                    from pcq.registry.spec import AtomRef
-
-                    reg_map = {
-                        "model": registry_pkg.models,
-                        "dataset": registry_pkg.datasets,
-                        "loss": registry_pkg.losses,
-                        "optim": registry_pkg.optims,
-                        "sched": registry_pkg.scheds,
-                        "metric": registry_pkg.metrics,
-                    }
-                    for i, c in enumerate(plan.changes):
-                        if c.op == "set_atom":
-                            kind = c._infer_kind()
-                            reg = reg_map.get(kind)
-                            if reg is None:
-                                continue
-                            ref = AtomRef(
-                                kind=kind,
-                                name=c.name or "",
-                                params=dict(c.params or {}),
-                            )
-                            errs = reg.validate_ref(ref)
-                            for e in errs:
-                                plan_errors.append(
-                                    f"changes[{i}].set_atom: {e}"
-                                )
-                except Exception as e:  # noqa: BLE001
-                    plan_errors.append(
-                        f"registry-aware validation skipped: {e}"
-                    )
-
                 if plan_errors:
                     for err in plan_errors:
                         report.add(
@@ -557,27 +375,6 @@ def cmd_validate(args: argparse.Namespace) -> int:
                         )
                     )
 
-                # v2.3: plan label contract simulation —
-                # set_atom 변경 사항을 base RecipeSpec.atoms 위에 시뮬레이션해
-                # ignore_index 충돌을 실행 전에 감지.
-                try:
-                    from pcq.agent.validate import _validate_plan_label_contracts
-
-                    for check in _validate_plan_label_contracts(plan):
-                        report.add(check)
-                except Exception as e:  # noqa: BLE001 — best-effort
-                    report.add(
-                        ValidationCheck(
-                            id="plan_label_contract",
-                            status="warn",
-                            severity="warning",
-                            detail=(
-                                f"plan label-contract simulation skipped: "
-                                f"{type(e).__name__}: {e}"
-                            ),
-                        )
-                    )
-
     out = report.to_dict()
     if args.json:
         _print_json(out)
@@ -592,15 +389,13 @@ def cmd_init_experiment(args: argparse.Namespace) -> int:
     try:
         result = init_experiment(
             output_dir=args.output,
-            preset=args.preset,
             name=args.name,
             force=args.force,
-            style=args.style,
             with_pyproject=args.with_pyproject,
             agent=args.agent if args.agent != "none" else None,
         )
     except Exception as e:  # noqa: BLE001
-        err = {"error": str(e), "preset": args.preset}
+        err = {"error": str(e)}
         if args.json:
             _print_json(err)
         else:
@@ -691,11 +486,9 @@ def cmd_summarize_run(args: argparse.Namespace) -> int:
 
 
 def cmd_finalize(args: argparse.Namespace) -> int:
-    """run_record.json + validation_report.json 작성 (v1.16, v2.5).
+    """run_record.json + validation_report.json 작성.
 
-    v2.5: chdir/env tmp file 트릭 제거. finalize_run(output_dir=..., project_root=...)
-    직접 호출. output_dir 이름이 "output" 인지 여부는 더 이상 detection 기준이
-    아님 — output_dir 의 ancestors 를 walk-up 하며 cq.yaml 탐색.
+    output_dir ancestor 를 walk-up 하며 cq.yaml 가진 디렉토리를 project_root 로 사용.
     """
     from pcq.contract import finalize_run
 
@@ -708,8 +501,6 @@ def cmd_finalize(args: argparse.Namespace) -> int:
             print(err["error"], file=sys.stderr)
         return 1
 
-    # output_dir 의 ancestor walk-up 으로 project_root (cq.yaml 가진 dir) 탐색.
-    # 못 찾으면 output_dir 의 parent 사용 (legacy 호환).
     project_root = (
         Path(args.project_root).resolve()
         if args.project_root
@@ -737,18 +528,13 @@ def cmd_finalize(args: argparse.Namespace) -> int:
 
 
 def _find_project_root_for_output_dir(output_dir: Path) -> Path | None:
-    """output_dir 의 ancestor walk-up 으로 cq.yaml 가진 디렉토리 탐색.
-
-    .git / pyproject.toml 만나면 stop (nested project safeguard).
-    못 찾으면 output_dir.parent (legacy 호환).
-    """
+    """output_dir 의 ancestor walk-up 으로 cq.yaml 가진 디렉토리 탐색."""
     cur = output_dir.resolve()
     for d in [cur, *cur.parents][:8]:
         for name in ("cq.yaml", "pcq.yml"):
             if (d / name).exists():
                 return d
         if (d / ".git").exists() or (d / "pyproject.toml").exists():
-            # 같은 디렉토리에 cq.yaml 없는데 root marker 만 — 그것이 root.
             return d
     return output_dir.parent
 
@@ -771,7 +557,7 @@ def cmd_validate_run(args: argparse.Namespace) -> int:
 
 
 def cmd_describe_run(args: argparse.Namespace) -> int:
-    """RunRecord 압축 요약 출력 (v1.17)."""
+    """RunRecord 압축 요약 출력."""
     from pcq.agent.describe import describe_run
 
     desc = describe_run(args.output_dir)
@@ -780,12 +566,11 @@ def cmd_describe_run(args: argparse.Namespace) -> int:
         _print_json(out)
     else:
         _print_human(out, "Run Description")
-    # no_record / corrupted 는 조용히 0 — agent 가 status 로 판단.
     return 0
 
 
 def cmd_compare_runs(args: argparse.Namespace) -> int:
-    """두 RunRecord 비교 diff 출력 (v1.17)."""
+    """두 RunRecord 비교 diff 출력."""
     from pcq.agent.compare import compare_runs
 
     diff = compare_runs(args.a, args.b)
@@ -798,7 +583,7 @@ def cmd_compare_runs(args: argparse.Namespace) -> int:
 
 
 def cmd_lineage(args: argparse.Namespace) -> int:
-    """RunRecord parent chain 출력 (v1.18)."""
+    """RunRecord parent chain 출력."""
     from pcq.agent.lineage import lineage
 
     chain = lineage(args.output_dir, max_depth=args.max_depth)
@@ -859,7 +644,7 @@ def cmd_agent(args: argparse.Namespace) -> int:
 
 
 def cmd_resolve(args: argparse.Namespace) -> int:
-    """v2.2: cq.yaml + CQ_CONFIG_JSON env → ResolvedConfig (debug view)."""
+    """cq.yaml + CQ_CONFIG_JSON env → ResolvedConfig (debug view)."""
     from pcq.agent.resolver import resolve_project
 
     rc = resolve_project(path=args.path, cq_yaml_path=args.cq_yaml)
@@ -872,7 +657,7 @@ def cmd_resolve(args: argparse.Namespace) -> int:
 
 
 def cmd_run(args: argparse.Namespace) -> int:
-    """v2.12: fresh-user first-class entry point.
+    """fresh-user first-class entry point.
 
     cq.yaml.cmd 읽어 실행. configs 를 .pcq/runtime_cfg.json 에 dump 후
     CQ_CONFIG_JSON env 자동 wiring. exit code 그대로 forward.
@@ -964,7 +749,6 @@ def cmd_run(args: argparse.Namespace) -> int:
     pcq_dir = project_root / ".pcq"
     pcq_dir.mkdir(parents=True, exist_ok=True)
     runtime_cfg_path = pcq_dir / "runtime_cfg.json"
-    # rc.cfg 는 이미 cq.yaml.configs + CQ_CONFIG_JSON merge 결과. 그대로 dump.
     runtime_cfg_path.write_text(
         json.dumps(rc.cfg, indent=2, default=str), encoding="utf-8"
     )
@@ -1005,14 +789,6 @@ def cmd_run(args: argparse.Namespace) -> int:
         "project_root": str(project_root),
     }
 
-    # cmd 는 shell-string. shell=True 로 직접 실행 (cq.yaml 의 cmd 가 작성자
-    # 의도대로 — 예: "uv run python train.py", "python -m foo args").
-    #
-    # JSON mode is machine contract mode: stdout must be parseable JSON only.
-    # Child streams are captured to files and summarized in the envelope.
-    #
-    # JSONL/event mode is live agent mode: child streams are captured while
-    # structured events are emitted to stdout and/or an events.jsonl file.
     events_path = _resolve_events_path(
         args.events,
         project_root=project_root,
@@ -1090,190 +866,6 @@ def cmd_run(args: argparse.Namespace) -> int:
     return completed.returncode
 
 
-def _atom_registry_map() -> dict:
-    # 6 카테고리 단일 인스턴스에 대한 kind 매핑.
-    from pcq import registry
-
-    return {
-        "model": registry.models,
-        "dataset": registry.datasets,
-        "loss": registry.losses,
-        "optim": registry.optims,
-        "sched": registry.scheds,
-        "metric": registry.metrics,
-    }
-
-
-def cmd_atoms(args: argparse.Namespace) -> int:
-    """atom registry inspection — list / show / validate-ref / scaffold / validate-local / smoke."""
-    reg_map = _atom_registry_map()
-
-    if args.atom_action == "list":
-        # --load-project 로 project atom 사전 로드
-        load_path = getattr(args, "load_project", None)
-        if load_path:
-            from pcq.registry.loader import load_project_atoms
-
-            load_project_atoms(load_path)
-        source_filter = getattr(args, "source", None)
-        out: dict = {"schema_version": 1, "atoms": {}}
-        kinds = [args.kind] if args.kind else list(reg_map)
-        for kind in kinds:
-            reg = reg_map[kind]
-            out["atoms"][kind] = []
-            for name in reg.list():
-                spec = reg.get(name)
-                if source_filter and spec.source != source_filter:
-                    continue
-                out["atoms"][kind].append(
-                    {
-                        "name": name,
-                        "tasks": spec.tasks,
-                        "metadata_status": spec.metadata_status,
-                        "requires_extras": spec.requires_extras,
-                        "source": spec.source,
-                        "module": spec.module,
-                        # v2.4: role — atom 의 의도적 위치
-                        "role": spec.role,
-                    }
-                )
-        if args.json:
-            _print_json(out)
-        else:
-            # v2.4: 인간 가독 출력 — builtin atoms 에 [reference example] 표시
-            _print_atoms_list_human(out)
-        return 0
-
-    if args.atom_action == "show":
-        if args.kind not in reg_map:
-            err = {
-                "error": f"unknown kind {args.kind!r}",
-                "valid_kinds": sorted(reg_map),
-            }
-            if args.json:
-                _print_json(err)
-            else:
-                print(err["error"], file=sys.stderr)
-            return 1
-        try:
-            spec = reg_map[args.kind].get(args.name)
-        except ValueError as e:
-            err = {"error": str(e)}
-            if args.json:
-                _print_json(err)
-            else:
-                print(str(e), file=sys.stderr)
-            return 1
-        out = {"schema_version": 1, **spec.to_dict()}
-        if args.json:
-            _print_json(out)
-        else:
-            _print_human(out, f"{args.kind}/{args.name}")
-        return 0
-
-    if args.atom_action == "validate-ref":
-        ref_path = Path(args.ref_file)
-        if not ref_path.exists():
-            err = {"error": f"file not found: {ref_path}"}
-            if args.json:
-                _print_json(err)
-            else:
-                print(err["error"], file=sys.stderr)
-            return 1
-        try:
-            ref_data = json.loads(ref_path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError as e:
-            err = {"error": f"JSON parse: {e}"}
-            if args.json:
-                _print_json(err)
-            else:
-                print(err["error"], file=sys.stderr)
-            return 1
-        from pcq.registry.spec import AtomRef
-
-        try:
-            ref = AtomRef.from_dict(ref_data)
-        except (KeyError, TypeError) as e:
-            err = {"error": f"invalid ref: {e}"}
-            if args.json:
-                _print_json(err)
-            else:
-                print(err["error"], file=sys.stderr)
-            return 1
-        reg = reg_map.get(ref.kind)
-        if reg is None:
-            err = {
-                "error": f"unknown kind {ref.kind!r}",
-                "valid_kinds": sorted(reg_map),
-            }
-            if args.json:
-                _print_json(err)
-            else:
-                print(err["error"], file=sys.stderr)
-            return 1
-        errors = reg.validate_ref(ref)
-        out = {
-            "schema_version": 1,
-            "kind": ref.kind,
-            "name": ref.name,
-            "params": ref.params,
-            "valid": len(errors) == 0,
-            "errors": errors,
-        }
-        if args.json:
-            _print_json(out)
-        else:
-            _print_human(out, "Validate Ref")
-        return 0 if not errors else 1
-
-    if args.atom_action == "scaffold":
-        from pcq.agent.scaffold import scaffold_atom
-
-        result = scaffold_atom(
-            kind=args.kind,
-            name=args.name,
-            output=args.output,
-            project_root=args.path,
-            force=args.force,
-        )
-        out = result.to_dict()
-        if args.json:
-            _print_json(out)
-        else:
-            _print_human(out, f"Scaffold {args.kind}/{args.name}")
-        return 0 if result.status in ("created", "skipped") else 1
-
-    if args.atom_action == "validate-local":
-        from pcq.agent.scaffold import validate_local_atoms
-
-        report = validate_local_atoms(args.path)
-        out = report.to_dict()
-        if args.json:
-            _print_json(out)
-        else:
-            _print_human(out, "Project Atoms Validation")
-        return 0 if report.status != "fail" else 1
-
-    if args.atom_action == "smoke":
-        # --load-project 로 project atom 사전 로드 (smoke 대상이 project atom 인 경우)
-        load_path = getattr(args, "load_project", None)
-        if load_path:
-            from pcq.registry.loader import load_project_atoms
-
-            load_project_atoms(load_path)
-        from pcq.agent.smoke import smoke_atom
-
-        report = smoke_atom(args.kind, args.name)
-        out = report.to_dict()
-        if args.json:
-            _print_json(out)
-        else:
-            _print_human(out, f"Smoke {args.kind}/{args.name}")
-        return 0 if report.passed else 1
-
-    return 1
-
-
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="pcq",
@@ -1284,23 +876,8 @@ def main(argv: list[str] | None = None) -> int:
 
     p = sub.add_parser("inspect", help="inspect project structure")
     p.add_argument("path", nargs="?", default=".")
-    p.add_argument(
-        "--load-project-atoms",
-        action="store_true",
-        help="import pcq_atoms.py / atoms/*.py during inspect (default: read-only)",
-    )
     p.add_argument("--json", action="store_true", help="emit JSON only")
     p.set_defaults(func=cmd_inspect)
-
-    p = sub.add_parser("recipe-meta", help="inspect one recipe metadata")
-    p.add_argument("name")
-    p.add_argument("--json", action="store_true")
-    p.set_defaults(func=cmd_recipe_meta)
-
-    p = sub.add_parser("dry-run", help="show assembled execution plan")
-    p.add_argument("path", nargs="?", default=".")
-    p.add_argument("--json", action="store_true")
-    p.set_defaults(func=cmd_dry_run)
 
     p = sub.add_parser("validate", help="validate project before CQ run")
     p.add_argument("path", nargs="?", default=".")
@@ -1313,8 +890,7 @@ def main(argv: list[str] | None = None) -> int:
         "--planset",
         default=None,
         help=(
-            "optional ExperimentPlanSet JSON file (v2.11) — set + member "
-            "schema validation"
+            "optional ExperimentPlanSet JSON file — set + member schema validation"
         ),
     )
     p.add_argument(
@@ -1337,111 +913,13 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--json", action="store_true")
     p.set_defaults(func=cmd_summarize_run)
 
-    # `pcq atoms` — sub-subcommand for atom registry inspection.
-    p_atoms = sub.add_parser("atoms", help="atom registry inspection")
-    atom_sub = p_atoms.add_subparsers(dest="atom_action", required=True)
-
-    p_list = atom_sub.add_parser("list", help="list registered atoms")
-    p_list.add_argument(
-        "--kind",
-        choices=["model", "dataset", "loss", "optim", "sched", "metric"],
-        default=None,
-    )
-    p_list.add_argument(
-        "--source",
-        choices=["builtin", "project", "generated", "external"],
-        default=None,
-        help="filter atoms by source",
-    )
-    p_list.add_argument(
-        "--load-project",
-        metavar="PATH",
-        default=None,
-        help="load project atoms from PATH before listing",
-    )
-    p_list.add_argument("--json", action="store_true")
-
-    p_show = atom_sub.add_parser("show", help="show atom metadata")
-    p_show.add_argument(
-        "kind",
-        choices=["model", "dataset", "loss", "optim", "sched", "metric"],
-    )
-    p_show.add_argument("name")
-    p_show.add_argument("--json", action="store_true")
-
-    p_val = atom_sub.add_parser(
-        "validate-ref", help="validate an AtomRef JSON file"
-    )
-    p_val.add_argument("ref_file")
-    p_val.add_argument("--json", action="store_true")
-
-    # v1.12: scaffold — generate project-local atom file skeleton
-    p_scaffold = atom_sub.add_parser(
-        "scaffold", help="generate project-local atom file skeleton"
-    )
-    p_scaffold.add_argument(
-        "kind",
-        choices=["model", "dataset", "loss", "optim", "sched", "metric"],
-    )
-    p_scaffold.add_argument("name")
-    p_scaffold.add_argument(
-        "--output",
-        default=None,
-        help="output file path (default: atoms/<plural>.py)",
-    )
-    p_scaffold.add_argument(
-        "--path",
-        default=".",
-        help="project root (default: cwd)",
-    )
-    p_scaffold.add_argument(
-        "--force", action="store_true", help="overwrite existing file"
-    )
-    p_scaffold.add_argument("--json", action="store_true")
-
-    # v1.12: validate-local — project atom contract validation
-    p_local = atom_sub.add_parser(
-        "validate-local",
-        help="validate project-local atoms (pcq_atoms.py / atoms/*.py)",
-    )
-    p_local.add_argument("path", nargs="?", default=".")
-    p_local.add_argument("--json", action="store_true")
-
-    # v1.12: smoke — 1-step contract verification per atom
-    p_smoke = atom_sub.add_parser(
-        "smoke", help="smoke contract test for one atom"
-    )
-    p_smoke.add_argument(
-        "kind",
-        choices=["model", "dataset", "loss", "optim", "sched", "metric"],
-    )
-    p_smoke.add_argument("name")
-    p_smoke.add_argument(
-        "--load-project",
-        metavar="PATH",
-        default=None,
-        help="load project atoms from PATH before smoke test",
-    )
-    p_smoke.add_argument("--json", action="store_true")
-
-    p_atoms.set_defaults(func=cmd_atoms)
-
     # init-experiment ────────────────────────────────────────────────
     p_init = sub.add_parser(
-        "init-experiment", help="scaffold a CQ-runnable ML experiment"
-    )
-    p_init.add_argument(
-        "--style",
-        choices=["trainer", "experiment", "script"],
-        default="trainer",
-        help="entrypoint style (default: trainer)",
-    )
-    p_init.add_argument(
-        "--preset", help="registered recipe name (required for trainer style)"
+        "init-experiment", help="scaffold a CQ-runnable contract script"
     )
     p_init.add_argument("--output", default=".", help="output project directory")
     p_init.add_argument(
-        "--name", default=None, help="cq.yaml name (default: preset with / → -)"
+        "--name", default=None, help="cq.yaml name (default: pcq-experiment)"
     )
     p_init.add_argument(
         "--force", action="store_true", help="overwrite existing files"
@@ -1449,7 +927,7 @@ def main(argv: list[str] | None = None) -> int:
     p_init.add_argument(
         "--with-pyproject",
         action="store_true",
-        help="also generate pyproject.toml (pcq dep + preset extras)"
+        help="also generate pyproject.toml (pcq dep)"
         " — recommended for reproducible lockfile_sha256 evidence",
     )
     p_init.add_argument(
@@ -1530,8 +1008,7 @@ def main(argv: list[str] | None = None) -> int:
     p_aps = sub.add_parser(
         "apply-planset",
         help=(
-            "apply ExperimentPlanSet — expand member plans into N output dirs "
-            "(v2.11)"
+            "apply ExperimentPlanSet — expand member plans into N output dirs"
         ),
     )
     p_aps.add_argument("planset_file", help="path to ExperimentPlanSet JSON")
@@ -1559,7 +1036,7 @@ def main(argv: list[str] | None = None) -> int:
     # finalize ───────────────────────────────────────────────────────
     p_fin = sub.add_parser(
         "finalize",
-        help="generate run_record.json + validation_report.json (v1.16)",
+        help="generate run_record.json + validation_report.json",
     )
     p_fin.add_argument("output_dir", nargs="?", default="output")
     p_fin.add_argument("--project-root", default=None)
@@ -1589,7 +1066,7 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help=(
             "ignore manifest entries whose files no longer exist in "
-            "output_dir (v2.12; for output_dir reuse / stale lock-in fix)"
+            "output_dir (for output_dir reuse / stale lock-in fix)"
         ),
     )
     p_vr.add_argument("--json", action="store_true")
@@ -1598,7 +1075,7 @@ def main(argv: list[str] | None = None) -> int:
     # describe-run ───────────────────────────────────────────────────
     p_dr = sub.add_parser(
         "describe-run",
-        help="compact RunRecord summary (v1.17)",
+        help="compact RunRecord summary",
     )
     p_dr.add_argument("output_dir", nargs="?", default="output")
     p_dr.add_argument("--json", action="store_true")
@@ -1607,7 +1084,7 @@ def main(argv: list[str] | None = None) -> int:
     # compare-runs ───────────────────────────────────────────────────
     p_cr = sub.add_parser(
         "compare-runs",
-        help="diff two RunRecords (v1.17)",
+        help="diff two RunRecords",
     )
     p_cr.add_argument(
         "a", help="path to first run_record.json or output dir"
@@ -1621,7 +1098,7 @@ def main(argv: list[str] | None = None) -> int:
     # lineage ────────────────────────────────────────────────────────
     p_li = sub.add_parser(
         "lineage",
-        help="walk RunRecord parent chain (v1.18)",
+        help="walk RunRecord parent chain",
     )
     p_li.add_argument(
         "output_dir",
@@ -1641,7 +1118,7 @@ def main(argv: list[str] | None = None) -> int:
     # resolve ────────────────────────────────────────────────────────────
     p_res = sub.add_parser(
         "resolve",
-        help="resolve cq.yaml + env into single ResolvedConfig view (v2.2)",
+        help="resolve cq.yaml + env into single ResolvedConfig view",
     )
     p_res.add_argument("path", nargs="?", default=".")
     p_res.add_argument("--cq-yaml", default=None, help="explicit cq.yaml path")
@@ -1652,7 +1129,7 @@ def main(argv: list[str] | None = None) -> int:
     p_run = sub.add_parser(
         "run",
         help=(
-            "execute cq.yaml.cmd with auto-wired CQ_CONFIG_JSON (v2.12) — "
+            "execute cq.yaml.cmd with auto-wired CQ_CONFIG_JSON — "
             "fresh-user entry point"
         ),
     )

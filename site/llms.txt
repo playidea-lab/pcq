@@ -1,9 +1,17 @@
 # pcq
 
-pcq is an Apache-2.0 Python library for agent-operable ML experiment contracts.
+pcq is an Apache-2.0 Python library for agent-operable experiment evidence and
+control.
 
-Use pcq when an agent, CI job, service worker, or human needs to run ML code
-and collect reproducible evidence through a stable project contract.
+Use pcq when an agent, CI job, service worker, notebook, or human needs to run
+ML code and collect reproducible evidence through a stable project contract.
+
+Core identity:
+
+- pcq does not operate the model.
+- pcq operates the experiment boundary.
+- The contract is the adapter.
+- CQ is one managed consumer of the contract; pcq is useful without CQ.
 
 Install:
 
@@ -16,18 +24,18 @@ Canonical resources:
 - Website: https://playidea-lab.github.io/pcq/
 - Repository: https://github.com/playidea-lab/pcq
 - PyPI: https://pypi.org/project/pcq/
+- v4 direction: https://github.com/playidea-lab/pcq/blob/main/docs/V4_DIRECTION.md
 - Full agent guide: https://playidea-lab.github.io/pcq/llms-full.txt
 - Machine manifest: https://playidea-lab.github.io/pcq/agent-manifest.json
 
 Core idea:
 
 - `cq.yaml` declares the run command, config, metrics, inputs, and artifacts.
-- Training code can use PyTorch, Hugging Face Trainer, sklearn, TabPFN,
-  PyCaret, XGBoost, or custom Python.
+- Training code can use PyTorch, Hugging Face Trainer, Lightning, sklearn,
+  TabPFN, PyCaret, XGBoost, shell scripts, remote jobs, or custom Python.
 - pcq standardizes config loading, metric emission, artifact layout,
-  validation, and final run evidence.
-- CQ is a managed service consumer of the contract. pcq is the open-source
-  library and remains useful without CQ.
+  validation, comparison, lineage, and final run evidence.
+- pcq is not a trainer, model zoo, adapter matrix, or CQ-only client.
 
 Primary agent commands:
 
@@ -41,6 +49,7 @@ pcq validate-run output --strictness 3 --json
 pcq describe-run output --json
 pcq compare-runs old_output new_output --json
 pcq lineage output --json
+pcq apply-plan experiment.plan.json --json
 ```
 
 Runtime surfaces:
@@ -62,4 +71,5 @@ Standard artifacts:
 Agent rule:
 
 Prefer JSON/JSONL commands over scraping prose. Use `describe-run` and
-`compare-runs` for decision facts; pcq reports facts and does not select policy.
+`compare-runs` for decision facts. pcq reports facts; the agent or service
+chooses policy.

@@ -5,6 +5,13 @@
 This document defines the service-facing MCP surface that lets agents operate
 CQ ML projects through structured tools instead of ad hoc shell commands.
 
+**v4 direction**: MCP should expose the same framework-neutral experiment
+boundary as `pcq`. The service may offer higher-level conveniences, but the
+stable contract is still resolve, inspect, validate, run, validate-run,
+describe-run, compare-runs, lineage, and apply-plan. See
+[pcq v4 Direction](V4_DIRECTION.md). Older atom/recipe-specific tool ideas are
+secondary and should not be treated as the core product surface.
+
 The MCP layer belongs to the managed CQ service. `pcq` remains the open-source
 contract library. MCP tools may call `pcq` CLI/API internally, but the contract
 boundary stays `cq.yaml`, environment, stdout metrics, output artifacts, and
@@ -80,14 +87,14 @@ pcq resolve PROJECT_ROOT --cq-yaml CQ_YAML_PATH --json
 
 #### `cq_inspect_project`
 
-Return project structure, entrypoint, recipes, atoms, and output evidence.
+Return project structure, entrypoint, contract state, and output evidence.
 
 Input:
 
 ```json
 {
   "project_root": "/work/project",
-  "load_project_atoms": false
+  "load_project_code": false
 }
 ```
 
@@ -108,14 +115,13 @@ Output:
 }
 ```
 
-Side effects: none when `load_project_atoms=false`. Dynamic atom loading should
-be explicit because it imports project code.
+Side effects: none. Any dynamic project-code loading should be explicit because
+it imports project code.
 
 Current `pcq` CLI mapping:
 
 ```bash
 pcq inspect PROJECT_ROOT --json
-pcq inspect PROJECT_ROOT --load-project-atoms --json
 ```
 
 #### `cq_validate_project`
@@ -191,38 +197,6 @@ Current `pcq` CLI mapping:
 
 ```bash
 pcq init-experiment --style script --output PROJECT_ROOT --name NAME --json
-```
-
-#### `cq_scaffold_atom`
-
-Create a project-local atom skeleton.
-
-Input:
-
-```json
-{
-  "project_root": "/work/project",
-  "kind": "model",
-  "name": "dental_unet"
-}
-```
-
-Output:
-
-```json
-{
-  "status": "pass",
-  "path": "atoms/models.py",
-  "checks": []
-}
-```
-
-Side effects: writes project files.
-
-Current `pcq` CLI mapping:
-
-```bash
-pcq atoms scaffold KIND NAME --path PROJECT_ROOT --json
 ```
 
 ### Execution
@@ -528,10 +502,13 @@ The first useful CQ MCP should implement:
 2. `cq_inspect_project`
 3. `cq_validate_project`
 4. `cq_scaffold_experiment`
-5. `cq_scaffold_atom`
-6. `cq_finalize_run`
-7. `cq_validate_run`
-8. `cq_describe_run`
+5. `cq_finalize_run`
+6. `cq_validate_run`
+7. `cq_describe_run`
+8. `cq_compare_runs`
+9. `cq_lineage`
 
-`cq_run_experiment`, dataset fetch, artifact upload, compare, and lineage can
-follow once the service queue and storage contracts are stable.
+`cq_run_experiment`, dataset fetch, and artifact upload can follow once the
+service queue and storage contracts are stable. Project-specific model/loss/data
+files should be normal project-local code changes, not a mandatory MCP atom
+surface.

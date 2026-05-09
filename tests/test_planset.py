@@ -1,4 +1,7 @@
-"""ExperimentPlanSet (v2.11) — multi-run schema expressivity."""
+"""ExperimentPlanSet (v4.0) — multi-run schema expressivity.
+
+v4.0: init_experiment 의 preset 인자 제거. base 는 free-form metadata.
+"""
 from __future__ import annotations
 
 import json
@@ -22,7 +25,7 @@ def _make_plans(n: int = 3) -> list[ExperimentPlan]:
         plans.append(ExperimentPlan(
             id=f"exp-{i:03d}",
             intent=f"sweep epoch {i}",
-            base={"preset": "vision/fake_smoke"},
+            base={"baseline": "init"},
             changes=[ChangeOp(op="set_config", key="epochs", value=i + 1)],
         ))
     return plans
@@ -33,7 +36,7 @@ def test_planset_schema_roundtrip():
     ps = ExperimentPlanSet(
         id="sweep-001",
         intent="lr sweep",
-        base={"preset": "vision/fake_smoke"},
+        base={"baseline": "init"},
         plans=_make_plans(2),
     )
     d = ps.to_dict()
@@ -95,7 +98,7 @@ def test_planset_unique_plan_ids():
 
 def test_apply_planset_expands_to_n_dirs(tmp_path):
     """3 plans → 3 output directories."""
-    init_experiment(tmp_path, preset="vision/fake_smoke", force=True)
+    init_experiment(tmp_path, force=True)
     ps = ExperimentPlanSet(id="sw-001", plans=_make_plans(3))
 
     result = apply_planset(tmp_path, ps, output_pattern="runs/exp{i}")
@@ -112,7 +115,7 @@ def test_apply_planset_expands_to_n_dirs(tmp_path):
 
 def test_apply_planset_propagates_parent_run_id(tmp_path):
     """set 의 parent_run_id 가 멤버 plan 에 propagate."""
-    init_experiment(tmp_path, preset="vision/fake_smoke", force=True)
+    init_experiment(tmp_path, force=True)
     ps = ExperimentPlanSet(
         id="sw-002",
         parent_run_id="run_baseline_abc",
@@ -130,7 +133,7 @@ def test_apply_planset_propagates_parent_run_id(tmp_path):
 
 def test_apply_planset_member_specific_parent_takes_precedence(tmp_path):
     """멤버 plan 이 자체 parent_run_id 를 명시했다면 set 값으로 덮어쓰지 않음."""
-    init_experiment(tmp_path, preset="vision/fake_smoke", force=True)
+    init_experiment(tmp_path, force=True)
     plans = _make_plans(2)
     plans[0].parent_run_id = "explicit_parent_001"
     ps = ExperimentPlanSet(
@@ -147,7 +150,7 @@ def test_apply_planset_member_specific_parent_takes_precedence(tmp_path):
 
 def test_apply_planset_skips_existing_dir_without_force(tmp_path):
     """기존 dir + force=false 면 멤버 skip 으로 기록."""
-    init_experiment(tmp_path, preset="vision/fake_smoke", force=True)
+    init_experiment(tmp_path, force=True)
     target = tmp_path / "runs" / "exp0"
     target.mkdir(parents=True)
     (target / "marker").write_text("already here")
@@ -164,7 +167,7 @@ def test_apply_planset_skips_existing_dir_without_force(tmp_path):
 
 def test_apply_planset_force_overwrites(tmp_path):
     """force=true 면 기존 dir 도 cq.yaml 새로 작성."""
-    init_experiment(tmp_path, preset="vision/fake_smoke", force=True)
+    init_experiment(tmp_path, force=True)
     target = tmp_path / "runs" / "exp0"
     target.mkdir(parents=True)
     (target / "marker").write_text("pre-existing")
@@ -191,7 +194,7 @@ def test_apply_planset_rejects_when_no_base_cq_yaml(tmp_path):
 
 def test_apply_planset_rejects_invalid_set(tmp_path):
     """validate 실패 → 어떤 dir 도 만들지 않음."""
-    init_experiment(tmp_path, preset="vision/fake_smoke", force=True)
+    init_experiment(tmp_path, force=True)
     ps = ExperimentPlanSet(id="", plans=_make_plans(1))   # id 빈 → invalid
     result = apply_planset(tmp_path, ps)
     assert result.status == "rejected"
@@ -200,7 +203,7 @@ def test_apply_planset_rejects_invalid_set(tmp_path):
 
 def test_apply_planset_dict_input_accepted(tmp_path):
     """dict 도 받는다 — JSON 로드 후 직접 전달 가능."""
-    init_experiment(tmp_path, preset="vision/fake_smoke", force=True)
+    init_experiment(tmp_path, force=True)
     ps = ExperimentPlanSet(id="sw-007", plans=_make_plans(2))
     result = apply_planset(tmp_path, ps.to_dict(), output_pattern="runs/exp{i}")
     assert result.status == "applied"
@@ -210,7 +213,7 @@ def test_apply_planset_dict_input_accepted(tmp_path):
 def test_validate_planset_cli(tmp_path):
     """`pcq validate --planset` subprocess 동작."""
     # base project + planset JSON 작성
-    init_experiment(tmp_path, preset="vision/fake_smoke", force=True)
+    init_experiment(tmp_path, force=True)
     ps = ExperimentPlanSet(id="sw-cli", plans=_make_plans(2))
     ps_path = tmp_path / "planset.json"
     ps_path.write_text(json.dumps(ps.to_dict()), encoding="utf-8")
@@ -231,7 +234,7 @@ def test_validate_planset_cli(tmp_path):
 
 def test_apply_planset_cli(tmp_path):
     """`pcq apply-planset` subprocess 동작."""
-    init_experiment(tmp_path, preset="vision/fake_smoke", force=True)
+    init_experiment(tmp_path, force=True)
     ps = ExperimentPlanSet(id="sw-cli-apply", plans=_make_plans(2))
     ps_path = tmp_path / "planset.json"
     ps_path.write_text(json.dumps(ps.to_dict()), encoding="utf-8")

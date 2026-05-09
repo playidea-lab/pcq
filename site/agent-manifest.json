@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "name": "pcq",
-  "description": "Agent-operable ML experiment contract library.",
+  "description": "Framework-neutral evidence and control layer for agent-run ML experiments.",
   "license": "Apache-2.0",
   "package": {
     "pypi": "pcq",
@@ -15,6 +15,7 @@
     "pypi": "https://pypi.org/project/pcq/",
     "llms": "https://playidea-lab.github.io/pcq/llms.txt",
     "llms_full": "https://playidea-lab.github.io/pcq/llms-full.txt",
+    "v4_direction": "https://github.com/playidea-lab/pcq/blob/main/docs/V4_DIRECTION.md",
     "json_contracts": "https://github.com/playidea-lab/pcq/blob/main/docs/JSON_CONTRACTS.md",
     "agent_operating_guide": "https://github.com/playidea-lab/pcq/blob/main/docs/AGENT_OPERATING_GUIDE.md"
   },
@@ -55,6 +56,9 @@
     "prefer_machine_surfaces": true,
     "do_not_scrape_human_output": true,
     "pcq_reports_facts_not_decisions": true,
-    "cq_service_required": false
+    "cq_service_required": false,
+    "framework_adapters_required": false,
+    "training_loop_owned_by_pcq": false,
+    "project_local_training_code_first_class": true
   }
 }

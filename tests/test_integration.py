@@ -60,8 +60,11 @@ def test_full_run_from_cq_config_json(tmp_path: Path) -> None:
         f"train.py failed (exit {result.returncode}):\n"
         f"STDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
     )
-    # 5개 아티팩트 존재 확인
-    for name in ["model.pt", "config.json", "metrics.json", "last.ckpt", "best.ckpt"]:
+    # contract artifacts (v4.0 — save_all 이 작성하는 6개 표준 산출물)
+    for name in [
+        "config.json", "metrics.json", "manifest.json",
+        "run_summary.json", "run_record.json", "validation_report.json",
+    ]:
         assert (output_dir / name).exists(), f"missing artifact: {name}"
     # metrics.json 구조 확인
     metrics = json.loads((output_dir / "metrics.json").read_text())

@@ -33,16 +33,6 @@ def test_validate_to_dict_schema_version():
     assert "warning_count" in d
 
 
-def test_validate_records_extras_hint():
-    """recipe 들이 extras 를 요구하면 optional_extras check 생성."""
-    report = validate_project("examples")
-    ids = {c.id for c in report.checks}
-    # vision/cifar10_smallcnn_baseline 등이 ['vision'] extras 요구 → hint 있어야
-    assert "optional_extras" in ids
-    extras_check = next(c for c in report.checks if c.id == "optional_extras")
-    assert extras_check.severity == "info"
-
-
 def test_validate_strictness_zero_only_parse_contract(tmp_path):
     (tmp_path / "cq.yaml").write_text(
         "name: t\n"

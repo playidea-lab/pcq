@@ -68,32 +68,6 @@ def test_inspect_trainer_still_detected(tmp_path):
     assert "torch" in insp.entrypoint.detected_imports
 
 
-def test_inspect_from_cfg_pattern_picks_up_preset_from_cqyaml(tmp_path):
-    """v2.0.2 fix: Trainer.from_cfg(cfg) 패턴은 preset이 cq.yaml.configs.preset에 있음."""
-    (tmp_path / "cq.yaml").write_text("""\
-name: t
-cmd: uv run python train.py
-configs:
-  preset: vision/fake_smoke
-  output_dir: output
-metrics:
-  - epoch
-artifacts:
-  - output/
-""")
-    (tmp_path / "train.py").write_text("""\
-import pcq
-
-cfg = pcq.config()
-pcq.seed_everything(cfg.get("seed", 42))
-trainer = pcq.Trainer.from_cfg(cfg)
-trainer.fit()
-""")
-    insp = inspect_project(tmp_path)
-    assert insp.entrypoint.kind == "trainer"
-    assert insp.entrypoint.preset == "vision/fake_smoke"
-
-
 def test_inspect_literal_preset_still_wins_over_cfg(tmp_path):
     """Trainer(preset='X') literal이 있으면 그게 우선 (cq.yaml.configs.preset 무시)."""
     (tmp_path / "cq.yaml").write_text("""\

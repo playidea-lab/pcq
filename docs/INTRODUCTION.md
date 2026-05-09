@@ -1,10 +1,18 @@
 # pcq Introduction
 
-`pcq` is an open-source ML experiment contract library.
+`pcq` is an open-source experiment evidence and control library.
 
 It does not replace your training framework. It standardizes what surrounds a
 training run: configuration, metric emission, artifact layout, validation,
-lineage, and the final run record an agent or service can reason about.
+lineage, comparison, and the final run record an agent or service can reason
+about.
+
+The central idea:
+
+```text
+pcq does not operate the model.
+pcq operates the experiment boundary.
+```
 
 ## What It Solves
 
@@ -28,7 +36,8 @@ cq.yaml
   -> command, configs, metrics, inputs, artifacts
 
 training code
-  -> PyTorch, sklearn, HF Trainer, TabPFN, PyCaret, XGBoost, custom code
+  -> PyTorch, HF Trainer, Lightning, sklearn, TabPFN, PyCaret,
+     XGBoost, shell script, remote job, or custom code
 
 pcq
   -> config loading, metric logging, artifact helpers, validation, RunRecord
@@ -38,8 +47,8 @@ output/
      run_record.json, validation_report.json
 ```
 
-`cq.yaml`, `CQ_CONFIG_JSON`, and `cq://` are CQ runtime contract names and stay
-stable. `pcq` is the Python authoring and evidence library that consumes that
+`cq.yaml`, `CQ_CONFIG_JSON`, and `cq://` are runtime contract names and stay
+stable. `pcq` is the Python evidence/control library that consumes that
 contract.
 
 ## Who It Is For
@@ -54,18 +63,19 @@ contract.
 ## What pcq Is Not
 
 - Not a model zoo.
+- Not a training framework.
 - Not an experiment tracking SaaS.
-- Not a replacement for PyTorch Lightning, HF Trainer, W&B, MLflow, or CQ.
+- Not a replacement for PyTorch Lightning, HF Trainer, W&B, MLflow, DVC, or CQ.
 - Not a framework adapter matrix.
 
 The contract is the adapter. If a script can read config, emit metrics, and
 write standard artifacts, it can be operated by `pcq`.
 
-## Three Ways To Use It
+## Primary Workflow
 
-### 1. Contract Script
+### 1. Write A Contract Script
 
-Use this when another framework owns the training loop.
+Use whatever training stack fits the problem.
 
 ```python
 import pcq
@@ -84,39 +94,33 @@ pcq.save_all(
 )
 ```
 
-### 2. Experiment
+### 2. Run With Machine Output
 
-Use this when you want a small PyTorch training loop with standard checkpointing
-and artifacts.
-
-```python
-import pcq
-
-class MyExperiment(pcq.Experiment):
-    ...
-
-MyExperiment().fit()
+```bash
+pcq run --path . --json
+pcq run --path . --jsonl
 ```
 
-### 3. Trainer + Project Atoms
+### 3. Validate And Describe Evidence
 
-Use this when an agent or team should swap models, datasets, losses, optimizers,
-or schedulers by name.
-
-```python
-import pcq
-
-cfg = pcq.config()
-pcq.Trainer.from_cfg(cfg).fit()
+```bash
+pcq validate-run output --strictness 3 --json
+pcq describe-run output --json
 ```
 
-Project-local atoms live in your project, not in the `pcq` package. Built-in
-atoms are reference examples for smoke tests and onboarding.
+### 4. Compare And Iterate
+
+```bash
+pcq compare-runs old_output new_output --json
+pcq lineage new_output --json
+pcq apply-plan experiment.plan.json --json
+```
 
 ## Agent-Operable By Design
 
 Agents need structured surfaces, not prose-only instructions. `pcq` provides:
 
+- `pcq resolve --json`
 - `pcq inspect --json`
 - `pcq validate --json`
 - `pcq run --json`
@@ -125,11 +129,12 @@ Agents need structured surfaces, not prose-only instructions. `pcq` provides:
 - `pcq describe-run --json`
 - `pcq compare-runs --json`
 - `pcq lineage --json`
+- `pcq apply-plan --json`
 - `pcq agent install/status --json`
 
-The goal is that an agent can look at a project, understand the experiment
-contract, make a bounded change, run it, validate it, and compare it with
-previous evidence.
+The goal is that an agent can understand the experiment contract, make a
+bounded project-local change, run it, validate it, compare it with previous
+evidence, and decide the next step.
 
 ## Standard Artifacts
 
@@ -149,7 +154,7 @@ provenance, validation, and summary evidence.
 ## Relationship With CQ
 
 ```text
-pcq = open-source experiment contract library
+pcq = open-source experiment evidence/control library
 cq  = managed execution, queue, artifact collection, dashboard, agent loop
 ```
 
@@ -162,37 +167,25 @@ locally, in CI, in notebooks, and in third-party orchestrators.
 uv add pcq
 ```
 
-Optional extras:
-
-```bash
-uv add 'pcq[vision]'
-uv add 'pcq[dist]'
-uv add 'pcq[nlp]'
-uv add 'pcq[yaml]'
-```
-
 ## Start
 
 ```bash
 pcq init-experiment --style script --output ./my-exp --with-pyproject
 cd ./my-exp
 uv sync
-pcq run --json
 pcq run --jsonl
 pcq validate-run output --json
 pcq describe-run output --json
 ```
 
-## Current Release Line
+## Current Direction
 
-`pcq` v3 is the single-name release line:
+The v4 direction is contract-first:
 
-- PyPI package: `pcq`
-- Python import: `import pcq`
-- CLI: `pcq`
-- GitHub repository: `https://github.com/playidea-lab/pcq`
-- Runtime workspace: `.pcq/`
-- JSON contract namespace: `pcq.*`
+- no required trainer abstraction
+- no production model/loss/dataset catalog in core
+- no framework adapter matrix
+- project-local training code is first-class
+- JSON/JSONL evidence and control surfaces are the product
 
-The CQ runtime contract names `cq.yaml`, `CQ_CONFIG_JSON`, and `cq://` remain
-unchanged.
+Read [pcq v4 Direction](V4_DIRECTION.md) next.

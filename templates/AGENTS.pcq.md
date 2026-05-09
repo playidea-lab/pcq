@@ -25,17 +25,12 @@ Completed runs should produce:
 
 ## Implementation Policy
 
-- Built-in atoms are reference examples for smoke, onboarding, and contract
-  verification. They are not a production catalog.
-- Production models, losses, metrics, datasets, optimizers, and schedulers
-  belong in project-local code such as `pcq_atoms.py`, `atoms/`, `recipes/`, or
-  `train.py`.
-- Any ML framework is allowed when the script honors the CQ contract.
-- Prefer contract scripts for framework-owned workflows.
-- Prefer project-local atoms when a component must be selected, swapped,
-  validated, or reused.
-- Do not add framework adapters or project-specific components to `pcq`
-  internals for a single experiment.
+- pcq is a contract runtime + agent CLI surface. There is no model catalog,
+  recipe library, or framework adapter inside pcq.
+- All ML code (datasets, models, losses, optimizers, schedulers, metrics,
+  training loops) lives in your project's `train.py` or your own modules.
+- Any ML framework is allowed when the script honors the CQ contract
+  (read `cq.config()`, write `cq.save_all()`, emit `@key=value` metrics).
 
 ## Agent Workflow
 
@@ -45,13 +40,6 @@ Before edits or execution:
 pcq resolve --json
 pcq inspect . --json
 pcq validate . --strictness 2 --json
-```
-
-For project-local atoms:
-
-```bash
-pcq atoms validate-local
-pcq atoms smoke <kind> <name> --load-project .
 ```
 
 After a serious run:
@@ -69,10 +57,18 @@ pcq compare-runs <base_output_dir> <candidate_output_dir> --json
 pcq lineage <candidate_output_dir> --json
 ```
 
+When applying agent-authored experiment plans:
+
+```bash
+pcq apply-plan plan.json --path . --json
+pcq apply-planset planset.json --path . --output-pattern 'runs/exp{i}' --json
+```
+
 ## Do Not
 
 - Do not write artifacts to a hard-coded `output/` path.
 - Do not emit metrics that are missing from `cq.yaml.metrics`.
 - Do not treat process exit code alone as run completion.
 - Do not continue an experiment loop after blocking validation failure.
-- Do not hide network downloads or heavy work in project atom imports.
+- Do not look for `pcq.Trainer`, `pcq.Experiment`, `pcq.recipes`, or
+  `pcq.examples.*` — these were removed in v4.0. Write a contract script.

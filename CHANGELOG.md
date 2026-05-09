@@ -4,6 +4,75 @@ All notable changes to pcq. Format: [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [4.0.0] — 2026-05-10
+
+> **Hard remove. Identity collapse to contract runtime + agent CLI.**
+>
+> Two dogfoods (mnist 9-gen, tabular 2-gen) used cq.save_all() + pcq run
+> + validate-run + compare-runs + lineage only. Trainer/Experiment/
+> recipes/examples/cq.{models,datasets,optim,sched,loss,metric} used 0
+> times across both. v4.0 removes everything dogfood evidence does not
+> support.
+>
+> 0 external users at v3.0.4 PyPI publish (1-week window) → migration
+> cost ≈ 0. v3.0.4 tag preserved as rollback path.
+
+### Breaking — removed
+- `pcq.Trainer`, `pcq.Experiment`
+- `pcq.recipes.*` (vision/cifar10_smallcnn, vision/mnist_mlp,
+  vision/seg/voc_unet, nlp/fake_text_classifier, vision/fake_smoke,
+  vision/cifar10_resnet18)
+- `pcq.examples.*` namespace + `cq.{models,datasets,optim,sched}` facades
+- `cq.loss`, `cq.metric` modules
+- Atom registry: `pcq.register_*`, `AtomRef`, `AtomSpec`, `ParamSpec`,
+  `RecipeSpec`, `model_ref`/`loss_ref`/etc.
+- `ExperimentPlan.set_atom` + `set_dataset_transform` change ops
+- `plan_label_contract` validate gate
+- `pcq atoms` CLI subcommand (list / show / validate-ref / scaffold /
+  validate-local / smoke)
+- `pcq init-experiment --style trainer|experiment` and `--preset`
+- `pcq_atoms.py` project-local atom convention
+- `pcq recipe-meta` CLI subcommand
+- `pcq dry-run` CLI subcommand (Trainer-driven smoke gate)
+
+### Preserved — runtime contract identifiers (CQ service compat)
+- `cq.yaml` / `CQ_CONFIG_JSON` / `cq://` URI / RunRecord JSON keys
+
+### Preserved — public surfaces (dogfood-verified)
+- Contract script API: `cq.config`, `cq.output_dir`, `cq.log`,
+  `cq.save_all`, `cq.finalize_run`, `cq.save_partial_run_record`,
+  `cq.save_config_snapshot`, `cq.save_metrics`, `cq.save_manifest`,
+  `cq.save_run_summary`, `cq.seed_everything`
+- Resolver: `pcq.resolve_project`, `ResolvedConfig`,
+  `pcq.resolve_run_context`, `RunContext`
+- Agent surface: validate / validate_run / describe / compare / lineage
+  / apply / install, JSON_CONTRACTS, STRICTNESS_EVIDENCE_MATRIX
+- 14 CLI subcommands: inspect / validate / summarize-run /
+  init-experiment / agent / apply-plan / apply-planset / finalize /
+  validate-run / describe-run / compare-runs / lineage / resolve / run
+
+### Migration
+- Trainer 사용자: contract script 로 직접 작성. `examples/train.py`
+  reference. Lightning / HF Trainer / sklearn / 임의 framework 모두
+  `cq.save_all()` 한 줄로 합류.
+- mnist-dogfood / tabular-dogfood: v3.x 호환 lockfile pin — 영향 없음.
+- v3.x 사용자: `git checkout v3.0.4` 또는 `uv add 'pcq>=3.0.4,<4'` pin.
+
+### Fixed
+- `pcq run --jsonl`: emit thread-safe events (lock around stdout/stderr
+  reader threads) + use contract event names (`run.started`,
+  `run.completed`, `run.failed`, `stdout`, `stderr`).
+- `pcq run` end event now includes `events_path` when `--events` set.
+
+### Tests
+- 818 → 400 (~50% reduction). 0 regressions in remaining tests.
+
+### Docs
+- 추가: `docs/V4_DIRECTION.md` (정체성 결정 기록).
+- 제거: `docs/ATOM_REGISTRY.md`.
+- 재작성: `docs/SPEC.md` (v4 form).
+- 갱신: `docs/VISION.md`, `README.md`, agent assets.
+
 ## [3.0.4] — 2026-05-10
 
 > **Agent-readable site files + live run events.**

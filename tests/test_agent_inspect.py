@@ -15,20 +15,12 @@ def test_inspect_examples_returns_project_type_pcq():
     assert "epoch" in insp.cq_yaml.declared_metrics
 
 
-def test_inspect_detects_trainer_entrypoint():
+def test_inspect_detects_script_entrypoint():
+    """v4.0: examples/train.py 는 contract script (Trainer 제거)."""
     insp = inspect_project("examples")
     assert insp.entrypoint is not None
-    assert insp.entrypoint.kind == "trainer"
-    # examples/train.py: pcq.Trainer(task=..., dataset=..., model=...) — preset 없음
+    assert insp.entrypoint.kind == "script"
     assert insp.entrypoint.preset is None
-
-
-def test_inspect_lists_all_registered_recipes():
-    insp = inspect_project(".")
-    names = {r.name for r in insp.recipes}
-    assert "vision/fake_smoke" in names
-    assert "nlp/fake_text_classifier" in names
-    assert "vision/seg/fake_seg_smoke" in names
 
 
 def test_inspect_to_dict_serializable():

@@ -3,214 +3,155 @@
 ## Purpose
 
 This checklist defines whether `pcq` is usable by a coding agent as an
-agent-operable experiment library.
+agent-operable experiment boundary.
 
 Passing this checklist means an agent can start from a user goal, create or
-modify a CQ ML experiment, validate it, run it through the CQ contract, and use
-the resulting RunRecord for the next decision.
+modify project-local experiment code, validate it, run it through the `cq.yaml`
+contract, and use the resulting RunRecord for the next decision.
+
+See [pcq v4 Direction](V4_DIRECTION.md).
 
 ## Acceptance Levels
 
-### Level 0: Readable
+### Level 0: Discoverable
+
+The agent can understand what `pcq` is without a human explanation.
+
+- [ ] README states that pcq is not a trainer, catalog, adapter matrix, or
+      CQ-only client.
+- [ ] `docs/V4_DIRECTION.md` defines the product boundary.
+- [ ] `site/llms.txt` exposes a compact agent-readable guide.
+- [ ] `site/llms-full.txt` exposes a fuller agent-readable guide.
+- [ ] `site/agent-manifest.json` lists the primary JSON/JSONL surfaces.
+
+### Level 1: Readable
 
 The agent can understand the project without running training.
 
 - [ ] `pcq resolve --json` identifies project root, `cq.yaml`, command, config,
-      metrics, inputs, and output directory.
-- [ ] `pcq inspect --json` identifies entrypoint style.
-- [ ] `pcq inspect --json` reports project-local atoms when explicitly loaded.
-- [ ] `pcq inspect --json` reports output artifacts from the resolved output
-      directory.
-- [ ] Built-in atoms are clearly marked or documented as reference examples.
+      metrics, inputs, artifacts, and output directory.
+- [ ] `pcq inspect --json` identifies entrypoint and existing output evidence.
+- [ ] `pcq validate --json` reports pre-run contract status.
+- [ ] Read-side commands do not train.
+- [ ] Read-side commands do not download data.
+- [ ] Read-side commands do not mutate output directories.
+- [ ] Read-side failures are structured warnings/errors, not tracebacks only.
 
-### Level 1: Scaffoldable
+### Level 2: Authorable
 
-The agent can create a valid starting experiment.
+The agent can create a valid starting experiment without pcq internals.
 
 - [ ] `pcq init-experiment --style script` creates `cq.yaml` and `train.py`.
-- [ ] `pcq init-experiment --style trainer --preset ...` creates atom
-      infrastructure.
-- [ ] `pcq init-experiment --with-pyproject` creates reproducible dependency
-      evidence.
-- [ ] `pcq init-experiment --agent codex|claude|both` installs agent runtime
-      assets through the same path as `pcq agent install`.
-- [ ] `pcq agent install --target codex|claude|both --dry-run --json`
-      previews writes without modifying files.
-- [ ] `pcq agent status --target codex|claude|both --json` reports
-      installed, missing, stale, unmanaged, divergent, and partial states
-      without modifying files.
-- [ ] Generated `cq.yaml` declares metrics and output artifacts.
-- [ ] Generated code writes to `pcq.output_dir()`.
-- [ ] Generated code ends with `pcq.save_all(...)` or equivalent standard
-      artifacts.
-
-### Level 2: Modifiable
-
-The agent can add real project logic without patching `pcq` internals.
-
-- [ ] `pcq atoms scaffold model <name>` creates project-local atom code.
-- [ ] `pcq atoms scaffold loss <name>` creates project-local atom code.
-- [ ] `pcq atoms validate-local` catches missing contracts.
-- [ ] `pcq atoms smoke <kind> <name> --load-project .` verifies a minimal
-      executable contract.
-- [ ] New project atoms can be referenced from recipes or `Trainer.from_cfg`.
-- [ ] Contract scripts can use any third-party ML framework without adapters.
+- [ ] Generated code reads config through `pcq.config()`.
+- [ ] Generated code writes artifacts under `pcq.output_dir()`.
+- [ ] Generated code declares and emits at least one metric.
+- [ ] Generated code ends with `pcq.save_all(...)` or equivalent
+      `pcq.finalize_run(...)`.
+- [ ] Generated project can use an arbitrary framework by editing project-local
+      code only.
+- [ ] No framework adapter is required for HF Trainer, Lightning, sklearn,
+      XGBoost, TabPFN, PyCaret, shell commands, or custom code.
 
 ### Level 3: Runnable
 
-The agent can execute or hand off the experiment to a CQ worker.
+The agent can execute or hand off the experiment.
 
 - [ ] `cq.yaml.cmd` is the only command the worker needs to run.
 - [ ] `CQ_CONFIG_JSON` overrides `cq.yaml.configs` without losing top-level
-      `name`, `cmd`, `inputs`, or metrics.
+      context.
 - [ ] Relative `output_dir` resolves against project root.
-- [ ] Nested cwd execution still finds the correct `cq.yaml`.
-- [ ] `pcq.save_all(finalize=True)` writes all standard artifacts into one
-      resolved output directory.
-- [ ] `pcq.log(...)` emits declared stdout metrics.
-- [ ] `pcq run --json` emits parseable JSON only on stdout and captures child
-      stdout/stderr to explicit log paths in the JSON envelope.
+- [ ] Nested cwd execution still resolves the same project.
+- [ ] `pcq run --json` emits parseable final JSON only on stdout.
+- [ ] `pcq run --jsonl` emits live event objects.
+- [ ] `pcq run --events PATH --json` writes event evidence while preserving
+      final JSON stdout.
+- [ ] child stdout/stderr are captured to explicit paths or events.
 
 ### Level 4: Verifiable
 
-The agent and service can determine whether the run is complete.
+The agent can determine whether the run is complete evidence.
 
-- [ ] `pcq finalize <output_dir>` preserves `cq.yaml` metadata.
-- [ ] `pcq validate-run <output_dir> --json` verifies manifest evidence.
+- [ ] `pcq validate-run <output_dir> --json` verifies standard artifacts.
+- [ ] validation output includes strictness level.
+- [ ] validation output includes present and missing evidence.
+- [ ] `manifest.json` entries include enough evidence for artifact checks.
+- [ ] `metrics.json` is well-formed.
+- [ ] `run_summary.json` best/last facts are consistent with metric history.
+- [ ] `run_record.json` includes execution, source, environment, inputs,
+      metrics, artifacts, summary, validation, and failure fields where
+      available.
+- [ ] failed or partial runs can be represented as structured evidence.
+
+### Level 5: Comparable
+
+The agent can compare two iterations without prose parsing.
+
 - [ ] `pcq describe-run <output_dir> --json` returns status, target metric,
-      mode, best/last, artifacts, validation status, reproducibility evidence,
-      parent lineage, failure envelope, and policy-free `decision_facts`.
-- [ ] `run_record.json` contains execution, source, environment, inputs,
-      declared metrics, artifacts, validation, and result summary.
-- [ ] `validation_report.json` records blocking failures instead of relying only
-      on process exit code.
+      best/last values, validation status, artifact summary, reproducibility
+      evidence, and `decision_facts`.
+- [ ] `pcq compare-runs A B --json` reports metric direction.
+- [ ] `pcq compare-runs A B --json` reports config changes.
+- [ ] `pcq compare-runs A B --json` reports source/artifact/validation
+      differences.
+- [ ] incomparable runs return structured reasons.
+- [ ] `pcq lineage <output_dir> --json` exposes parent-child ancestry.
 
-### Level 5: Iterative
+### Level 6: Iterable
 
-The agent can use previous results to propose the next experiment.
+The agent can start the next experiment.
 
-- [ ] `pcq compare-runs` identifies metric/trajectory delta, config/input
-      changes, validation/failure differences, artifact/source differences,
-      lineage relation, and policy-free `decision_facts`.
-- [ ] `pcq lineage` traces parent runs.
-- [ ] Parent run ID/path can be stored in the next RunRecord.
-- [ ] The agent can explain what changed between runs.
-- [ ] The agent can stop when validation fails instead of continuing on
-      unreliable evidence.
+- [ ] `pcq apply-plan PLAN.json --json` applies bounded config changes.
+- [ ] apply output lists changed files and operations.
+- [ ] apply rejects unknown operations.
+- [ ] apply preserves unrelated project code.
+- [ ] parent run identity can be recorded for lineage.
+- [ ] agent can choose to edit project-local code directly when research logic
+      changes are required.
 
-## Required Regression Scenarios
+## Dogfood Scenarios
 
-These scenarios should be covered by automated tests or acceptance scripts.
+### Framework-Neutral Script
 
-### Custom Output Directory
+Acceptance:
 
-Input:
+- script uses sklearn, HF Trainer, Lightning, XGBoost, TabPFN, PyCaret, shell
+  command, or custom code
+- no pcq adapter is required
+- run produces standard artifacts
+- `validate-run` passes at the selected strictness
+- `describe-run` exposes decision facts
 
-```yaml
-configs:
-  output_dir: runs/exp001
-```
+### Failed Run With Evidence
 
-Expected:
+Acceptance:
 
-- all standard artifacts are under `runs/exp001`
-- `pcq inspect` finds that directory
-- `pcq validate` checks that directory
-- `pcq finalize runs/exp001` preserves `cq.yaml` context
+- training command exits non-zero
+- `pcq run --json` reports the failure
+- stdout/stderr evidence is captured
+- partial `run_record.json` or structured failure evidence is available when
+  the script reached `pcq.save_all(status="failed", ...)`
+- `describe-run` does not crash
 
-### CQ YAML Only Local Execution
+### Sequential Improvement
 
-No `CQ_CONFIG_JSON` is set.
+Acceptance:
 
-Expected:
-
-- `pcq.config()` or the high-level runtime path can use `cq.yaml.configs`
-- `pcq.output_dir()` follows `cq.yaml.configs.output_dir`
-- `pcq.save_all(finalize=True)` writes a complete run
-
-### Service Override Execution
-
-`cq.yaml` defines:
-
-```yaml
-configs:
-  output_dir: output
-  epochs: 10
-```
-
-`CQ_CONFIG_JSON` defines:
-
-```json
-{
-  "output_dir": "/work/runs/exp001/output",
-  "epochs": 3
-}
-```
-
-Expected:
-
-- env output directory wins
-- env epochs wins
-- `cq.yaml.name`, `cq.yaml.cmd`, `cq.yaml.inputs`, and metric schema are still
-  preserved
-
-### Framework-Agnostic Script
-
-Input:
-
-- script uses sklearn, HF Trainer, TabPFN, PyCaret, or other framework
-- script calls `pcq.output_dir()`, `pcq.log(...)`, and `pcq.save_all(...)`
-
-Expected:
-
-- no adapter is required
-- standard artifacts exist
-- RunRecord describes the run
-
-### Project-Local Atom
-
-Input:
-
-- agent creates `atoms/models.py`
-- atom declares metadata and contracts
-- recipe references the atom
-
-Expected:
-
-- `pcq atoms validate-local` passes
-- `pcq atoms smoke model <name> --load-project .` passes
-- run can use the project atom without adding it to `pcq` upstream
-
-### Agent Runtime Installation
-
-Input:
-
-```bash
-pcq agent install --target both --path .
-```
-
-Expected:
-
-- Codex assets are installed at `AGENTS.md` and
-  `.agents/skills/pcq/SKILL.md`
-- Claude Code assets are installed at `CLAUDE.md` and
-  `.claude/skills/pcq/SKILL.md`
-- existing instruction file content is preserved
-- divergent existing skill files are skipped unless `--force`
-- `--dry-run --json` reports the same planned paths without writing files
-- `pcq agent status --target both --json` reports installed assets as
-  `installed`
-- status reports stale managed blocks and divergent skill files without
-  overwriting them
+- run A and run B are produced from related configs
+- B records parent identity when available
+- `compare-runs A B --json` reports metric movement and config/source changes
+- `lineage B --json` can identify ancestry
+- no terminal prose scraping is required
 
 ## Release Gate
 
 A release should not claim full agent-operable status unless:
 
-- Level 0 through Level 4 pass.
-- custom output directory scenarios pass.
-- built-in atom documentation clearly says reference examples only.
-- agent runtime assets install for Codex and Claude without destructive writes.
-- agent runtime asset status can be checked read-only by agents and services.
-- README links to the runtime contract, worker flow, and agent guide.
-- service-facing MCP tool names and JSON shapes are documented.
+- docs and site files state the v4 identity clearly
+- read-side commands are safe
+- JSON/JSONL contracts are stable
+- strictness reports are explicit
+- standard artifacts are validated
+- failed runs remain inspectable
+- comparison and lineage facts are available
+- project-local training code is first-class
+- no built-in training catalog is presented as the product identity

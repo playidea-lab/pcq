@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>pcq - Agent-operable ML experiment contracts</title>
+    <title>pcq - Agent-operable experiment evidence and control</title>
     <meta
       name="description"
-      content="pcq is an Apache-2.0 Python library for agent-operable, reproducible ML experiments. Bring any training code; pcq standardizes the contract, artifacts, and run evidence."
+      content="pcq is an Apache-2.0 Python library for agent-operable experiment evidence and control. Bring any training code; pcq standardizes the run boundary."
     >
     <link rel="alternate" type="text/plain" href="llms.txt" title="Agent guide">
     <link rel="alternate" type="application/json" href="agent-manifest.json" title="Agent manifest">
@@ -35,12 +35,13 @@
           <h1>Run anything. Standardize the evidence.</h1>
           <p class="lead">
             pcq turns ML experiments into agent-operable, reproducible units.
-            Keep your existing training stack; pcq gives it a standard contract,
-            artifact layout, validation surface, and final run record.
+            Keep your existing training stack; pcq standardizes the run
+            boundary: contract, live evidence, validation, comparison, lineage,
+            and final run record.
           </p>
           <div class="hero-actions" aria-label="Primary actions">
             <a class="button primary" href="https://pypi.org/project/pcq/">Install from PyPI</a>
-            <a class="button secondary" href="https://github.com/playidea-lab/pcq/blob/main/docs/INTRODUCTION.md">Read the introduction</a>
+            <a class="button secondary" href="https://github.com/playidea-lab/pcq/blob/main/docs/V4_DIRECTION.md">Read the v4 direction</a>
           </div>
           <div class="install-line" aria-label="Install command">
             <span>uv add pcq</span>
@@ -74,15 +75,16 @@ output/
       <section id="why" class="section">
         <div class="section-heading">
           <p class="eyebrow">Why pcq</p>
-          <h2>Not another trainer. A contract around the run.</h2>
+          <h2>Not another trainer. Control around the run.</h2>
         </div>
         <div class="feature-grid">
           <article class="feature">
             <h3>Framework-neutral</h3>
             <p>
-              Use PyTorch, Hugging Face Trainer, sklearn, TabPFN, PyCaret,
-              XGBoost, or custom Python. pcq standardizes the surrounding
-              evidence instead of replacing the training loop.
+              Use PyTorch, Hugging Face Trainer, Lightning, sklearn, TabPFN,
+              PyCaret, XGBoost, shell scripts, or custom Python. pcq
+              standardizes the surrounding evidence instead of replacing the
+              training loop.
             </p>
           </article>
           <article class="feature">
@@ -141,7 +143,8 @@ output/
           <p>
             pcq gives agents stable machine-readable surfaces while leaving
             policy to the agent or service. The library reports facts: what ran,
-            what changed, what passed, what failed, and which artifacts exist.
+            what changed, what passed, what failed, which artifacts exist, and
+            how a candidate compares with its parent.
           </p>
         </div>
         <div class="surface-grid" aria-label="Agent JSON surfaces">
