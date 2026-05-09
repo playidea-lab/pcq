@@ -548,54 +548,119 @@ def _read_cq_yaml_configs(path: Path) -> dict | None:
     return dict(cfg)
 
 
-def _diff_cq_yaml_configs(
-    a_record: dict, a_path: str | Path,
-    b_record: dict, b_path: str | Path,
-) -> list[dict]:
-    """두 RunRecord 의 cq.yaml.configs dict diff.
+def _read_run_config_json(run_path: str | Path) -> dict | None:
+    """v3.0.2: output_dir/config.json 에서 effective configs read.
 
-    동일 sha256 또는 cq.yaml 미접근 시 빈 list 반환 (graceful).
+    save_config_snapshot 가 매 run 마다 작성하는 cfg snapshot. _ prefix 의
+    provenance metadata (_git_sha, _pcq_version, _recipe, _overrides) 는
+    제외하여 cq.yaml.configs 와 같은 abstraction layer 의 dict 로 정규화.
+
+    sequential gen 비교에서 디스크의 cq.yaml 이 latest 로 덮어 써져 옛 run 의
+    configs 를 복원하지 못할 때 사용한다 (G9-2 / GT-2 dogfood).
+
+    path 가 file 이면 같은 dir, dir 이면 그 자체에서 config.json 을 찾는다.
+    실패 시 None — 호출 측은 graceful skip.
     """
-    # sha256 동일 → diff 안 해도 변화 없음 확정.
-    a_cfg_sec = a_record.get("config") if isinstance(a_record.get("config"), dict) else {}
-    b_cfg_sec = b_record.get("config") if isinstance(b_record.get("config"), dict) else {}
-    a_sha = a_cfg_sec.get("cq_yaml_sha256")
-    b_sha = b_cfg_sec.get("cq_yaml_sha256")
-    if a_sha and b_sha and a_sha == b_sha:
-        return []
+    p = Path(run_path).resolve()
+    if p.is_file():
+        cfg_json = p.parent / "config.json"
+    elif p.is_dir():
+        cfg_json = p / "config.json"
+    else:
+        # 경로 자체가 없어도 parent 기반 best-effort.
+        cfg_json = p.parent / "config.json"
+    if not cfg_json.exists():
+        return None
+    try:
+        data = json.loads(cfg_json.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    # provenance metadata (_ prefix) 제외 — effective configs 만.
+    return {k: v for k, v in data.items() if not str(k).startswith("_")}
 
-    a_yaml_path = _resolve_cq_yaml_for_record(a_record, a_path)
-    b_yaml_path = _resolve_cq_yaml_for_record(b_record, b_path)
-    if a_yaml_path is None or b_yaml_path is None:
-        return []
-    a_cfg = _read_cq_yaml_configs(a_yaml_path)
-    b_cfg = _read_cq_yaml_configs(b_yaml_path)
-    if a_cfg is None or b_cfg is None:
-        return []
 
-    # 양쪽에 등장하는 모든 키 + 한쪽만 있는 키도 diff.
-    # 단 internal markers (_overrides_data, _parent_run_*) 는 별도 source 에서 다룸.
-    skip_keys = {"_overrides_data", "_overrides", "_parent_run_id", "_parent_run_path"}
+# v3.0.2: cq.yaml.configs 비교 시 internal/provenance 키 제외 — config.json
+# fallback 과 cq.yaml 두 경로 모두에서 일관 적용.
+_CONFIG_DIFF_SKIP_KEYS = frozenset({
+    "_overrides_data",
+    "_overrides",
+    "_parent_run_id",
+    "_parent_run_path",
+})
+
+
+def _diff_configs_dicts(a_cfg: dict, b_cfg: dict) -> list[dict]:
+    """두 cfg dict 의 key-level diff. cq.yaml.configs / config.json 공용."""
     keys = sorted(set(a_cfg) | set(b_cfg))
     out: list[dict] = []
     for k in keys:
-        if k in skip_keys:
+        if k in _CONFIG_DIFF_SKIP_KEYS or str(k).startswith("_"):
             continue
-        a_v = a_cfg.get(k, None) if k in a_cfg else "__pcq_missing__"
-        b_v = b_cfg.get(k, None) if k in b_cfg else "__pcq_missing__"
-        # 동일 → skip.
-        if k in a_cfg and k in b_cfg and a_v == b_v:
+        in_a = k in a_cfg
+        in_b = k in b_cfg
+        a_v = a_cfg.get(k)
+        b_v = b_cfg.get(k)
+        if in_a and in_b and a_v == b_v:
             continue
-        if k not in a_cfg or k not in b_cfg:
+        if not in_a or not in_b:
             entry: dict = {"key": k}
-            if k in a_cfg:
+            if in_a:
                 entry["a"] = a_v
-            if k in b_cfg:
+            if in_b:
                 entry["b"] = b_v
             out.append(entry)
             continue
         out.append({"key": k, "a": a_v, "b": b_v})
     return out
+
+
+def _diff_cq_yaml_configs(
+    a_record: dict, a_path: str | Path,
+    b_record: dict, b_path: str | Path,
+) -> list[dict]:
+    """두 RunRecord 의 effective configs dict diff.
+
+    우선순위:
+      1. 두 cq_yaml_sha256 동일 → 변화 없음 확정 → 빈 list.
+      2. 두 cq.yaml read 가능 + diff 결과 있음 → 그 diff 사용.
+      3. 그 외 (yaml 미접근 / 디스크 latest 로 덮어 써져 두 dict 동일 등) →
+         output_dir/config.json fallback. 두 snapshot diff 사용 (v3.0.2).
+
+    GT-2 / G9-2 회귀: sequential gen 비교에서 cq.yaml 이 gen 1 상태로 덮어
+    써지면 두 path 가 같은 file 을 가리켜 yaml diff = empty 가 된다. 이때
+    각 run output_dir/config.json 에 저장된 effective cfg snapshot 으로
+    fallback 한다.
+    """
+    a_cfg_sec = a_record.get("config") if isinstance(a_record.get("config"), dict) else {}
+    b_cfg_sec = b_record.get("config") if isinstance(b_record.get("config"), dict) else {}
+    a_sha = a_cfg_sec.get("cq_yaml_sha256")
+    b_sha = b_cfg_sec.get("cq_yaml_sha256")
+    # 1. sha256 동일 → 변화 없음 확정.
+    if a_sha and b_sha and a_sha == b_sha:
+        return []
+
+    # 2. cq.yaml read 시도.
+    yaml_diff: list[dict] = []
+    a_yaml_path = _resolve_cq_yaml_for_record(a_record, a_path)
+    b_yaml_path = _resolve_cq_yaml_for_record(b_record, b_path)
+    if a_yaml_path is not None and b_yaml_path is not None:
+        a_cfg = _read_cq_yaml_configs(a_yaml_path)
+        b_cfg = _read_cq_yaml_configs(b_yaml_path)
+        if a_cfg is not None and b_cfg is not None:
+            yaml_diff = _diff_configs_dicts(a_cfg, b_cfg)
+    if yaml_diff:
+        return yaml_diff
+
+    # 3. config.json fallback (v3.0.2 — GT-2 / G9-2).
+    # cq.yaml 결과가 비어 있을 때만 진입. sha 가 다르다고 알려져 있으면
+    # 실제 변경이 있을 가능성이 높으므로 config.json 으로 재시도.
+    a_json = _read_run_config_json(a_path)
+    b_json = _read_run_config_json(b_path)
+    if a_json is None or b_json is None:
+        return yaml_diff  # 빈 list (graceful) 또는 yaml 결과.
+    return _diff_configs_dicts(a_json, b_json)
 
 
 def _populate_notes(diff: RunDiff) -> None:

@@ -4,6 +4,50 @@ All notable changes to pcq. Format: [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [3.0.3] — 2026-05-10
+
+> **`pcq compare-runs` config_changes fallback — dogfood-driven hotfix.**
+> Two independent dogfoods (mnist G9-2, tabular GT-2) surfaced the same
+> gap: sequential generation comparison reports `config_changes=[]`
+> when cq.yaml has been overwritten between runs. v3.0.3 falls back to
+> `output_dir/config.json` (a snapshot written by
+> `pcq.save_config_snapshot()` for every run) so the actual run-time
+> configs are always diffable.
+
+### Fixed
+- **GT-2 / G9-2 [P1]**: `pcq compare-runs A B` now reads each run's
+  `output_dir/config.json` as a fallback when reading cq.yaml twice
+  produces the same dict (because the on-disk cq.yaml has been
+  overwritten between runs). Previously the diff silently returned
+  `config_changes=[]` whenever cq.yaml had been modified after gen N's
+  run — the common dogfood / sequential-generation pattern.
+- `decision_facts.config_changed` now reflects the recovered diff
+  automatically (it's derived from `len(config_changes) > 0`).
+
+### Internal
+- `pcq.agent.compare._read_run_config_json()` and
+  `_diff_configs_dicts()` factor out the snapshot-read + dict-diff
+  helpers; `_diff_cq_yaml_configs()` now layers (1) sha-equality
+  short-circuit, (2) cq.yaml read, (3) config.json fallback.
+- Provenance metadata (`_git_sha`, `_pcq_version`, `_recipe`,
+  `_overrides`, etc.) is filtered out of fallback diffs, so the noise
+  axis stays out of `config_changes`.
+
+### Compat
+- Additive only. Existing comparisons that resolved via cq.yaml read
+  continue unchanged. The fallback activates only when cq.yaml-based
+  diff is empty *and* both runs have a `config.json` snapshot.
+- Tests: 814 → 817 passed, 4 skipped, 0 regressions.
+
+### Note on version
+- v3.0.2 was already published to PyPI on 2026-05-09 as the GitHub
+  public-surface release. This hotfix therefore ships as 3.0.3.
+
+### Resolved (dogfood)
+- G9-2 [P3 → P1]: `compare-runs` config_changes=0 on sequential
+  cq.yaml sha mismatch — escalated to P1 after second-dogfood
+  confirmation (tabular GT-2). Now resolved via `config.json` fallback.
+
 ## [3.0.2] — 2026-05-09
 
 > **GitHub canonical repository + public library site.**

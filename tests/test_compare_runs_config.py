@@ -138,3 +138,182 @@ def test_compare_runs_via_cq_yaml_sha256_skip_when_same(tmp_path: Path):
     yaml_keys = {c["key"] for c in diff.config_changes}
     assert "lr" not in yaml_keys
     assert "epochs" not in yaml_keys
+
+
+# v3.0.2 — GT-2 / G9-2 dogfood-driven regression tests.
+#
+# sequential 비교의 일반 케이스: gen 0 학습 후 cq.yaml 이 gen 1 상태로 덮어
+# 쓰여지면, 디스크의 cq.yaml 은 latest 상태이므로 옛 sha 의 configs 를 복원
+# 못 한다. 두 path 모두 같은 file 을 read → 같은 dict → diff = empty.
+#
+# fix: output_dir/config.json 은 매 run 마다 pcq.save_config_snapshot 으로
+# 저장된 cfg snapshot 을 가지고 있으므로, cq.yaml read 결과가 empty 또는
+# 동일 dict 일 때 config.json 으로 fallback 한다.
+
+
+def _write_config_json(out_dir: Path, cfg: dict) -> None:
+    """save_config_snapshot 이 작성하는 형식을 흉내. provenance _ prefix 포함."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    snapshot = dict(cfg)
+    # provenance metadata — fallback 시 _ prefix key 는 무시되어야 한다.
+    snapshot.setdefault("_git_sha", "deadbeef")
+    snapshot.setdefault("_pcq_version", "test")
+    (out_dir / "config.json").write_text(
+        json.dumps(snapshot, indent=2), encoding="utf-8"
+    )
+
+
+def test_compare_runs_uses_config_json_when_cq_yaml_unreadable(tmp_path: Path):
+    """v3.0.2: cq.yaml 디스크 latest 일 때 config.json fallback 으로 diff 복원.
+
+    GT-2 / G9-2 핵심 케이스 — cq.yaml.sha256 mismatch 가 인지되지만 두 RunRecord
+    가 같은 디스크 file 을 가리키므로 yaml read 결과가 동일. config.json 이
+    있으면 그것을 fallback 으로 사용해 effective configs diff 를 복원.
+    """
+    project = tmp_path / "proj"
+    project.mkdir()
+    # 디스크의 cq.yaml 은 gen 1 (latest) 상태.
+    cq_latest = {
+        "name": "demo",
+        "cmd": "python train.py",
+        "configs": {"a": 1, "b": 99},
+    }
+    write_yaml(cq_latest, project / "cq.yaml")
+
+    a_out = project / "out_a"
+    b_out = project / "out_b"
+    # 두 RunRecord 의 cq_yaml_sha256 은 다르지만 (옛 / 새), path 는 같은 cq.yaml.
+    _build_minimal_run_record(
+        a_out, "cq.yaml", "a" * 64, run_id="run-a",
+    )
+    _build_minimal_run_record(
+        b_out, "cq.yaml", "b" * 64, run_id="run-b",
+    )
+    # 각 run output 에 config.json snapshot — gen 0 / gen 1 의 effective cfg.
+    _write_config_json(a_out, {"a": 1, "b": 2, "output_dir": str(a_out)})
+    _write_config_json(b_out, {"a": 1, "b": 99, "output_dir": str(b_out)})
+
+    diff = compare_runs(a_out, b_out)
+    keys = {c["key"] for c in diff.config_changes}
+    # b 변경 (2 → 99) 은 detect 되어야 한다.
+    assert "b" in keys, f"'b' missing: changes={diff.config_changes}"
+    # output_dir 도 다르므로 detect.
+    assert "output_dir" in keys, f"'output_dir' missing: {diff.config_changes}"
+    # 동일 키 (a=1) 는 보이지 않아야.
+    assert "a" not in keys
+    # provenance metadata (_ prefix) 는 절대 보이지 않아야.
+    for k in keys:
+        assert not k.startswith("_"), f"provenance key leaked: {k}"
+    # decision_facts.config_changed 가 자동으로 True 가 되어야.
+    assert diff.decision_facts.get("config_changed") is True
+
+
+def test_compare_runs_config_changes_for_sequential_dogfood_pattern(
+    tmp_path: Path,
+):
+    """v3.0.2: GT-2 / G9-2 회귀 — sequential gen 0→1 시나리오 5+ 변경 detect.
+
+    실제 dogfood 패턴 그대로 — LogReg → HistGBM 전환에 5 axis 변경 (model,
+    output_dir, hgb_max_iter, hgb_max_depth, hgb_lr).
+    """
+    project = tmp_path / "proj"
+    project.mkdir()
+    # 디스크의 cq.yaml 은 gen 1 (latest, HistGBM) 상태.
+    cq_latest = {
+        "name": "tabular",
+        "cmd": "uv run python train.py",
+        "configs": {
+            "model": "hgb",
+            "output_dir": "outputs/gen1",
+            "hgb_max_iter": 200,
+            "hgb_max_depth": 6,
+            "hgb_lr": 0.1,
+        },
+    }
+    write_yaml(cq_latest, project / "cq.yaml")
+
+    a_out = project / "outputs" / "gen0"
+    b_out = project / "outputs" / "gen1"
+    _build_minimal_run_record(
+        a_out, "cq.yaml", _sha256_str("gen0"), run_id="gen-0",
+    )
+    _build_minimal_run_record(
+        b_out, "cq.yaml", _sha256_str("gen1"), run_id="gen-1",
+    )
+    # gen 0 (LogReg) snapshot.
+    _write_config_json(a_out, {
+        "model": "logreg",
+        "output_dir": "outputs/gen0",
+        "logreg_C": 1.0,
+    })
+    # gen 1 (HistGBM) snapshot.
+    _write_config_json(b_out, {
+        "model": "hgb",
+        "output_dir": "outputs/gen1",
+        "hgb_max_iter": 200,
+        "hgb_max_depth": 6,
+        "hgb_lr": 0.1,
+    })
+
+    diff = compare_runs(a_out, b_out)
+    keys = {c["key"] for c in diff.config_changes}
+    # 5 axis 모두 detect — model/output_dir 변경 + hgb_* 추가 + logreg_C 제거.
+    expected = {
+        "model", "output_dir",
+        "hgb_max_iter", "hgb_max_depth", "hgb_lr",
+        "logreg_C",
+    }
+    missing = expected - keys
+    assert not missing, f"missing keys {missing}, got {keys}"
+    # decision_facts.config_changed True.
+    assert diff.decision_facts.get("config_changed") is True
+
+
+def test_compare_runs_config_json_fallback_skips_provenance_keys(
+    tmp_path: Path,
+):
+    """v3.0.2: config.json fallback 은 _ prefix provenance metadata 를 무시.
+
+    save_config_snapshot 은 _git_sha, _pcq_version, _recipe, _overrides 등을
+    추가한다. 이들은 git/version 변화로 매 run 다를 수 있는데, config diff 의
+    'effective configs' 측면에서는 노이즈이므로 제외한다.
+    """
+    project = tmp_path / "proj"
+    project.mkdir()
+    # cq.yaml 은 디스크에 있지만 두 run 의 sha 는 다름 (다른 file 처럼 행세).
+    write_yaml(
+        {"name": "x", "cmd": "x", "configs": {}},
+        project / "cq.yaml",
+    )
+
+    a_out = project / "a"
+    b_out = project / "b"
+    _build_minimal_run_record(a_out, "cq.yaml", "a" * 64, run_id="run-a")
+    _build_minimal_run_record(b_out, "cq.yaml", "b" * 64, run_id="run-b")
+
+    # 같은 effective cfg 지만 provenance 만 다른 두 snapshot.
+    _write_config_json(a_out, {"lr": 0.01})
+    (a_out / "config.json").write_text(
+        json.dumps({
+            "lr": 0.01,
+            "_git_sha": "AAA",
+            "_pcq_version": "3.0.1",
+            "_recipe": "baseline",
+        }), encoding="utf-8",
+    )
+    (b_out / "config.json").write_text(
+        json.dumps({
+            "lr": 0.01,
+            "_git_sha": "BBB",
+            "_pcq_version": "3.0.2",
+            "_recipe": "baseline",
+        }), encoding="utf-8",
+    )
+
+    diff = compare_runs(a_out, b_out)
+    keys = {c["key"] for c in diff.config_changes}
+    for k in keys:
+        assert not k.startswith("_"), (
+            f"provenance key leaked into config_changes: {k} "
+            f"(full changes: {diff.config_changes})"
+        )

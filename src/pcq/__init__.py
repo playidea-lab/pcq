@@ -78,7 +78,7 @@ def metric_ref(name: str, params: dict | None = None) -> AtomRef:
     return AtomRef(kind="metric", name=name, params=dict(params or {}))
 
 
-__version__ = "3.0.1"
+__version__ = "3.0.3"
 __all__ = [
     "AtomRef",
     "AtomSpec",
