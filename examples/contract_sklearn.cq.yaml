@@ -1,0 +1,17 @@
+name: sklearn-iris-contract
+cmd: uv run python examples/contract_sklearn.py
+
+configs:
+  output_dir: output
+  seed: 42
+  n_estimators: 100
+  monitor: eval_acc
+  mode: max
+  _metrics_declared: [epoch, eval_acc]
+
+metrics:
+  - epoch
+  - eval_acc
+
+artifacts:
+  - output/

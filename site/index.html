@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>pcq - Agent-operable ML experiment contracts</title>
+    <meta
+      name="description"
+      content="pcq is an Apache-2.0 Python library for agent-operable, reproducible ML experiments. Bring any training code; pcq standardizes the contract, artifacts, and run evidence."
+    >
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="#top" aria-label="pcq home">
+        <span class="brand-mark">pcq</span>
+        <span class="brand-text">experiment contracts</span>
+      </a>
+      <nav class="nav" aria-label="Primary navigation">
+        <a href="#why">Why</a>
+        <a href="#contract">Contract</a>
+        <a href="#agents">Agents</a>
+        <a href="#quickstart">Quickstart</a>
+        <a href="https://github.com/playidea-lab/pcq">GitHub</a>
+      </nav>
+    </header>
+
+    <main id="top">
+      <section class="hero">
+        <div class="hero-inner">
+          <p class="eyebrow">Apache-2.0 Python library</p>
+          <h1>Run anything. Standardize the evidence.</h1>
+          <p class="lead">
+            pcq turns ML experiments into agent-operable, reproducible units.
+            Keep your existing training stack; pcq gives it a standard contract,
+            artifact layout, validation surface, and final run record.
+          </p>
+          <div class="hero-actions" aria-label="Primary actions">
+            <a class="button primary" href="https://pypi.org/project/pcq/">Install from PyPI</a>
+            <a class="button secondary" href="https://github.com/playidea-lab/pcq/blob/main/docs/INTRODUCTION.md">Read the introduction</a>
+          </div>
+          <div class="install-line" aria-label="Install command">
+            <span>uv add pcq</span>
+          </div>
+        </div>
+
+        <aside class="run-card" aria-label="pcq run artifact preview">
+          <div class="terminal-bar">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <pre><code>cq.yaml
+  cmd: uv run python train.py
+  metrics:
+    - name: val_acc
+      direction: max
+
+pcq run --json
+pcq validate-run output --json
+pcq describe-run output --json
+
+output/
+  config.json
+  metrics.json
+  manifest.json
+  run_record.json</code></pre>
+        </aside>
+      </section>
+
+      <section id="why" class="section">
+        <div class="section-heading">
+          <p class="eyebrow">Why pcq</p>
+          <h2>Not another trainer. A contract around the run.</h2>
+        </div>
+        <div class="feature-grid">
+          <article class="feature">
+            <h3>Framework-neutral</h3>
+            <p>
+              Use PyTorch, Hugging Face Trainer, sklearn, TabPFN, PyCaret,
+              XGBoost, or custom Python. pcq standardizes the surrounding
+              evidence instead of replacing the training loop.
+            </p>
+          </article>
+          <article class="feature">
+            <h3>Agent-readable</h3>
+            <p>
+              JSON CLI surfaces, strictness gates, manifests, lineage, and run
+              summaries are designed for coding agents, CI jobs, and services
+              that need facts rather than prose.
+            </p>
+          </article>
+          <article class="feature">
+            <h3>Reproducible boundary</h3>
+            <p>
+              Config, metrics, source identity, environment, inputs, artifacts,
+              validation, and best/last results converge into one
+              <code>run_record.json</code>.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section id="contract" class="section contract-section">
+        <div class="section-heading">
+          <p class="eyebrow">Core contract</p>
+          <h2>A small set of files that every run can explain.</h2>
+        </div>
+        <div class="contract-layout">
+          <div class="contract-copy">
+            <p>
+              pcq keeps the model code free-form and makes the run boundary
+              explicit. The project declares intent in <code>cq.yaml</code>,
+              the script emits metrics, and pcq finalizes the standard artifacts.
+            </p>
+            <ul class="check-list">
+              <li><code>cq.yaml</code> declares command, config, metrics, inputs, and artifacts.</li>
+              <li><code>pcq.log()</code> emits structured metric history.</li>
+              <li><code>pcq.save_all()</code> writes the standard artifact set.</li>
+              <li><code>pcq finalize</code> turns a run directory into evidence.</li>
+            </ul>
+          </div>
+          <div class="artifact-list" aria-label="Standard artifacts">
+            <span>config.json</span>
+            <span>metrics.json</span>
+            <span>manifest.json</span>
+            <span>run_summary.json</span>
+            <span>run_record.json</span>
+            <span>validation_report.json</span>
+          </div>
+        </div>
+      </section>
+
+      <section id="agents" class="section split-section">
+        <div>
+          <p class="eyebrow">Agent-operable by design</p>
+          <h2>Enough structure for an agent to inspect, run, validate, and decide.</h2>
+          <p>
+            pcq gives agents stable machine-readable surfaces while leaving
+            policy to the agent or service. The library reports facts: what ran,
+            what changed, what passed, what failed, and which artifacts exist.
+          </p>
+        </div>
+        <div class="surface-grid" aria-label="Agent JSON surfaces">
+          <span>inspect</span>
+          <span>validate</span>
+          <span>run</span>
+          <span>validate-run</span>
+          <span>describe-run</span>
+          <span>compare-runs</span>
+          <span>lineage</span>
+          <span>agent status</span>
+        </div>
+      </section>
+
+      <section id="quickstart" class="section quickstart">
+        <div class="section-heading">
+          <p class="eyebrow">Quickstart</p>
+          <h2>Create a contract project and produce a run record.</h2>
+        </div>
+        <pre><code>uv add pcq
+pcq init-experiment --style script --output ./my-exp --with-pyproject
+cd ./my-exp
+uv sync
+pcq run --json
+pcq validate-run output --json
+pcq describe-run output --json</code></pre>
+      </section>
+
+      <section class="section cq-section">
+        <div>
+          <p class="eyebrow">Relationship with CQ</p>
+          <h2>pcq is the open contract. CQ is one managed consumer.</h2>
+        </div>
+        <div class="cq-grid">
+          <article>
+            <h3>pcq</h3>
+            <p>Open-source authoring, validation, artifact, and run-evidence library.</p>
+          </article>
+          <article>
+            <h3>CQ</h3>
+            <p>Managed execution, queueing, artifact collection, dashboards, and agent loops.</p>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span>pcq is Apache-2.0.</span>
+      <a href="https://github.com/playidea-lab/pcq">Source</a>
+      <a href="https://pypi.org/project/pcq/">PyPI</a>
+      <a href="https://github.com/playidea-lab/pcq/blob/main/README.md">README</a>
+    </footer>
+  </body>
+</html>

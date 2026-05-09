@@ -1,0 +1,25 @@
+name: cq-python-smoke
+cmd: uv run python examples/train.py
+
+configs:
+  output_dir: output
+  epochs: 2
+  batch_size: 32
+  lr: 0.001
+  seed: 42
+  _metrics_declared:
+    - epoch
+    - train_loss
+    - train_acc
+    - eval_loss
+    - eval_acc
+
+metrics:
+  - epoch
+  - train_loss
+  - train_acc
+  - eval_loss
+  - eval_acc
+
+artifacts:
+  - output/

@@ -1,0 +1,26 @@
+name: numpy-contract
+cmd: uv run python examples/contract_numpy.py
+
+configs:
+  output_dir: output_numpy
+  seed: 42
+  epochs: 3
+  lr: 0.2
+  monitor: eval_acc
+  mode: max
+
+metrics:
+  epoch:
+    mode: max
+  train_loss:
+    mode: min
+  eval_acc:
+    mode: max
+
+artifacts:
+  - output_numpy/
+
+inputs:
+  synthetic:
+    opaque: true
+    reason: generated deterministically inside examples/contract_numpy.py

@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# uv / venv
+.venv/
+.python-version
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Test / coverage
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# IDE
+.vscode/
+.idea/
+.claude/
+
+# OS
+.DS_Store
+
+# Runtime state (per-project, not committed)
+.cq/
+output/
+
+# CI smoke output (cleaned by trap; ignored if leaked)
+.smoke_e2e/
+
+# Secrets — never commit
+.env
+.env.*
