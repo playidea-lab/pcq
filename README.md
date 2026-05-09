@@ -26,7 +26,8 @@ runtime names `cq.yaml`, `CQ_CONFIG_JSON`, and `cq://` remain unchanged.
 [WORKER_EXECUTION_FLOW](docs/WORKER_EXECUTION_FLOW.md) |
 [AGENT_OPERATING_GUIDE](docs/AGENT_OPERATING_GUIDE.md) |
 [COMPLETION_ROADMAP](docs/PCQ_COMPLETION_ROADMAP.md) |
-[CASE_STUDY: MNIST Dogfood](docs/case-studies/mnist-dogfood-2026-05-08.md)
+[CASE_STUDY: MNIST Dogfood](docs/case-studies/mnist-dogfood-2026-05-08.md) |
+[CASE_STUDY: Tabular Dogfood](docs/case-studies/tabular-dogfood-2026-05-09.md)
 
 ```text
 pcq = open-source agent-operable experiment contract
