@@ -31,6 +31,12 @@ pcq operates the experiment boundary.
 [AGENT_OPERATING_GUIDE](docs/AGENT_OPERATING_GUIDE.md) |
 [CHANGELOG](CHANGELOG.md)
 
+Case studies (external evidence):
+[mnist-dogfood](docs/case-studies/mnist-dogfood-2026-05-08.md) |
+[tabular-dogfood](docs/case-studies/tabular-dogfood-2026-05-09.md) |
+[mcp-dogfood](docs/case-studies/mcp-dogfood-2026-05-10.md) |
+[cq-worker-dogfood](docs/case-studies/cq-worker-dogfood-2026-05-10.md)
+
 Agent-readable site files:
 [llms.txt](site/llms.txt),
 [llms-full.txt](site/llms-full.txt),
