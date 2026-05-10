@@ -95,6 +95,46 @@
       "schema_frozen_since": "v2.13"
     }
   },
+  "case_studies": [
+    {
+      "slug": "mnist-dogfood-2026-05-08",
+      "title": "MNIST Dogfood",
+      "date": "2026-05-08",
+      "library_version": "pcq 2.11.0",
+      "domain": "ml-vision-classification",
+      "outcome": "9 fresh agent generations, eval_acc 0.9583 → 1.0; first end-to-end dogfood; drove v2.12 fixes",
+      "url": "https://github.com/playidea-lab/pcq/blob/main/docs/case-studies/mnist-dogfood-2026-05-08.md"
+    },
+    {
+      "slug": "tabular-dogfood-2026-05-09",
+      "title": "Tabular Dogfood",
+      "date": "2026-05-09",
+      "library_version": "pcq 3.0.1",
+      "domain": "tabular-classification",
+      "outcome": "first post-PyPI install path; TabPFN/PyCaret/FLAML/XGBoost/sklearn diversity",
+      "url": "https://github.com/playidea-lab/pcq/blob/main/docs/case-studies/tabular-dogfood-2026-05-09.md"
+    },
+    {
+      "slug": "mcp-dogfood-2026-05-10",
+      "title": "MCP Dogfood",
+      "date": "2026-05-10",
+      "library_version": "pcq[mcp] 4.1.0",
+      "domain": "agent-mcp-loop",
+      "outcome": "first v4.1.0 MCP loop end-to-end via mcp__pcq__* tools (no subprocess CLI); 3 sequential generations",
+      "url": "https://github.com/playidea-lab/pcq/blob/main/docs/case-studies/mcp-dogfood-2026-05-10.md"
+    },
+    {
+      "slug": "cq-worker-dogfood-2026-05-10",
+      "title": "CQ Worker Dogfood",
+      "date": "2026-05-10",
+      "library_version": "pcq[mcp] 4.2.0",
+      "domain": "cq-service-integration",
+      "outcome": "first production CQ Go worker dispatch end-to-end; verified cq.yaml + CQ_CONFIG_JSON + 6-artifact protocol",
+      "url": "https://github.com/playidea-lab/pcq/blob/main/docs/case-studies/cq-worker-dogfood-2026-05-10.md"
+    }
+  ],
+  "roadmap_url": "https://github.com/playidea-lab/pcq/blob/main/docs/PCQ_COMPLETION_ROADMAP.md",
+  "v4_direction_url": "https://github.com/playidea-lab/pcq/blob/main/docs/V4_DIRECTION.md",
   "tool_response_samples": [
     {
       "name": "describe_run",

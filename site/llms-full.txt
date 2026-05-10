@@ -349,6 +349,39 @@ array (`name` + `command` + `mcp_tool` + `sample_anchor` per entry), so
 agents that prefer JSON over HTML can discover the same evidence
 machine-readably.
 
+## Case Studies
+
+Four production dogfoods (pcq's own validation cycle on real ML
+workloads) are documented in `docs/case-studies/` and surfaced on the
+site at `#case-studies`:
+
+- **MNIST Dogfood (2026-05-08)** — pcq v2.11, MNIST digits, 9 fresh
+  agent generations, eval_acc 0.9583 → 1.0. First end-to-end dogfood;
+  drove the v2.12 round of fixes.
+- **Tabular Dogfood (2026-05-09)** — pcq 3.0.1, breast-cancer dataset,
+  TabPFN/PyCaret/FLAML/XGBoost/sklearn diversity. First post-PyPI
+  install path validation.
+- **MCP Dogfood (2026-05-10)** — pcq[mcp] 4.1.0, Claude Code MCP. First
+  v4.1.0 MCP loop end-to-end via `mcp__pcq__*` tools (no subprocess
+  CLI). 3 sequential generations.
+- **CQ Worker Dogfood (2026-05-10)** — pcq[mcp] 4.2.0, CQ Go service
+  worker on RTX 5080. First production CQ Go worker dispatch end-to-end;
+  verified `cq.yaml` + `CQ_CONFIG_JSON` + 6-artifact protocol.
+
+## Roadmap
+
+The thesis stays the same: pcq does not compete with the means of
+training. The work ahead strengthens the framework-neutral evidence and
+control layer — broader real-world contract coverage, deeper
+validation/lineage facts, more machine-readable surfaces for agent
+runtimes, tighter integration with the CQ managed consumer. Built-in
+models, losses, datasets, and per-framework adapter matrices remain
+deliberately out of scope.
+
+- v4 Direction: https://github.com/playidea-lab/pcq/blob/main/docs/V4_DIRECTION.md
+- Completion Roadmap: https://github.com/playidea-lab/pcq/blob/main/docs/PCQ_COMPLETION_ROADMAP.md
+- Releases: https://github.com/playidea-lab/pcq/releases
+
 ## Related Docs
 
 - v4 direction: https://github.com/playidea-lab/pcq/blob/main/docs/V4_DIRECTION.md

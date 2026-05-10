@@ -118,10 +118,11 @@
       <nav class="nav" aria-label="Primary navigation">
         <a href="#connect">Connect</a>
         <a href="#tools-catalog">Tools</a>
+        <a href="#compare">Compare</a>
+        <a href="#case-studies">Cases</a>
+        <a href="#roadmap">Roadmap</a>
         <a href="#why">Why</a>
-        <a href="#examples">Examples</a>
         <a href="#faq">FAQ</a>
-        <a href="llms.txt">llms.txt</a>
         <a href="https://github.com/playidea-lab/pcq">GitHub</a>
       </nav>
     </header>
@@ -144,6 +145,20 @@
             <a class="button primary" href="#connect">Wire it into your agent</a>
             <a class="button secondary" href="#tools-catalog">See tool responses</a>
             <a class="button secondary" href="https://github.com/playidea-lab/pcq">GitHub</a>
+          </div>
+          <div class="badges" aria-label="Project status badges">
+            <a href="https://pypi.org/project/pcq/"><img height="20"
+              src="https://img.shields.io/pypi/v/pcq.svg?label=PyPI&color=18794e"
+              alt="PyPI version"></a>
+            <a href="https://pypi.org/project/pcq/"><img height="20"
+              src="https://img.shields.io/pypi/dm/pcq.svg?label=downloads&color=1f5eff"
+              alt="PyPI downloads per month"></a>
+            <a href="https://github.com/playidea-lab/pcq/blob/main/LICENSE"><img height="20"
+              src="https://img.shields.io/badge/license-Apache--2.0-blue.svg"
+              alt="License: Apache-2.0"></a>
+            <a href="https://github.com/playidea-lab/pcq/actions/workflows/ci.yml"><img height="20"
+              src="https://img.shields.io/github/actions/workflow/status/playidea-lab/pcq/ci.yml?branch=main&label=CI"
+              alt="CI status (main branch)"></a>
           </div>
           <div class="install-line" aria-label="Install command">
             <span>pcq agent install --target both --mcp</span>
@@ -394,6 +409,133 @@ pcq mcp serve                             # stdio (default); --transport sse --p
           then call the four tools against the resulting directories.
           Volatile fields elided in this page only — the raw JSON your
           agent receives keeps every field.
+        </p>
+      </section>
+
+      <section id="compare" class="section compare-section">
+        <div class="section-heading">
+          <p class="eyebrow">Compare</p>
+          <h2>How pcq sits next to MLflow, W&amp;B, and Neptune.</h2>
+          <p class="section-lead">
+            These are different tools for different jobs. The table below
+            states what each owns and exposes — not what is "better".
+            Use whichever matches your workflow; pcq is designed to coexist
+            (CQ service can ingest run records produced alongside any of
+            them).
+          </p>
+        </div>
+        <div class="compare-wrap">
+          <table class="compare-table">
+            <thead>
+              <tr>
+                <th scope="col">Tool</th>
+                <th scope="col">Training-loop ownership</th>
+                <th scope="col">MCP support</th>
+                <th scope="col">Self-host vs SaaS</th>
+                <th scope="col">Agent-readable surfaces</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">pcq</th>
+                <td>does not own — your stack stays</td>
+                <td>built-in (14 tools, v4.1.0)</td>
+                <td>self-host (OSS, Apache-2.0)</td>
+                <td>JSON / JSONL / MCP, llms.txt, agent-manifest.json</td>
+              </tr>
+              <tr>
+                <th scope="row">MLflow</th>
+                <td>does not own — wraps any framework</td>
+                <td>not built-in</td>
+                <td>self-host (OSS, Apache-2.0)</td>
+                <td>REST API, Python SDK</td>
+              </tr>
+              <tr>
+                <th scope="row">Weights &amp; Biases</th>
+                <td>does not own — SDK callbacks per framework</td>
+                <td>not built-in</td>
+                <td>SaaS (self-host on Enterprise)</td>
+                <td>REST API, Python SDK, GraphQL</td>
+              </tr>
+              <tr>
+                <th scope="row">Neptune.ai</th>
+                <td>does not own — SDK integrations</td>
+                <td>not built-in</td>
+                <td>SaaS (self-host on Enterprise)</td>
+                <td>REST API, Python SDK</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="compare-foot">
+          The row that differs most is "MCP support" — pcq is the only
+          one in this set with first-class Model Context Protocol tools.
+          That is the design center, not a value judgment about the
+          others. Need full experiment dashboards or team RBAC? MLflow
+          and W&amp;B both ship those today; pcq does not.
+        </p>
+      </section>
+
+      <section id="case-studies" class="section cases-section">
+        <div class="section-heading">
+          <p class="eyebrow">Case studies · Production dogfoods</p>
+          <h2>Real runs that exercised the contract end-to-end.</h2>
+          <p class="section-lead">
+            All four are production dogfoods — pcq's own validation cycle
+            on real ML workloads — not external customer references.
+            Each documents setup, friction observed, and concrete fixes
+            that made it back into the library.
+          </p>
+        </div>
+        <div class="case-grid">
+          <article class="case-card">
+            <h3>MNIST Dogfood</h3>
+            <p class="case-meta">2026-05-08 · pcq v2.11 · MNIST · Claude Code</p>
+            <p>First end-to-end dogfood. 9 fresh agent generations, ML→DL evolution, eval_acc 0.9583 → 1.0. Surfaced the first round of friction that drove v2.12 fixes.</p>
+            <a class="case-link" href="https://github.com/playidea-lab/pcq/blob/main/docs/case-studies/mnist-dogfood-2026-05-08.md">Read case study &rarr;</a>
+          </article>
+          <article class="case-card">
+            <h3>Tabular Dogfood</h3>
+            <p class="case-meta">2026-05-09 · pcq 3.0.1 · breast-cancer · TabPFN/PyCaret/FLAML/XGBoost/sklearn</p>
+            <p>First post-PyPI install path (no git URL workaround). Different domain, framework diversity test. Validated the fresh-user <code>uv add pcq</code> entry point.</p>
+            <a class="case-link" href="https://github.com/playidea-lab/pcq/blob/main/docs/case-studies/tabular-dogfood-2026-05-09.md">Read case study &rarr;</a>
+          </article>
+          <article class="case-card">
+            <h3>MCP Dogfood</h3>
+            <p class="case-meta">2026-05-10 · pcq[mcp] 4.1.0 · Claude Code MCP</p>
+            <p>First v4.1.0 MCP loop end-to-end — agent operates the experiment via <code>mcp__pcq__*</code> tools instead of subprocess CLI. 3 sequential generations, fresh-context per gen.</p>
+            <a class="case-link" href="https://github.com/playidea-lab/pcq/blob/main/docs/case-studies/mcp-dogfood-2026-05-10.md">Read case study &rarr;</a>
+          </article>
+          <article class="case-card">
+            <h3>CQ Worker Dogfood</h3>
+            <p class="case-meta">2026-05-10 · pcq[mcp] 4.2.0 · CQ Go worker (RTX 5080)</p>
+            <p>First production CQ Go service worker dispatch end-to-end. Verified <code>cq.yaml</code> + <code>CQ_CONFIG_JSON</code> + 6-artifact protocol on real production infrastructure.</p>
+            <a class="case-link" href="https://github.com/playidea-lab/pcq/blob/main/docs/case-studies/cq-worker-dogfood-2026-05-10.md">Read case study &rarr;</a>
+          </article>
+        </div>
+      </section>
+
+      <section id="roadmap" class="section roadmap-section">
+        <div class="section-heading">
+          <p class="eyebrow">Roadmap</p>
+          <h2>Where pcq is going (direction, not dates).</h2>
+        </div>
+        <p class="roadmap-body">
+          The thesis stays the same: <em>pcq does not compete with the
+          means of training</em>. The work ahead strengthens the
+          framework-neutral evidence and control layer — broader real-world
+          contract coverage, deeper validation/lineage facts, more
+          machine-readable surfaces for agent runtimes, and tighter
+          integration with the CQ managed consumer. Built-in models,
+          losses, datasets, and per-framework adapter matrices remain
+          deliberately out of scope.
+        </p>
+        <p class="roadmap-links">
+          <a href="https://github.com/playidea-lab/pcq/blob/main/docs/V4_DIRECTION.md">v4 Direction &rarr;</a>
+          &nbsp;·&nbsp;
+          <a href="https://github.com/playidea-lab/pcq/blob/main/docs/PCQ_COMPLETION_ROADMAP.md">Completion Roadmap &rarr;</a>
+          &nbsp;·&nbsp;
+          <a href="https://github.com/playidea-lab/pcq/releases">Releases &rarr;</a>
         </p>
       </section>
 

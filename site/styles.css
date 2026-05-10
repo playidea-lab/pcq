@@ -174,6 +174,19 @@ h1 {
   color: var(--text);
 }
 
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 22px;
+}
+
+.badges img {
+  display: block;
+  height: 20px;
+  border-radius: 3px;
+}
+
 .install-line {
   display: inline-flex;
   margin-top: 20px;
@@ -557,6 +570,137 @@ h3 {
   font-size: 0.92em;
 }
 
+/* Compare */
+.compare-section {
+  background: #f6f8f3;
+}
+
+.compare-wrap {
+  overflow-x: auto;
+  margin-top: 22px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.compare-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14.5px;
+}
+
+.compare-table th,
+.compare-table td {
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+  text-align: left;
+}
+
+.compare-table thead th {
+  background: #eef6ef;
+  color: var(--green-dark);
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.compare-table tbody th {
+  width: 12em;
+  color: var(--green-dark);
+  font-weight: 800;
+}
+
+.compare-table tbody tr:last-child th,
+.compare-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.compare-foot {
+  margin: 22px 0 0;
+  color: var(--muted);
+  font-size: 14.5px;
+  line-height: 1.6;
+}
+
+/* Case studies */
+.cases-section {
+  background: #fbfcf9;
+}
+
+.case-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 22px;
+}
+
+.case-card {
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.case-card h3 {
+  margin: 0 0 6px;
+  font-size: 18px;
+  color: var(--green-dark);
+}
+
+.case-meta {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-family:
+    "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.case-card p {
+  margin: 0 0 14px;
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.case-link {
+  color: var(--green-dark);
+  font-weight: 750;
+  font-size: 14.5px;
+}
+
+/* Roadmap */
+.roadmap-section {
+  background: #f3f7f4;
+}
+
+.roadmap-body {
+  margin: 12px 0 0;
+  max-width: 920px;
+  color: var(--text);
+  font-size: 17px;
+  line-height: 1.65;
+}
+
+.roadmap-body em {
+  color: var(--green-dark);
+  font-style: normal;
+  font-weight: 700;
+}
+
+.roadmap-links {
+  margin: 18px 0 0;
+  font-size: 15px;
+  color: var(--muted);
+}
+
+.roadmap-links a {
+  color: var(--green-dark);
+  font-weight: 750;
+}
+
 /* Tools Catalog */
 .catalog-section {
   background: #fbfcf9;
@@ -821,7 +965,8 @@ h3 {
   .feature-grid,
   .cq-grid,
   .mcp-grid,
-  .connect-grid {
+  .connect-grid,
+  .case-grid {
     grid-template-columns: 1fr;
   }
 

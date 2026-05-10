@@ -79,6 +79,19 @@ Standard artifacts:
 - `run_record.json`
 - `validation_report.json`
 
+Case studies (production dogfoods):
+
+- mnist-dogfood-2026-05-08, tabular-dogfood-2026-05-09,
+  mcp-dogfood-2026-05-10, cq-worker-dogfood-2026-05-10.
+- All four under https://github.com/playidea-lab/pcq/tree/main/docs/case-studies/
+- Mirrored on the site at #case-studies.
+
+Roadmap and direction:
+
+- v4 Direction: docs/V4_DIRECTION.md
+- Completion Roadmap: docs/PCQ_COMPLETION_ROADMAP.md
+- Site section: #roadmap
+
 Tool response samples:
 
 Real captured responses for the four most-called tools live inline at
