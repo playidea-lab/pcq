@@ -79,6 +79,14 @@ Standard artifacts:
 - `run_record.json`
 - `validation_report.json`
 
+Tool response samples:
+
+Real captured responses for the four most-called tools live inline at
+https://playidea-lab.github.io/pcq/#tools-catalog (describe_run,
+compare_runs, validate_run, lineage_chain). Volatile fields elided as
+"...". Same samples are referenced from agent-manifest.json under
+`tool_response_samples`.
+
 Agent rule:
 
 Prefer JSON/JSONL commands over scraping prose. Use `describe-run` and

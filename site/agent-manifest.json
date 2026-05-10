@@ -95,6 +95,40 @@
       "schema_frozen_since": "v2.13"
     }
   },
+  "tool_response_samples": [
+    {
+      "name": "describe_run",
+      "command": "pcq describe-run output --json",
+      "mcp_tool": "mcp__pcq__describe_run",
+      "sample_anchor": "https://playidea-lab.github.io/pcq/#tools-catalog-describe_run",
+      "captured_from": "examples/contract_sklearn (real run, volatile fields elided)",
+      "purpose": "Compact RunRecord summary — best/last metric, artifacts, decision_facts."
+    },
+    {
+      "name": "compare_runs",
+      "command": "pcq compare-runs output_a output_b --json",
+      "mcp_tool": "mcp__pcq__compare_runs",
+      "sample_anchor": "https://playidea-lab.github.io/pcq/#tools-catalog-compare_runs",
+      "captured_from": "examples/contract_sklearn (two real runs, output_a vs output_b)",
+      "purpose": "Diff two RunRecords — metric delta/direction, validation, source identity, decision_facts."
+    },
+    {
+      "name": "validate_run",
+      "command": "pcq validate-run output --strictness 3 --json",
+      "mcp_tool": "mcp__pcq__validate_run",
+      "sample_anchor": "https://playidea-lab.github.io/pcq/#tools-catalog-validate_run",
+      "captured_from": "examples/contract_sklearn (real run at strictness=3 reproducible)",
+      "purpose": "Post-run validation gates — pass/warn/fail, per-check evidence, blocking_count."
+    },
+    {
+      "name": "lineage_chain",
+      "command": "pcq lineage output --json",
+      "mcp_tool": "mcp__pcq__lineage_chain",
+      "sample_anchor": "https://playidea-lab.github.io/pcq/#tools-catalog-lineage_chain",
+      "captured_from": "examples/contract_sklearn (real run, single-node chain)",
+      "purpose": "Walk parent chain — chain[].run_id/depth/best_value, truncated flag."
+    }
+  ],
   "examples": [
     {
       "name": "sklearn-iris",

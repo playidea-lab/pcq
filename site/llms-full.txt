@@ -331,6 +331,24 @@ torch.save(model.state_dict(), out / "model.pt")
 pcq.save_all(history=history, artifacts={"model": "model.pt"})
 ```
 
+## Tool Response Samples
+
+Real captured responses for four canonical MCP tools are inlined at
+https://playidea-lab.github.io/pcq/#tools-catalog. Each sample comes from
+a real run of `examples/contract_sklearn`; only volatile fields
+(timestamps, git_sha, sha256 hashes, absolute paths) are elided as
+`"..."`. Anchors:
+
+- `#tools-catalog-describe_run`  — compact RunRecord summary
+- `#tools-catalog-compare_runs`  — diff between two RunRecords
+- `#tools-catalog-validate_run`  — strictness=3 pass/warn/fail report
+- `#tools-catalog-lineage_chain` — parent chain walk
+
+`agent-manifest.json` mirrors these under the `tool_response_samples`
+array (`name` + `command` + `mcp_tool` + `sample_anchor` per entry), so
+agents that prefer JSON over HTML can discover the same evidence
+machine-readably.
+
 ## Related Docs
 
 - v4 direction: https://github.com/playidea-lab/pcq/blob/main/docs/V4_DIRECTION.md

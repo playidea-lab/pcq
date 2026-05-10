@@ -469,6 +469,172 @@ h3 {
   line-height: 1.65;
 }
 
+/* Connect (Claude Code / Codex side-by-side) */
+.connect-section {
+  background: #f3f7f4;
+}
+
+.connect-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-top: 20px;
+}
+
+.connect-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.connect-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.connect-head h3 {
+  margin: 0;
+  font-size: 22px;
+  color: var(--green-dark);
+}
+
+.connect-tag {
+  padding: 3px 9px;
+  border: 1px solid #cbd7cc;
+  border-radius: 999px;
+  background: #eef6ef;
+  color: var(--green-dark);
+  font-family:
+    "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.connect-cap {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.connect-card pre {
+  overflow-x: auto;
+  margin: 0;
+  padding: 14px;
+  border-radius: 6px;
+  background: #0f172a;
+  color: #d1fae5;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.connect-foot {
+  margin: 22px 0 0;
+  color: var(--muted);
+  font-size: 14.5px;
+  line-height: 1.6;
+}
+
+.connect-foot code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: #eef6ef;
+  color: var(--green-dark);
+  font-size: 0.92em;
+}
+
+/* Tools Catalog */
+.catalog-section {
+  background: #fbfcf9;
+}
+
+.tool-card {
+  margin-top: 22px;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.tool-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.tool-head h3 {
+  margin: 0;
+  font-size: 19px;
+}
+
+.tool-head h3 code {
+  background: transparent;
+  color: var(--green-dark);
+  font-size: 19px;
+  font-weight: 800;
+}
+
+.tool-tag {
+  padding: 3px 9px;
+  border: 1px solid #cbd7cc;
+  border-radius: 999px;
+  background: #eef6ef;
+  color: var(--green-dark);
+  font-family:
+    "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.tool-cap {
+  margin: 14px 0 6px;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.tool-card pre {
+  overflow-x: auto;
+  margin: 0;
+  padding: 16px;
+  border: 1px solid #1f2937;
+  border-radius: 8px;
+  background: #0f172a;
+  color: #d1fae5;
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.catalog-foot {
+  margin: 26px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.catalog-foot code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: #eef6ef;
+  color: var(--green-dark);
+  font-size: 0.92em;
+}
+
 /* MCP */
 .mcp-section {
   background: #f3f7f4;
@@ -650,7 +816,8 @@ h3 {
 
   .feature-grid,
   .cq-grid,
-  .mcp-grid {
+  .mcp-grid,
+  .connect-grid {
     grid-template-columns: 1fr;
   }
 

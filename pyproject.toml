@@ -46,3 +46,9 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/pcq"]
+
+[dependency-groups]
+dev = [
+    "joblib>=1.5.3",
+    "scikit-learn>=1.7.2",
+]

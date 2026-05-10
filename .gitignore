@@ -32,6 +32,10 @@ htmlcov/
 .cq/
 output/
 
+# Site sample-capture working dir (regenerated on demand; procedure in
+# site/llms-full.txt → "Tool Response Samples")
+examples/_sklearn_run/
+
 # CI smoke output (cleaned by trap; ignored if leaked)
 .smoke_e2e/
 

@@ -75,50 +75,26 @@
           "mainEntity": [
             {
               "@type": "Question",
-              "name": "What is pcq?",
+              "name": "Does pcq replace PyTorch / HF Trainer / Lightning / sklearn?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "pcq is an Apache-2.0 Python library that standardizes the boundary around any ML training code. It loads config, captures metrics, writes standard artifacts, finalizes a run record, and exposes JSON/JSONL/MCP surfaces so coding agents, CI jobs, notebooks, and services can run, validate, describe, compare, and trace experiments without scraping terminal output."
+                "text": "No. pcq does not own the training loop. Your project keeps any framework. pcq only standardizes the surrounding evidence: cq.yaml, metric emission, artifact layout, validation, comparison, lineage, and the final run_record.json."
               }
             },
             {
               "@type": "Question",
-              "name": "Does pcq replace PyTorch, Hugging Face Trainer, sklearn, or Lightning?",
+              "name": "How does pcq integrate with Claude Code or Codex?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "No. pcq does not own the training loop. The user's project keeps any framework — PyTorch, Hugging Face Trainer, Lightning, sklearn, TabPFN, PyCaret, XGBoost, shell scripts, or custom Python. pcq standardizes the surrounding evidence: cq.yaml, metric emission, artifact layout, validation, comparison, lineage, and the final run_record.json."
+                "text": "Install pcq[mcp], run 'pcq agent install --target both --path . --mcp' to write .mcp.json, and start 'pcq mcp serve'. Both runtimes then see 14 mcp__pcq__* tools and call them with structured arguments instead of parsing stdout."
               }
             },
             {
               "@type": "Question",
-              "name": "How does pcq work with MCP (Model Context Protocol) and Claude Code or Codex?",
+              "name": "How does an agent decide whether a run passed?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "Install with 'uv add pcq[mcp]', then run 'pcq mcp serve' (stdio by default). Wire it into a project with 'pcq agent install --target claude --path . --mcp', which writes .mcp.json. Agents then call 14 mcp__pcq__* tools (resolve_project, inspect_project, validate_project, run_experiment, validate_run, describe_run, compare_runs, lineage_chain, apply_plan, apply_planset, init_experiment, finalize_run, agent_install, agent_status) directly without subprocess parsing."
-              }
-            },
-            {
-              "@type": "Question",
-              "name": "Is the CQ managed service required to use pcq?",
-              "acceptedAnswer": {
-                "@type": "Answer",
-                "text": "No. pcq is useful standalone — locally, in CI, in notebooks, and inside third-party orchestrators. CQ is one managed consumer of the same contract."
-              }
-            },
-            {
-              "@type": "Question",
-              "name": "What artifacts does a pcq run produce?",
-              "acceptedAnswer": {
-                "@type": "Answer",
-                "text": "config.json, metrics.json, manifest.json, run_summary.json, run_record.json, and validation_report.json. run_record.json is the canonical completion object combining execution, source identity, environment, input identity, metric schema, artifact manifest, validation, and summary evidence."
-              }
-            },
-            {
-              "@type": "Question",
-              "name": "How should an agent decide whether a run passed?",
-              "acceptedAnswer": {
-                "@type": "Answer",
-                "text": "Run 'pcq validate-run output --strictness 3 --json' for pass/warn/fail facts and 'pcq describe-run output --json' for decision facts. pcq deliberately reports facts instead of deciding policy; the agent or service chooses whether to continue, rollback, or accept."
+                "text": "Use 'pcq validate-run output --strictness 3 --json' for pass/warn/fail facts and 'pcq describe-run output --json' for decision facts. pcq deliberately reports facts; the agent or service chooses policy."
               }
             }
           ]
@@ -140,12 +116,10 @@
         <span class="brand-text">experiment contracts</span>
       </a>
       <nav class="nav" aria-label="Primary navigation">
+        <a href="#connect">Connect</a>
+        <a href="#tools-catalog">Tools</a>
         <a href="#why">Why</a>
-        <a href="#contract">Contract</a>
         <a href="#examples">Examples</a>
-        <a href="#mcp">MCP</a>
-        <a href="#agents">Agents</a>
-        <a href="#quickstart">Quickstart</a>
         <a href="#faq">FAQ</a>
         <a href="llms.txt">llms.txt</a>
         <a href="https://github.com/playidea-lab/pcq">GitHub</a>
@@ -156,135 +130,328 @@
       <section class="hero">
         <div class="hero-inner">
           <p class="eyebrow">Apache-2.0 · Python · MCP-ready</p>
-          <h1>Run anything. Standardize the evidence.</h1>
+          <h1>Your agent operates pcq.</h1>
           <p class="lead">
-            pcq turns ML experiments into agent-operable, reproducible units.
-            Keep your existing training stack; pcq standardizes the run
-            boundary — contract, live evidence, validation, comparison,
-            lineage, final run record — and exposes
-            <strong>14 Model Context Protocol tools</strong> for Claude Code,
-            Codex, and custom agents.
+            pcq is built for agents to run, validate, compare, and trace ML
+            experiments — not for humans to babysit dashboards. Keep any
+            training stack. <strong>14 Model Context Protocol tools</strong>
+            wire pcq into Claude Code, Codex, and any MCP-aware runtime in
+            one command.
           </p>
           <div class="hero-actions" aria-label="Primary actions">
-            <a class="button primary" href="https://pypi.org/project/pcq/">Install from PyPI</a>
-            <a class="button secondary" href="#mcp">MCP integration</a>
-            <a class="button secondary" href="https://github.com/playidea-lab/pcq/blob/main/docs/V4_DIRECTION.md">v4 direction</a>
+            <a class="button primary" href="#connect">Wire it into your agent</a>
+            <a class="button secondary" href="#tools-catalog">See tool responses</a>
+            <a class="button secondary" href="https://github.com/playidea-lab/pcq">GitHub</a>
           </div>
           <div class="install-line" aria-label="Install command">
-            <span>uv add 'pcq[mcp]'</span>
+            <span>pcq agent install --target both --mcp</span>
           </div>
         </div>
 
-        <aside class="run-card" aria-label="pcq run artifact preview">
+        <aside class="run-card" aria-label="What your agent gets">
           <div class="terminal-bar">
             <span></span>
             <span></span>
             <span></span>
           </div>
-          <pre><code>cq.yaml
-  cmd: uv run python train.py
-  metrics:
-    - name: val_acc
-      direction: max
+          <pre><code>$ pcq agent install --target both --mcp
+✓ wrote .mcp.json (pcq server registered)
+✓ Claude Code: ready (14 mcp__pcq__* tools)
+✓ Codex:       ready (14 mcp__pcq__* tools)
 
-pcq run --json
-pcq validate-run output --json
-pcq describe-run output --json
-pcq compare-runs prev/ output --json
-
-output/
-  config.json
-  metrics.json
-  manifest.json
-  run_record.json</code></pre>
+your agent can now call:
+  resolve_project   inspect_project   validate_project
+  run_experiment    validate_run      describe_run
+  compare_runs      lineage_chain     ...10 more</code></pre>
         </aside>
+      </section>
+
+      <section id="connect" class="section connect-section">
+        <div class="section-heading">
+          <p class="eyebrow">Connect</p>
+          <h2>One command. Both runtimes. Identical surface.</h2>
+          <p class="section-lead">
+            <code>pcq agent install --target both --mcp</code> writes
+            <code>.mcp.json</code> in the project root. Existing
+            <code>.mcp.json</code> entries are preserved — only the
+            <code>pcq</code> server is merged.
+          </p>
+        </div>
+        <div class="connect-grid">
+          <article class="connect-card" aria-label="Claude Code wiring">
+            <header class="connect-head">
+              <h3>Claude Code</h3>
+              <span class="connect-tag">stdio</span>
+            </header>
+            <p class="connect-cap">Install &amp; serve</p>
+            <pre><code>uv add 'pcq[mcp]'
+pcq agent install --target claude --path . --mcp
+pcq mcp serve</code></pre>
+            <p class="connect-cap">.mcp.json (project root)</p>
+            <pre><code>{
+  "mcpServers": {
+    "pcq": {
+      "command": "pcq",
+      "args": ["mcp", "serve"]
+    }
+  }
+}</code></pre>
+            <p class="connect-cap">First call: inspect_project</p>
+            <pre><code>{
+  "schema_version": 1,
+  "project_root": "/path/to/my-exp",
+  "selected_yaml": "cq.yaml",
+  "name": "sklearn-baseline",
+  "cmd": "uv run python train.py",
+  "metrics": ["epoch", "eval_acc"],
+  "output_dir": "output",
+  "artifacts": ["output/"]
+}</code></pre>
+          </article>
+
+          <article class="connect-card" aria-label="Codex wiring">
+            <header class="connect-head">
+              <h3>Codex</h3>
+              <span class="connect-tag">stdio</span>
+            </header>
+            <p class="connect-cap">Install &amp; serve</p>
+            <pre><code>uv add 'pcq[mcp]'
+pcq agent install --target codex --path . --mcp
+pcq mcp serve</code></pre>
+            <p class="connect-cap">.mcp.json (project root)</p>
+            <pre><code>{
+  "mcpServers": {
+    "pcq": {
+      "command": "pcq",
+      "args": ["mcp", "serve"]
+    }
+  }
+}</code></pre>
+            <p class="connect-cap">First call: inspect_project</p>
+            <pre><code>{
+  "schema_version": 1,
+  "project_root": "/path/to/my-exp",
+  "selected_yaml": "cq.yaml",
+  "name": "sklearn-baseline",
+  "cmd": "uv run python train.py",
+  "metrics": ["epoch", "eval_acc"],
+  "output_dir": "output",
+  "artifacts": ["output/"]
+}</code></pre>
+          </article>
+        </div>
+        <p class="connect-foot" id="mcp">
+          Want both at once? <code>--target both</code> writes Model
+          Context Protocol wire-up for Claude Code and Codex in a single
+          call. Any other MCP-aware runtime works too — point it at
+          <code>pcq mcp serve</code> over stdio or SSE
+          (<code>--transport sse --port 8765</code>). All 14 read-only and
+          mutating tools are listed in the
+          <a href="agent-manifest.json">agent manifest</a>.
+        </p>
+      </section>
+
+      <section id="tools-catalog" class="section catalog-section">
+        <div class="section-heading">
+          <p class="eyebrow">Tool responses · real</p>
+          <h2>What your agent receives.</h2>
+          <p class="section-lead">
+            Below are four canonical MCP tool responses captured from a real
+            run of <code>examples/contract_sklearn</code>. Volatile fields
+            (timestamps, git SHA, env hashes, absolute paths) are elided as
+            <code>"..."</code>; structure and values are unmodified.
+            <a href="https://github.com/playidea-lab/pcq/blob/main/docs/JSON_CONTRACTS.md">JSON contracts &rarr;</a>
+          </p>
+        </div>
+
+        <article id="tools-catalog-describe_run" class="tool-card">
+          <header class="tool-head">
+            <h3><code>describe_run</code></h3>
+            <span class="tool-tag">read-only</span>
+          </header>
+          <p class="tool-cap">Call</p>
+          <pre><code>pcq describe-run output --json
+# MCP: mcp__pcq__describe_run({"path": "output"})</code></pre>
+          <p class="tool-cap">Response</p>
+          <pre><code>{
+  "schema_version": 1,
+  "run_id": "run_20260510_001107_c87d7d",
+  "name": "sklearn-iris-contract",
+  "status": "completed",
+  "output_dir": "...",
+  "cmd": "uv run python train.py",
+  "target_metric": "eval_acc",
+  "mode": "max",
+  "best":  { "epoch": 0, "value": 1.0, "metrics": {"eval_acc": 1.0}, "checkpoint": "best.ckpt" },
+  "best_value": 1.0,
+  "best_epoch": 0,
+  "last":  { "epoch": 0, "value": 1.0, "metrics": {"eval_acc": 1.0}, "checkpoint": "last.ckpt" },
+  "epochs_completed": 1,
+  "partial": false,
+  "last_updated_at": "...",
+  "git_sha": "...",
+  "dirty": true,
+  "python": "3.12.10",
+  "platform": "Darwin-arm64",
+  "metrics_declared": [{"name": "epoch"}, {"name": "eval_acc"}],
+  "artifacts": [
+    {"path": "config.json",      "kind": "config",  "sha256": "...", "size_bytes": 250,    "created_at": "..."},
+    {"path": "metrics.json",     "kind": "metrics", "sha256": "...", "size_bytes": 74,     "created_at": "..."},
+    {"path": "model.pkl",        "kind": "model",   "sha256": "...", "size_bytes": 186929, "created_at": "..."},
+    {"path": "run_summary.json", "kind": "summary", "sha256": "...", "size_bytes": 586,    "created_at": "..."}
+  ],
+  "artifacts_summary": {"config": 1, "metrics": 1, "model": 1, "summary": 1},
+  "validation_status": "pass",
+  "decision_facts": {
+    "run_completed": true,
+    "validation_passed": true,
+    "has_target_metric": true,
+    "has_best": true,
+    "has_parent": false,
+    "artifact_count": 4,
+    "metric_count": 2,
+    "dirty_source": true,
+    "has_lockfile": true
+  }
+}</code></pre>
+        </article>
+
+        <article id="tools-catalog-compare_runs" class="tool-card">
+          <header class="tool-head">
+            <h3><code>compare_runs</code></h3>
+            <span class="tool-tag">read-only</span>
+          </header>
+          <p class="tool-cap">Call</p>
+          <pre><code>pcq compare-runs output_a output_b --json
+# MCP: mcp__pcq__compare_runs({"a": "output_a", "b": "output_b"})</code></pre>
+          <p class="tool-cap">Response</p>
+          <pre><code>{
+  "schema_version": 1,
+  "a_run_id": "run_20260510_001106_26fbda",
+  "b_run_id": "run_20260510_001107_c87d7d",
+  "target_metric": "eval_acc",
+  "mode": "min",
+  "best":  { "a": 1.0, "b": 1.0, "delta": 0.0, "direction": "tied", "epoch_a": 0, "epoch_b": 0 },
+  "metric_delta": 0.0,
+  "metric_direction": "tied",
+  "last":  { "a": 1.0, "b": 1.0, "delta": 0.0, "direction": "tied", "epoch_a": 0, "epoch_b": 0 },
+  "validation": { "a": "fail", "b": "pass", "same": false },
+  "artifacts": { "a_count": 6, "b_count": 4 },
+  "source":    { "same_git_sha": true, "same_cq_yaml_sha256": true, "dirty_changed": false },
+  "a_status": "completed",
+  "b_status": "completed",
+  "a_is_ancestor_of_b": false,
+  "notes": [
+    "both runs picked epoch 0 as best — likely same initial weights (seed) and no improvement during training. agent should consider this a 'no learning' signal."
+  ],
+  "decision_facts": {
+    "comparable": true,
+    "best_improved": false,
+    "best_tied": true,
+    "candidate_completed": true,
+    "candidate_validated": true,
+    "config_changed": false,
+    "has_lineage_relation": false
+  }
+}</code></pre>
+        </article>
+
+        <article id="tools-catalog-validate_run" class="tool-card">
+          <header class="tool-head">
+            <h3><code>validate_run</code></h3>
+            <span class="tool-tag">read-only</span>
+          </header>
+          <p class="tool-cap">Call</p>
+          <pre><code>pcq validate-run output --strictness 3 --json
+# MCP: mcp__pcq__validate_run({"path": "output", "strictness": 3})</code></pre>
+          <p class="tool-cap">Response</p>
+          <pre><code>{
+  "schema_version": 1,
+  "status": "pass",
+  "strictness": 3,
+  "strictness_name": "reproducible",
+  "checks": [
+    { "id": "manifest_evidence",           "status": "pass", "detail": "schema v2, 4 entries verified" },
+    { "id": "metrics_well_formed",         "status": "pass", "detail": "1 epoch(s) recorded" },
+    { "id": "summary_metrics_consistent",  "status": "pass", "detail": "run_summary best/last align with metrics history" },
+    { "id": "run_record_complete",         "status": "pass", "detail": "run_record schema v1, all required keys present" },
+    { "id": "run_finalized",               "status": "pass", "detail": "run finalized with status='completed'" },
+    { "id": "source_reproducibility",      "status": "pass", "detail": "git_sha=..., dirty=True" },
+    { "id": "environment_reproducibility", "status": "pass", "detail": "python/platform environment evidence recorded" },
+    { "id": "lockfile_evidence",           "status": "pass", "detail": "lockfile recorded: uv.lock" },
+    { "id": "seed_evidence",               "status": "pass", "detail": "seed recorded: 42" },
+    { "id": "metrics_schema_evidence",     "status": "pass", "detail": "2 metric declaration(s) recorded" }
+  ],
+  "blocking_count": 0,
+  "warning_count": 0
+}</code></pre>
+        </article>
+
+        <article id="tools-catalog-lineage_chain" class="tool-card">
+          <header class="tool-head">
+            <h3><code>lineage_chain</code></h3>
+            <span class="tool-tag">read-only</span>
+          </header>
+          <p class="tool-cap">Call</p>
+          <pre><code>pcq lineage output --json
+# MCP: mcp__pcq__lineage_chain({"path": "output"})</code></pre>
+          <p class="tool-cap">Response</p>
+          <pre><code>{
+  "schema_version": 1,
+  "chain": [
+    {
+      "run_id": "run_20260510_001107_c87d7d",
+      "output_dir": "...",
+      "depth": 0,
+      "name": "sklearn-iris-contract",
+      "status": "completed",
+      "target_metric": "eval_acc",
+      "best_value": 1.0
+    }
+  ],
+  "truncated": false,
+  "notes": []
+}</code></pre>
+        </article>
+
+        <p class="catalog-foot">
+          Capture procedure (reproducible):
+          <code>pcq run --path examples/_sklearn_run --json</code> twice
+          (rename <code>output</code> → <code>output_a</code> in between),
+          then call the four tools against the resulting directories.
+          Volatile fields elided in this page only — the raw JSON your
+          agent receives keeps every field.
+        </p>
       </section>
 
       <section id="why" class="section">
         <div class="section-heading">
           <p class="eyebrow">Why pcq</p>
-          <h2>Not another trainer. Control around the run.</h2>
+          <h2>Three reasons your agent prefers pcq.</h2>
         </div>
         <div class="feature-grid">
           <article class="feature">
             <h3>Framework-neutral</h3>
             <p>
-              Use PyTorch, Hugging Face Trainer, Lightning, sklearn, TabPFN,
-              PyCaret, XGBoost, shell scripts, or custom Python. pcq
-              standardizes the surrounding evidence instead of replacing the
-              training loop.
+              PyTorch, HF Trainer, Lightning, sklearn, XGBoost, shell, or
+              custom Python. pcq standardizes the evidence around the run,
+              not the training loop.
             </p>
           </article>
           <article class="feature">
             <h3>Agent-readable</h3>
             <p>
-              JSON/JSONL CLI surfaces, strictness gates, manifests, lineage,
-              and run summaries are designed for coding agents, CI jobs, and
-              services that need facts rather than prose.
-            </p>
-          </article>
-          <article class="feature">
-            <h3>Reproducible boundary</h3>
-            <p>
-              Config, metrics, source identity, environment, inputs, artifacts,
-              validation, and best/last results converge into one
-              <code>run_record.json</code>.
+              JSON/JSONL CLI surfaces and 14 MCP tools — facts, not prose.
+              <code>--events</code> persists live evidence for post-hoc audits.
             </p>
           </article>
           <article class="feature">
             <h3>MCP-ready</h3>
             <p>
-              <code>pcq[mcp]</code> exposes 14 tools to Claude Code, Codex, and
-              any MCP-aware runtime. No subprocess, no stdout scraping —
-              structured input/output anchored in frozen JSON contracts.
+              <code>pcq[mcp]</code> wires into Claude Code, Codex, and any
+              MCP-aware runtime. Frozen JSON contracts since v2.13.
             </p>
           </article>
-          <article class="feature">
-            <h3>CI-friendly</h3>
-            <p>
-              <code>--json</code> for one final object; <code>--jsonl</code> for
-              live event streams; <code>--events</code> to persist evidence
-              alongside the run for post-hoc audits.
-            </p>
-          </article>
-          <article class="feature">
-            <h3>Service-ready</h3>
-            <p>
-              The CQ managed service consumes the same contract for queueing,
-              dashboards, and agent loops. pcq stays useful without it.
-            </p>
-          </article>
-        </div>
-      </section>
-
-      <section id="contract" class="section contract-section">
-        <div class="section-heading">
-          <p class="eyebrow">Core contract</p>
-          <h2>A small set of files that every run can explain.</h2>
-        </div>
-        <div class="contract-layout">
-          <div class="contract-copy">
-            <p>
-              pcq keeps the model code free-form and makes the run boundary
-              explicit. The project declares intent in <code>cq.yaml</code>,
-              the script emits metrics, and pcq finalizes the standard
-              artifacts.
-            </p>
-            <ul class="check-list">
-              <li><code>cq.yaml</code> declares command, config, metrics, inputs, and artifacts.</li>
-              <li><code>pcq.log()</code> emits structured metric history.</li>
-              <li><code>pcq.save_all()</code> writes the standard artifact set.</li>
-              <li><code>pcq finalize</code> turns a run directory into evidence.</li>
-            </ul>
-          </div>
-          <div class="artifact-list" aria-label="Standard artifacts">
-            <span>config.json</span>
-            <span>metrics.json</span>
-            <span>manifest.json</span>
-            <span>run_summary.json</span>
-            <span>run_record.json</span>
-            <span>validation_report.json</span>
-          </div>
         </div>
       </section>
 
@@ -293,36 +460,18 @@ output/
           <p class="eyebrow">Examples</p>
           <h2>Same contract, any framework.</h2>
           <p class="section-lead">
-            The training code stays yours. pcq only requires three calls:
-            <code>pcq.config()</code>, <code>pcq.log(...)</code>, and
-            <code>pcq.save_all(...)</code>.
+            Training code stays yours. pcq only needs three calls:
+            <code>pcq.config()</code>, <code>pcq.log(...)</code>,
+            <code>pcq.save_all(...)</code>. Full set including the
+            minimal <code>cq.yaml</code>, NumPy, and the post-run command
+            list lives in
+            <a href="https://github.com/playidea-lab/pcq/tree/main/examples">examples/</a>.
           </p>
         </div>
 
         <div class="example">
           <div class="example-head">
-            <h3>1. Minimal <code>cq.yaml</code></h3>
-            <p>The contract that turns a directory into a runnable, validatable experiment.</p>
-          </div>
-          <pre><code># cq.yaml
-name: sklearn-baseline
-cmd: uv run python train.py
-configs:
-  output_dir: output
-  seed: 42
-  n_estimators: 100
-  monitor: eval_acc
-  mode: max
-metrics:
-  - epoch
-  - eval_acc
-artifacts:
-  - output/</code></pre>
-        </div>
-
-        <div class="example">
-          <div class="example-head">
-            <h3>2. sklearn — RandomForest on Iris</h3>
+            <h3>sklearn — RandomForest on Iris</h3>
             <p>No adapter, no Trainer subclass. Three pcq calls.</p>
           </div>
           <pre><code># train.py
@@ -352,8 +501,8 @@ pcq.save_all(history=[{"epoch": 0, "eval_acc": acc}],
 
         <div class="example">
           <div class="example-head">
-            <h3>3. PyTorch — training loop</h3>
-            <p>Keep your own model, optimizer, dataloader. pcq sits at the boundary.</p>
+            <h3>PyTorch — training loop</h3>
+            <p>Your own model, optimizer, dataloader. pcq sits at the boundary.</p>
           </div>
           <pre><code># train.py
 import pcq, torch
@@ -377,129 +526,6 @@ for epoch in range(cfg["epochs"]):
 
 torch.save(model.state_dict(), out / "model.pt")
 pcq.save_all(history=history, artifacts={"model": "model.pt"})</code></pre>
-        </div>
-
-        <div class="example">
-          <div class="example-head">
-            <h3>4. NumPy — zero-dependency demo</h3>
-            <p>Proof that pcq does not require a framework.</p>
-          </div>
-          <pre><code># train.py
-import numpy as np, pcq
-
-cfg = pcq.config()
-out = pcq.output_dir()
-rng = np.random.default_rng(cfg.get("seed", 42))
-
-w = rng.normal(scale=0.1, size=4)
-history = []
-for epoch in range(cfg.get("epochs", 3)):
-    loss = float(np.mean(w ** 2))
-    w *= 0.9
-    pcq.log(epoch=epoch, train_loss=loss)
-    history.append({"epoch": epoch, "train_loss": loss})
-
-np.savez(out / "model.npz", weights=w)
-pcq.save_all(history=history, artifacts={"model": "model.npz"})</code></pre>
-        </div>
-
-        <div class="example">
-          <div class="example-head">
-            <h3>5. Run, validate, compare</h3>
-            <p>The same five commands work for every example above.</p>
-          </div>
-          <pre><code># Final JSON envelope
-pcq run --path . --json
-
-# Live newline-delimited events (run.started, stdout, metric, run.completed)
-pcq run --path . --jsonl
-
-# Final JSON + persisted event log
-pcq run --path . --events output/events.jsonl --json
-
-# Post-run facts for an agent or CI
-pcq validate-run output --strictness 3 --json
-pcq describe-run output --json
-pcq compare-runs prev_output output --json
-pcq lineage output --json</code></pre>
-        </div>
-      </section>
-
-      <section id="mcp" class="section mcp-section">
-        <div class="section-heading">
-          <p class="eyebrow">Model Context Protocol</p>
-          <h2>Talk to pcq with structured tools, not stdout scraping.</h2>
-          <p class="section-lead">
-            Phase 6 (v4.1.0) ships an MCP server that exposes 14 of pcq's
-            CLI surfaces as native tools for Claude Code, Codex, and any
-            MCP-aware runtime. Read-only tools never mkdir, never mutate
-            <code>cq.yaml</code>, and never spawn subprocesses.
-          </p>
-        </div>
-
-        <div class="mcp-grid">
-          <div class="mcp-step">
-            <h3>1. Install</h3>
-            <pre><code>uv add 'pcq[mcp]'
-# or:
-pip install 'pcq[mcp]'</code></pre>
-          </div>
-          <div class="mcp-step">
-            <h3>2. Wire into a project</h3>
-            <pre><code>pcq init-experiment --output ./my-exp --agent claude
-pcq agent install --target claude --path ./my-exp --mcp</code></pre>
-            <p>The <code>--mcp</code> flag merges a <code>pcq</code> entry into <code>.mcp.json</code>; existing entries are preserved.</p>
-          </div>
-          <div class="mcp-step">
-            <h3>3. Serve</h3>
-            <pre><code># stdio (Claude Code, Codex)
-pcq mcp serve
-
-# HTTP/SSE (web services, remote clients)
-pcq mcp serve --transport sse --host 127.0.0.1 --port 8765</code></pre>
-          </div>
-          <div class="mcp-step">
-            <h3><code>.mcp.json</code></h3>
-            <pre><code>{
-  "mcpServers": {
-    "pcq": {
-      "command": "pcq",
-      "args": ["mcp", "serve"]
-    }
-  }
-}</code></pre>
-          </div>
-        </div>
-
-        <div class="mcp-tools" aria-label="MCP tools">
-          <h3>14 MCP tools</h3>
-          <table class="tool-table">
-            <thead>
-              <tr><th scope="col">Tool</th><th scope="col">Read-only</th><th scope="col">Maps to</th></tr>
-            </thead>
-            <tbody>
-              <tr><td><code>resolve_project</code></td><td>yes</td><td><code>pcq resolve</code></td></tr>
-              <tr><td><code>inspect_project</code></td><td>yes</td><td><code>pcq inspect</code></td></tr>
-              <tr><td><code>validate_project</code></td><td>yes</td><td><code>pcq validate</code></td></tr>
-              <tr><td><code>validate_run</code></td><td>yes</td><td><code>pcq validate-run</code></td></tr>
-              <tr><td><code>describe_run</code></td><td>yes</td><td><code>pcq describe-run</code></td></tr>
-              <tr><td><code>compare_runs</code></td><td>yes</td><td><code>pcq compare-runs</code></td></tr>
-              <tr><td><code>lineage_chain</code></td><td>yes</td><td><code>pcq lineage</code></td></tr>
-              <tr><td><code>apply_plan</code></td><td>no</td><td><code>pcq apply-plan</code></td></tr>
-              <tr><td><code>apply_planset</code></td><td>no</td><td><code>pcq apply-planset</code></td></tr>
-              <tr><td><code>init_experiment</code></td><td>no</td><td><code>pcq init-experiment</code></td></tr>
-              <tr><td><code>finalize_run</code></td><td>no</td><td><code>pcq finalize</code></td></tr>
-              <tr><td><code>agent_install</code></td><td>no</td><td><code>pcq agent install</code></td></tr>
-              <tr><td><code>agent_status</code></td><td>yes</td><td><code>pcq agent status</code></td></tr>
-              <tr><td><code>run_experiment</code></td><td>no</td><td><code>pcq run</code></td></tr>
-            </tbody>
-          </table>
-          <p class="mcp-foot">
-            Every tool's input/output is anchored in <code>pcq.agent.json_contracts.JSON_CONTRACTS</code>,
-            frozen since v2.13. Long multi-hour training should stay on the
-            CQ service queue rather than blocking <code>run_experiment</code>.
-            Full details: <a href="https://github.com/playidea-lab/pcq/blob/main/docs/MCP_INTEGRATION.md">docs/MCP_INTEGRATION.md</a>.
-          </p>
         </div>
       </section>
 
@@ -553,7 +579,11 @@ pcq describe-run output --json</code></pre>
       <section id="faq" class="section faq-section">
         <div class="section-heading">
           <p class="eyebrow">FAQ</p>
-          <h2>Common questions.</h2>
+          <h2>Three things people actually ask.</h2>
+          <p class="section-lead">
+            Longer FAQ + JSON contracts + strictness reference live in the
+            <a href="https://github.com/playidea-lab/pcq/tree/main/docs">docs/</a>.
+          </p>
         </div>
         <div class="faq-list">
           <details>
@@ -561,32 +591,12 @@ pcq describe-run output --json</code></pre>
             <p>No. pcq does not own the training loop. Your project keeps any framework. pcq only standardizes the surrounding evidence: <code>cq.yaml</code>, metric emission, artifact layout, validation, comparison, lineage, and the final <code>run_record.json</code>.</p>
           </details>
           <details>
-            <summary>Is the CQ managed service required?</summary>
-            <p>No. pcq is useful standalone — locally, in CI, in notebooks, and inside third-party orchestrators. CQ is one managed consumer of the same contract.</p>
-          </details>
-          <details>
             <summary>How does pcq integrate with Claude Code or Codex?</summary>
-            <p>Install <code>pcq[mcp]</code>, run <code>pcq agent install --target claude --path . --mcp</code> to write <code>.mcp.json</code>, and start <code>pcq mcp serve</code>. The agent then sees 14 <code>mcp__pcq__*</code> tools and calls them with structured arguments instead of parsing stdout.</p>
-          </details>
-          <details>
-            <summary>What artifacts does a run produce?</summary>
-            <p><code>config.json</code>, <code>metrics.json</code>, <code>manifest.json</code>, <code>run_summary.json</code>, <code>run_record.json</code>, and <code>validation_report.json</code>. <code>run_record.json</code> is the canonical completion object.</p>
+            <p>Install <code>pcq[mcp]</code>, run <code>pcq agent install --target both --path . --mcp</code> to write <code>.mcp.json</code>, and start <code>pcq mcp serve</code>. Both runtimes then see 14 <code>mcp__pcq__*</code> tools and call them with structured arguments instead of parsing stdout. See <a href="#tools-catalog">tool responses &rarr;</a></p>
           </details>
           <details>
             <summary>How does an agent decide whether a run passed?</summary>
             <p>Use <code>pcq validate-run output --strictness 3 --json</code> for pass/warn/fail facts and <code>pcq describe-run output --json</code> for decision facts. pcq deliberately reports facts; the agent or service chooses policy.</p>
-          </details>
-          <details>
-            <summary>Can I emit live events from long training runs?</summary>
-            <p>Yes. <code>pcq run --path . --jsonl</code> streams newline-delimited events (<code>run.started</code>, <code>stdout</code>, <code>metric</code>, <code>run.completed</code>, <code>run.failed</code>). Add <code>--events output/events.jsonl</code> to persist the same evidence to a file.</p>
-          </details>
-          <details>
-            <summary>What strictness levels exist for validation?</summary>
-            <p>Strictness 0–3. Lower levels warn, higher levels fail. Use 2 for project validation during authoring and 3 for run validation during gating. See <a href="https://github.com/playidea-lab/pcq/blob/main/docs/STRICTNESS.md">docs/STRICTNESS.md</a>.</p>
-          </details>
-          <details>
-            <summary>Where is the pcq Python and JSON contract specified?</summary>
-            <p>See <a href="https://github.com/playidea-lab/pcq/blob/main/docs/JSON_CONTRACTS.md">docs/JSON_CONTRACTS.md</a> and <a href="https://github.com/playidea-lab/pcq/blob/main/docs/CQ_YAML_RUNTIME_CONTRACT.md">docs/CQ_YAML_RUNTIME_CONTRACT.md</a>. Both are frozen in v2.13 onwards.</p>
           </details>
         </div>
       </section>
