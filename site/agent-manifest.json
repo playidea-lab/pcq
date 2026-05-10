@@ -140,6 +140,32 @@
   "spec_schemas_url": "https://github.com/playidea-lab/pcq/tree/main/spec/schemas",
   "spec_versioning_url": "https://github.com/playidea-lab/pcq/blob/main/spec/VERSIONING.md",
   "spec_conformance_url": "https://github.com/playidea-lab/pcq/blob/main/spec/CONFORMANCE.md",
+  "spec_implementations_url": "https://github.com/playidea-lab/pcq/blob/main/spec/IMPLEMENTATIONS.md",
+  "implementations": [
+    {
+      "slug": "pcq-py",
+      "label": "Reference (Python)",
+      "language": "python",
+      "pypi": "pcq",
+      "install": "uv add pcq",
+      "source_url": "https://github.com/playidea-lab/pcq/tree/main/src/pcq",
+      "license": "Apache-2.0",
+      "schema_version": 1,
+      "conformance": "automated suite",
+      "conformance_url": "https://github.com/playidea-lab/pcq/tree/main/tests/conformance",
+      "maintainer": "playidea-lab"
+    },
+    {
+      "slug": "cq-go-worker",
+      "label": "Production (CQ Go service worker)",
+      "language": "go",
+      "source_url": null,
+      "schema_version": 1,
+      "conformance": "production dogfood",
+      "evidence_url": "https://github.com/playidea-lab/pcq/blob/main/docs/case-studies/cq-worker-dogfood-2026-05-10.md",
+      "maintainer": "playidea-lab"
+    }
+  ],
   "tool_response_samples": [
     {
       "name": "describe_run",

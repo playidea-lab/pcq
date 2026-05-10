@@ -38,6 +38,7 @@ contract. Keeping them apart means:
 |----------|-----------------|
 | [`VERSIONING.md`](./VERSIONING.md) | `schema_version` policy: semver mapping, breaking change definition (additive-only within MAJOR), deprecation timeline, two-MAJOR coexistence, and how agent runtimes discover supported versions. |
 | [`CONFORMANCE.md`](./CONFORMANCE.md) | Golden input/output pair format and location, volatile-field placeholder (`"..."`) and matcher policy, how to add a case, and how to run the suite. |
+| [`IMPLEMENTATIONS.md`](./IMPLEMENTATIONS.md) | Registered implementations targeting the current `schema_version` (Reference vs Production labels), with conformance evidence per entry, and the procedure for adding a new implementation. |
 
 ### Generated assets
 

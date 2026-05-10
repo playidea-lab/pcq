@@ -4,8 +4,8 @@
     "command": ["pcq", "describe-run", "FIXTURE_OUTPUT", "--json"]
   },
   "fixtures": {
-    "FIXTURE_OUTPUT": "examples/_sklearn_run/output_b/"
+    "FIXTURE_OUTPUT": "fixtures/output"
   },
   "schema_version": 1,
-  "notes": "Real RunRecord summary captured 2026-05-10 from a sklearn baseline run with eval_acc=1.0 on Iris."
+  "notes": "Static fixture (sklearn iris baseline, eval_acc=1.0) captured 2026-05-10. The describe-run command quotes the manifest verbatim so sha256 mismatches against the actual fixture files are tolerated; the live runner relies only on the matcher rules in spec/CONFORMANCE.md."
 }

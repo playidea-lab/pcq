@@ -36,6 +36,10 @@ output/
 # site/llms-full.txt → "Tool Response Samples")
 examples/_sklearn_run/
 
+# Conformance live-invocation byproducts (pcq writes .pcq/ next to cq.yaml
+# when --config-only or --json runs; fixtures stay clean)
+tests/conformance/**/.pcq/
+
 # CI smoke output (cleaned by trap; ignored if leaked)
 .smoke_e2e/
 

@@ -1,0 +1,11 @@
+{
+  "invocation": {
+    "kind": "cli",
+    "command": ["pcq", "run", "--path", "FIXTURE_PROJECT", "--config-only", "--json"]
+  },
+  "fixtures": {
+    "FIXTURE_PROJECT": "fixtures/project"
+  },
+  "schema_version": 1,
+  "notes": "config-only run — pcq writes runtime_cfg.json but does not exec cq.yaml.cmd. Fast and deterministic; no training framework needed."
+}

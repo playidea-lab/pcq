@@ -9,8 +9,9 @@ The contract turns a project with `cq.yaml` into a reproducible experiment
 unit. The reference Python implementation loads config, resolves output
 paths, captures metrics, writes standard artifacts, finalizes run evidence,
 and exposes JSON/JSONL/MCP surfaces that coding agents, CI jobs, notebooks,
-and services can consume. Other-language reference implementations (notably
-the CQ Go service worker) target the same contract.
+and services can consume. See [`spec/IMPLEMENTATIONS.md`](spec/IMPLEMENTATIONS.md)
+for the registered implementation list (Python reference + CQ Go production
+worker today) and the procedure for adding yours.
 
 `pcq` is **not** a training framework, model zoo, adapter matrix, or CQ-only
 client. Use PyTorch, Hugging Face Trainer, Lightning, sklearn, TabPFN, PyCaret,

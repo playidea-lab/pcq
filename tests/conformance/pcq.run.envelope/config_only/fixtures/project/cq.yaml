@@ -1,0 +1,13 @@
+name: conformance-config-only
+cmd: uv run python train.py
+
+configs:
+  output_dir: output
+  seed: 42
+
+metrics:
+  - epoch
+  - eval_acc
+
+artifacts:
+  - output/
