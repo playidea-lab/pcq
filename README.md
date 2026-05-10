@@ -21,15 +21,22 @@ pcq operates the experiment boundary.
 [SITE](https://playidea-lab.github.io/pcq/) |
 [INTRODUCTION](docs/INTRODUCTION.md) |
 [V4_DIRECTION](docs/V4_DIRECTION.md) |
-[SPEC](docs/SPEC.md) |
 [VISION](docs/VISION.md) |
 [AGENT_OPERABILITY](docs/AGENT_OPERABILITY.md) |
 [RUN_RECORD](docs/RUN_RECORD.md) |
-[CQ_YAML_RUNTIME_CONTRACT](docs/CQ_YAML_RUNTIME_CONTRACT.md) |
-[JSON_CONTRACTS](docs/JSON_CONTRACTS.md) |
-[STRICTNESS](docs/STRICTNESS.md) |
 [AGENT_OPERATING_GUIDE](docs/AGENT_OPERATING_GUIDE.md) |
 [CHANGELOG](CHANGELOG.md)
+
+Contract specification (single source of truth):
+[spec/INDEX.md](spec/INDEX.md) |
+[SPEC](spec/SPEC.md) |
+[CQ_YAML_RUNTIME_CONTRACT](spec/CQ_YAML_RUNTIME_CONTRACT.md) |
+[JSON_CONTRACTS](spec/JSON_CONTRACTS.md) |
+[STRICTNESS](spec/STRICTNESS.md) |
+[CQ_MCP_SPEC](spec/CQ_MCP_SPEC.md) |
+[VERSIONING](spec/VERSIONING.md) |
+[CONFORMANCE](spec/CONFORMANCE.md) |
+[schemas/](spec/schemas/) (auto-exported via [`scripts/export_schemas.py`](scripts/export_schemas.py))
 
 Case studies (external evidence):
 [mnist-dogfood](docs/case-studies/mnist-dogfood-2026-05-08.md) |

@@ -135,6 +135,11 @@
   ],
   "roadmap_url": "https://github.com/playidea-lab/pcq/blob/main/docs/PCQ_COMPLETION_ROADMAP.md",
   "v4_direction_url": "https://github.com/playidea-lab/pcq/blob/main/docs/V4_DIRECTION.md",
+  "spec_url": "https://github.com/playidea-lab/pcq/tree/main/spec",
+  "spec_index_url": "https://github.com/playidea-lab/pcq/blob/main/spec/INDEX.md",
+  "spec_schemas_url": "https://github.com/playidea-lab/pcq/tree/main/spec/schemas",
+  "spec_versioning_url": "https://github.com/playidea-lab/pcq/blob/main/spec/VERSIONING.md",
+  "spec_conformance_url": "https://github.com/playidea-lab/pcq/blob/main/spec/CONFORMANCE.md",
   "tool_response_samples": [
     {
       "name": "describe_run",

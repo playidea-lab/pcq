@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "https://playidea-lab.github.io/pcq/spec/schemas/pcq.compare_runs.diff.schema.json",
+  "title": "pcq.compare_runs.diff",
+  "description": "pcq compare-runs --json for two readable RunRecords",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "a_is_ancestor_of_b",
+    "a_run_id",
+    "a_status",
+    "a_target_metric",
+    "artifacts",
+    "b_is_ancestor_of_a",
+    "b_run_id",
+    "b_status",
+    "b_target_metric",
+    "best",
+    "decision_facts",
+    "last",
+    "metric_direction",
+    "mode",
+    "schema_version",
+    "target_metric",
+    "validation"
+  ],
+  "properties": {
+    "a_is_ancestor_of_b": {
+      "type": "boolean"
+    },
+    "a_run_id": {
+      "type": "string"
+    },
+    "a_status": {
+      "type": "string"
+    },
+    "a_target_metric": {
+      "type": "string"
+    },
+    "artifacts": {
+      "type": "object"
+    },
+    "b_is_ancestor_of_a": {
+      "type": "boolean"
+    },
+    "b_run_id": {
+      "type": "string"
+    },
+    "b_status": {
+      "type": "string"
+    },
+    "b_target_metric": {
+      "type": "string"
+    },
+    "best": {
+      "type": "object"
+    },
+    "best_epoch_a": {
+      "type": "integer"
+    },
+    "best_epoch_b": {
+      "type": "integer"
+    },
+    "config_changes": {
+      "type": "array"
+    },
+    "decision_facts": {
+      "type": "object"
+    },
+    "epochs_a": {
+      "type": "integer"
+    },
+    "epochs_b": {
+      "type": "integer"
+    },
+    "failure": {
+      "type": "object"
+    },
+    "input_changes": {
+      "type": "array"
+    },
+    "last": {
+      "type": "object"
+    },
+    "last_metric_delta": {
+      "type": "number"
+    },
+    "last_metric_direction": {
+      "type": "string"
+    },
+    "metric_delta": {
+      "type": "number"
+    },
+    "metric_direction": {
+      "type": "string",
+      "enum": [
+        "improved",
+        "regressed",
+        "tied",
+        "incomparable"
+      ]
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "min",
+        "max"
+      ]
+    },
+    "notes": {
+      "type": "array"
+    },
+    "schema_version": {
+      "type": "integer"
+    },
+    "source": {
+      "type": "object"
+    },
+    "target_metric": {
+      "type": "string"
+    },
+    "validation": {
+      "type": "object"
+    }
+  },
+  "x-pcq-schema-version": 1,
+  "x-pcq-additive-only": true
+}

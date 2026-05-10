@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "https://playidea-lab.github.io/pcq/spec/schemas/pcq.run.envelope.schema.json",
+  "title": "pcq.run.envelope",
+  "description": "pcq run --json envelope for executed or config-only runs",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "cmd",
+    "project_root",
+    "runtime_cfg_path",
+    "schema_version",
+    "status"
+  ],
+  "properties": {
+    "cmd": {
+      "type": "string"
+    },
+    "error": {
+      "type": "string"
+    },
+    "exit_code": {
+      "type": "integer"
+    },
+    "project_root": {
+      "type": "string"
+    },
+    "runtime_cfg_path": {
+      "type": "string"
+    },
+    "schema_version": {
+      "type": "integer"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "completed",
+        "failed",
+        "config_only",
+        "error"
+      ]
+    },
+    "stderr_path": {
+      "type": "string"
+    },
+    "stderr_tail": {
+      "type": "string"
+    },
+    "stderr_tail_truncated": {
+      "type": "boolean"
+    },
+    "stdout_path": {
+      "type": "string"
+    },
+    "stdout_tail": {
+      "type": "string"
+    },
+    "stdout_tail_truncated": {
+      "type": "boolean"
+    }
+  },
+  "x-pcq-schema-version": 1,
+  "x-pcq-additive-only": true
+}

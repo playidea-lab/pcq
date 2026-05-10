@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "https://playidea-lab.github.io/pcq/spec/schemas/pcq.validation_report.schema.json",
+  "title": "pcq.validation_report",
+  "description": "pcq validate/validate-run --json ValidationReport",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "blocking_count",
+    "checks",
+    "schema_version",
+    "status",
+    "warning_count"
+  ],
+  "properties": {
+    "blocking_count": {
+      "type": "integer"
+    },
+    "checks": {
+      "type": "array"
+    },
+    "schema_version": {
+      "type": "integer"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pass",
+        "warn",
+        "fail"
+      ]
+    },
+    "strictness": {
+      "type": "integer"
+    },
+    "strictness_name": {
+      "type": "string"
+    },
+    "warning_count": {
+      "type": "integer"
+    }
+  },
+  "x-pcq-schema-version": 1,
+  "x-pcq-additive-only": true
+}

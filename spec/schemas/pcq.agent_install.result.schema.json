@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "https://playidea-lab.github.io/pcq/spec/schemas/pcq.agent_install.result.schema.json",
+  "title": "pcq.agent_install.result",
+  "description": "pcq agent install --json result",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "dry_run",
+    "files_created",
+    "files_skipped",
+    "files_updated",
+    "force",
+    "operations",
+    "project_root",
+    "schema_version",
+    "target",
+    "warnings"
+  ],
+  "properties": {
+    "dry_run": {
+      "type": "boolean"
+    },
+    "files_created": {
+      "type": "array"
+    },
+    "files_skipped": {
+      "type": "array"
+    },
+    "files_updated": {
+      "type": "array"
+    },
+    "force": {
+      "type": "boolean"
+    },
+    "operations": {
+      "type": "array"
+    },
+    "project_root": {
+      "type": "string"
+    },
+    "schema_version": {
+      "type": "integer"
+    },
+    "target": {
+      "type": "string",
+      "enum": [
+        "codex",
+        "claude",
+        "both"
+      ]
+    },
+    "warnings": {
+      "type": "array"
+    }
+  },
+  "x-pcq-schema-version": 1,
+  "x-pcq-additive-only": true
+}

@@ -35,6 +35,20 @@ jobs:
       - name: Pytest
         run: uv run pytest tests/ -v --tb=short
 
+  spec-drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+      - name: Install dependencies
+        run: uv sync --extra dev
+      - name: Verify spec/schemas/ matches JSON_CONTRACTS registry
+        run: uv run python scripts/export_schemas.py --check
+
   smoke:
     runs-on: ubuntu-latest
     steps:

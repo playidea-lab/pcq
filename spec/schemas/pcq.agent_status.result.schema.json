@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "https://playidea-lab.github.io/pcq/spec/schemas/pcq.agent_status.result.schema.json",
+  "title": "pcq.agent_status.result",
+  "description": "pcq agent status --json read-only result",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "assets",
+    "project_root",
+    "repair_command",
+    "schema_version",
+    "status",
+    "target"
+  ],
+  "properties": {
+    "assets": {
+      "type": "array"
+    },
+    "project_root": {
+      "type": "string"
+    },
+    "repair_command": {
+      "type": "string"
+    },
+    "schema_version": {
+      "type": "integer"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "missing",
+        "installed",
+        "partial",
+        "stale",
+        "unmanaged",
+        "divergent"
+      ]
+    },
+    "target": {
+      "type": "string",
+      "enum": [
+        "codex",
+        "claude",
+        "both"
+      ]
+    }
+  },
+  "x-pcq-schema-version": 1,
+  "x-pcq-additive-only": true
+}

@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "https://playidea-lab.github.io/pcq/spec/schemas/pcq.describe_run.record.schema.json",
+  "title": "pcq.describe_run.record",
+  "description": "pcq describe-run --json for a readable RunRecord",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "decision_facts",
+    "dirty",
+    "epochs_completed",
+    "output_dir",
+    "partial",
+    "schema_version",
+    "status",
+    "validation_status"
+  ],
+  "properties": {
+    "artifacts": {
+      "type": "array"
+    },
+    "artifacts_summary": {
+      "type": "object"
+    },
+    "best": {
+      "type": "object"
+    },
+    "best_epoch": {
+      "type": "integer"
+    },
+    "best_value": {
+      "type": "number"
+    },
+    "cmd": {
+      "type": "string"
+    },
+    "decision_facts": {
+      "type": "object"
+    },
+    "dirty": {
+      "type": "boolean"
+    },
+    "duration_seconds": {
+      "type": "number"
+    },
+    "epochs_completed": {
+      "type": "integer"
+    },
+    "failure": {
+      "type": "object"
+    },
+    "git_sha": {
+      "type": "string"
+    },
+    "last": {
+      "type": "object"
+    },
+    "last_epoch": {
+      "type": "integer"
+    },
+    "last_value": {
+      "type": "number"
+    },
+    "metrics_declared": {
+      "type": "array"
+    },
+    "mode": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "output_dir": {
+      "type": "string"
+    },
+    "parent_run_id": {
+      "type": "string"
+    },
+    "parent_run_path": {
+      "type": "string"
+    },
+    "partial": {
+      "type": "boolean"
+    },
+    "platform": {
+      "type": "string"
+    },
+    "python": {
+      "type": "string"
+    },
+    "reproducibility_evidence": {
+      "type": "object"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "schema_version": {
+      "type": "integer"
+    },
+    "status": {
+      "type": "string"
+    },
+    "target_metric": {
+      "type": "string"
+    },
+    "validation_report_path": {
+      "type": "string"
+    },
+    "validation_status": {
+      "type": "string"
+    }
+  },
+  "x-pcq-schema-version": 1,
+  "x-pcq-additive-only": true
+}

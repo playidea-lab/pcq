@@ -1,0 +1,11 @@
+{
+  "invocation": {
+    "kind": "cli",
+    "command": ["pcq", "describe-run", "FIXTURE_OUTPUT", "--json"]
+  },
+  "fixtures": {
+    "FIXTURE_OUTPUT": "examples/_sklearn_run/output_b/"
+  },
+  "schema_version": 1,
+  "notes": "Real RunRecord summary captured 2026-05-10 from a sklearn baseline run with eval_acc=1.0 on Iris."
+}

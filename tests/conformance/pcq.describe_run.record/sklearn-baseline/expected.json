@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "run_id": "...",
+  "name": "sklearn-iris-contract",
+  "status": "completed",
+  "output_dir": "...",
+  "cmd": "uv run python train.py",
+  "target_metric": "eval_acc",
+  "mode": "max",
+  "best": {
+    "epoch": 0,
+    "value": 1.0,
+    "metrics": {
+      "eval_acc": 1.0
+    },
+    "checkpoint": "best.ckpt"
+  },
+  "best_value": 1.0,
+  "best_epoch": 0,
+  "last": {
+    "epoch": 0,
+    "value": 1.0,
+    "metrics": {
+      "eval_acc": 1.0
+    },
+    "checkpoint": "last.ckpt"
+  },
+  "epochs_completed": 1,
+  "partial": false,
+  "last_updated_at": "...",
+  "git_sha": "...",
+  "dirty": true,
+  "python": "3.12.10",
+  "platform": "Darwin-arm64",
+  "validation_status": "pass",
+  "decision_facts": {
+    "run_completed": true,
+    "run_failed": false,
+    "validation_passed": true,
+    "has_target_metric": true,
+    "has_best": true,
+    "has_last": true,
+    "has_parent": false,
+    "artifact_count": 4,
+    "metric_count": 2
+  }
+}

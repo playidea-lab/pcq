@@ -368,6 +368,25 @@ site at `#case-studies`:
   worker on RTX 5080. First production CQ Go worker dispatch end-to-end;
   verified `cq.yaml` + `CQ_CONFIG_JSON` + 6-artifact protocol.
 
+## Spec
+
+The contract surface (cq.yaml format, JSON contracts, MCP tools,
+strictness, schema versioning, conformance) lives at the repository
+root under `spec/`, separately from the Python implementation in
+`src/pcq/`. Other languages and runtimes can target the contract
+without depending on Python.
+
+- Index: https://github.com/playidea-lab/pcq/blob/main/spec/INDEX.md
+- JSON Schemas (auto-exported from `pcq.agent.json_contracts.JSON_CONTRACTS`
+  via `scripts/export_schemas.py`):
+  https://github.com/playidea-lab/pcq/tree/main/spec/schemas
+- Versioning policy: https://github.com/playidea-lab/pcq/blob/main/spec/VERSIONING.md
+- Conformance suite: https://github.com/playidea-lab/pcq/blob/main/spec/CONFORMANCE.md
+  (golden input/output pairs at `tests/conformance/<contract>/<case>/`)
+
+CI guards drift between the registry and the on-disk schemas via
+`uv run python scripts/export_schemas.py --check`.
+
 ## Roadmap
 
 The thesis stays the same: pcq does not compete with the means of
