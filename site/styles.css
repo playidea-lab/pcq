@@ -491,6 +491,10 @@ h3 {
   background: var(--surface);
 }
 
+.connect-card--solo {
+  margin-top: 20px;
+}
+
 .connect-head {
   display: flex;
   align-items: center;

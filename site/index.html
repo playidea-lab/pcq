@@ -18,8 +18,8 @@
     <!-- Open Graph -->
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="pcq">
-    <meta property="og:title" content="pcq — Agent-operable experiment evidence, control & MCP for ML">
-    <meta property="og:description" content="Bring any training code; pcq standardizes the run boundary and exposes 14 MCP tools for Claude Code, Codex, and custom agents.">
+    <meta property="og:title" content="pcq — Your AI agent needs evidence. Your experiments need a contract.">
+    <meta property="og:description" content="pcq is the contract. cq.yaml declares the run; your training code stays yours. 14 MCP tools wire Claude Code, Codex, and any MCP-aware agent into structured evidence — no stdout scraping.">
     <meta property="og:url" content="https://playidea-lab.github.io/pcq/">
     <meta property="og:image" content="https://playidea-lab.github.io/pcq/og-image.svg">
     <meta property="og:image:type" content="image/svg+xml">
@@ -29,8 +29,8 @@
 
     <!-- Twitter / X -->
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="pcq — Agent-operable experiment evidence, control & MCP">
-    <meta name="twitter:description" content="Run anything. Standardize the evidence. 14 MCP tools for Claude Code & Codex.">
+    <meta name="twitter:title" content="pcq — Your AI agent needs evidence. Your experiments need a contract.">
+    <meta name="twitter:description" content="cq.yaml declares the run; your training code stays yours. 14 MCP tools wire Claude Code & Codex into structured evidence.">
     <meta name="twitter:image" content="https://playidea-lab.github.io/pcq/og-image.svg">
 
     <!-- Agent-readable surfaces (GEO / LLM discovery) -->
@@ -130,13 +130,15 @@
       <section class="hero">
         <div class="hero-inner">
           <p class="eyebrow">Apache-2.0 · Python · MCP-ready</p>
-          <h1>Your agent operates pcq.</h1>
+          <h1>Your AI agent needs evidence.<br>Your experiments need a contract.</h1>
           <p class="lead">
-            pcq is built for agents to run, validate, compare, and trace ML
-            experiments — not for humans to babysit dashboards. Keep any
-            training stack. <strong>14 Model Context Protocol tools</strong>
-            wire pcq into Claude Code, Codex, and any MCP-aware runtime in
-            one command.
+            pcq is the contract. <code>cq.yaml</code> declares the run;
+            your training code stays yours. pcq turns every run into
+            structured evidence — config, metrics, manifest, validation,
+            lineage, run record — and exposes
+            <strong>14 Model Context Protocol tools</strong> so Claude
+            Code, Codex, or any MCP-aware agent can read it without
+            scraping stdout.
           </p>
           <div class="hero-actions" aria-label="Primary actions">
             <a class="button primary" href="#connect">Wire it into your agent</a>
@@ -171,55 +173,26 @@ your agent can now call:
           <p class="eyebrow">Connect</p>
           <h2>One command. Both runtimes. Identical surface.</h2>
           <p class="section-lead">
-            <code>pcq agent install --target both --mcp</code> writes
-            <code>.mcp.json</code> in the project root. Existing
-            <code>.mcp.json</code> entries are preserved — only the
-            <code>pcq</code> server is merged.
+            Wire-up is the same for Claude Code, Codex, and any MCP-aware
+            runtime — only the <code>--target</code> flag differs.
+            Existing <code>.mcp.json</code> entries are preserved; only
+            the <code>pcq</code> server is merged.
           </p>
         </div>
-        <div class="connect-grid">
-          <article class="connect-card" aria-label="Claude Code wiring">
-            <header class="connect-head">
-              <h3>Claude Code</h3>
-              <span class="connect-tag">stdio</span>
-            </header>
-            <p class="connect-cap">Install &amp; serve</p>
-            <pre><code>uv add 'pcq[mcp]'
-pcq agent install --target claude --path . --mcp
-pcq mcp serve</code></pre>
-            <p class="connect-cap">.mcp.json (project root)</p>
-            <pre><code>{
-  "mcpServers": {
-    "pcq": {
-      "command": "pcq",
-      "args": ["mcp", "serve"]
-    }
-  }
-}</code></pre>
-            <p class="connect-cap">First call: inspect_project</p>
-            <pre><code>{
-  "schema_version": 1,
-  "project_root": "/path/to/my-exp",
-  "selected_yaml": "cq.yaml",
-  "name": "sklearn-baseline",
-  "cmd": "uv run python train.py",
-  "metrics": ["epoch", "eval_acc"],
-  "output_dir": "output",
-  "artifacts": ["output/"]
-}</code></pre>
-          </article>
 
-          <article class="connect-card" aria-label="Codex wiring">
-            <header class="connect-head">
-              <h3>Codex</h3>
-              <span class="connect-tag">stdio</span>
-            </header>
-            <p class="connect-cap">Install &amp; serve</p>
-            <pre><code>uv add 'pcq[mcp]'
-pcq agent install --target codex --path . --mcp
-pcq mcp serve</code></pre>
-            <p class="connect-cap">.mcp.json (project root)</p>
-            <pre><code>{
+        <article class="connect-card connect-card--solo" aria-label="Connect any MCP-aware agent">
+          <header class="connect-head">
+            <h3>Claude Code · Codex · any MCP runtime</h3>
+            <span class="connect-tag">stdio · sse</span>
+          </header>
+
+          <p class="connect-cap">Install &amp; serve</p>
+          <pre><code>uv add 'pcq[mcp]'
+pcq agent install --target both --mcp     # or: --target claude / --target codex
+pcq mcp serve                             # stdio (default); --transport sse --port 8765 for HTTP</code></pre>
+
+          <p class="connect-cap">.mcp.json (project root)</p>
+          <pre><code>{
   "mcpServers": {
     "pcq": {
       "command": "pcq",
@@ -227,8 +200,9 @@ pcq mcp serve</code></pre>
     }
   }
 }</code></pre>
-            <p class="connect-cap">First call: inspect_project</p>
-            <pre><code>{
+
+          <p class="connect-cap">First call: <code>inspect_project</code></p>
+          <pre><code>{
   "schema_version": 1,
   "project_root": "/path/to/my-exp",
   "selected_yaml": "cq.yaml",
@@ -238,16 +212,15 @@ pcq mcp serve</code></pre>
   "output_dir": "output",
   "artifacts": ["output/"]
 }</code></pre>
-          </article>
-        </div>
+        </article>
+
         <p class="connect-foot" id="mcp">
-          Want both at once? <code>--target both</code> writes Model
-          Context Protocol wire-up for Claude Code and Codex in a single
-          call. Any other MCP-aware runtime works too — point it at
-          <code>pcq mcp serve</code> over stdio or SSE
-          (<code>--transport sse --port 8765</code>). All 14 read-only and
-          mutating tools are listed in the
-          <a href="agent-manifest.json">agent manifest</a>.
+          <code>--target both</code> writes Model Context Protocol wire-up
+          for Claude Code and Codex in one call. Any other MCP-aware
+          runtime works too — point it at <code>pcq mcp serve</code>.
+          All 14 read-only and mutating tools are listed in the
+          <a href="agent-manifest.json">agent manifest</a> and inlined
+          under <a href="#tools-catalog">Tools &rarr;</a>.
         </p>
       </section>
 
