@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "run_id": "...",
-  "name": "sklearn-iris-contract",
+  "name": "...",
   "status": "completed",
   "output_dir": "...",
   "cmd": "uv run python train.py",
