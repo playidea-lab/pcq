@@ -31,6 +31,8 @@ htmlcov/
 # Runtime state (per-project, not committed)
 .cq/
 output/
+# Conformance fixtures DO contain a baked output/ — keep it tracked.
+!tests/conformance/**/fixtures/**
 
 # Site sample-capture working dir (regenerated on demand; procedure in
 # site/llms-full.txt → "Tool Response Samples")
