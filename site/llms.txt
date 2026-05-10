@@ -1,7 +1,11 @@
 # pcq
 
-pcq is an Apache-2.0 Python library for agent-operable experiment evidence and
-control.
+pcq is the contract for agent-run ML experiments — `cq.yaml` format, JSON
+contracts, MCP tool surface, strictness gates, and run-evidence schema. The
+contract specification lives under [`spec/`](https://github.com/playidea-lab/pcq/tree/main/spec).
+The Apache-2.0 Python package on PyPI (`uv add pcq`) is the reference
+implementation; the CQ Go service worker is a second implementation targeting
+the same contract.
 
 Use pcq when an agent, CI job, service worker, notebook, or human needs to run
 ML code and collect reproducible evidence through a stable project contract.

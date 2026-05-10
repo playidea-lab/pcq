@@ -1,12 +1,16 @@
 # pcq
 
-> Apache-2.0 Python library for agent-operable experiment evidence and control.
-> Bring any training code; `pcq` standardizes the run boundary.
+> **pcq is the contract for agent-run ML experiments.**
+> This repository hosts the contract specification under [`spec/`](spec/INDEX.md)
+> and the reference Python implementation under [`src/pcq/`](src/pcq/).
+> Install the reference impl: `uv add pcq` (Apache-2.0).
 
-`pcq` turns a project with `cq.yaml` into a reproducible experiment unit. It
-loads config, resolves output paths, captures metrics, writes standard
-artifacts, finalizes run evidence, and exposes JSON/JSONL surfaces that coding
-agents, CI jobs, notebooks, and services can consume.
+The contract turns a project with `cq.yaml` into a reproducible experiment
+unit. The reference Python implementation loads config, resolves output
+paths, captures metrics, writes standard artifacts, finalizes run evidence,
+and exposes JSON/JSONL/MCP surfaces that coding agents, CI jobs, notebooks,
+and services can consume. Other-language reference implementations (notably
+the CQ Go service worker) target the same contract.
 
 `pcq` is **not** a training framework, model zoo, adapter matrix, or CQ-only
 client. Use PyTorch, Hugging Face Trainer, Lightning, sklearn, TabPFN, PyCaret,

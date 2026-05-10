@@ -1,10 +1,19 @@
 # pcq Agent Guide
 
-pcq is an agent-operable experiment evidence and control library for machine
-learning projects. It is not a training framework, model zoo, framework adapter
-matrix, or experiment tracking SaaS. It is a small Python package that makes
-arbitrary ML code inspectable, reproducible, verifiable, comparable, and
-repeatable through standard files and JSON surfaces.
+pcq is the contract for agent-run ML experiments. The contract specification
+(cq.yaml format, JSON contracts, MCP tool surface, strictness, conformance,
+schema versioning) lives under
+https://github.com/playidea-lab/pcq/tree/main/spec — that directory is the
+single source of truth. This guide describes the contract from the agent's
+perspective.
+
+The Apache-2.0 Python package distributed via PyPI (`uv add pcq`) is the
+reference implementation. The CQ Go service worker is a second implementation
+targeting the same contract; future Go/JS clients are welcome. pcq is not a
+training framework, model zoo, framework adapter matrix, or experiment
+tracking SaaS — it is the contract layer that makes arbitrary ML code
+inspectable, reproducible, verifiable, comparable, and repeatable through
+standard files and JSON/MCP surfaces.
 
 ## Identity
 

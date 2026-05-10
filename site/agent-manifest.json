@@ -2,7 +2,7 @@
   "schema_version": 1,
   "name": "pcq",
   "version": "4.1.0",
-  "description": "Framework-neutral evidence and control layer for agent-run ML experiments. Includes a Model Context Protocol server exposing 14 tools to Claude Code, Codex, and custom MCP runtimes.",
+  "description": "pcq is the contract for agent-run ML experiments — cq.yaml format, JSON contracts, MCP tool surface, strictness gates, and run-evidence schema. This package is the reference Python implementation of that contract. Other-language implementations (notably the CQ Go service worker) target the same contract.",
   "license": "Apache-2.0",
   "package": {
     "pypi": "pcq",
