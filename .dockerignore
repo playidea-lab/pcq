@@ -1,0 +1,10 @@
+# pcq Dockerfile installs `pcq[mcp]` from PyPI, so the build context
+# does not need any local sources. Keep the context as small as
+# possible — anything not listed below is excluded.
+
+# 모든 파일 제외하고, Dockerfile만 명시적으로 포함하는 패턴
+*
+
+# Dockerfile 자체는 포함 (docker가 읽어야 함)
+!Dockerfile
+!.dockerignore

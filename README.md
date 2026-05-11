@@ -92,6 +92,20 @@ dependencies = ["pcq"]              # core only
 dependencies = ["pcq[mcp]"]         # core + Model Context Protocol server
 ```
 
+### Docker (MCP server only)
+
+A minimal container image is also published; it packages
+`pcq[mcp]` from PyPI and runs `pcq mcp serve` on stdio.
+
+```bash
+docker build -t pcq .
+docker run -i --rm pcq          # MCP client attaches to stdin/stdout
+```
+
+The image is intentionally scoped to the MCP server surface — for
+`pcq run`, `pcq describe-run`, `pcq agent install` and other CLI
+subcommands, install pcq directly with `uv add pcq` instead.
+
 For a tag, branch, or private fork:
 
 ```toml
