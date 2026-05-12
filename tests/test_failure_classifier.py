@@ -59,6 +59,72 @@ def test_enrich_failure_handles_none():
     assert enrich_failure(None) is None
 
 
+# ── 4 신규 카테고리 (T-FC-1) ──────────────────────────────────────────
+
+
+def test_classify_accuracy_below_threshold():
+    """accuracy_below_threshold: 검증 정확도가 목표치 미달인 경우."""
+    # Arrange
+    msg = "ValueError: Validation accuracy 0.65 below target 0.80"
+    # Act
+    result = classify_failure(msg)
+    # Assert
+    assert result == "accuracy_below_threshold"
+
+
+def test_classify_user_interrupted():
+    """user_interrupted: KeyboardInterrupt / SIGINT 로 중단된 경우."""
+    # Arrange
+    msg = "KeyboardInterrupt\n  File train.py, line 42\n  ..."
+    # Act
+    result = classify_failure(msg)
+    # Assert
+    assert result == "user_interrupted"
+
+
+def test_classify_disk_full():
+    """disk_full: 디스크 공간 부족으로 쓰기 실패한 경우."""
+    # Arrange
+    msg = "OSError: [Errno 28] No space left on device"
+    # Act
+    result = classify_failure(msg)
+    # Assert
+    assert result == "disk_full"
+
+
+def test_classify_model_load_failed():
+    """model_load_failed: safetensors/체크포인트 파일 손상으로 로드 실패."""
+    # Arrange
+    msg = "RuntimeError: safetensors corrupt header at offset 0"
+    # Act
+    result = classify_failure(msg)
+    # Assert
+    assert result == "model_load_failed"
+
+
+def test_no_false_positive_below_average():
+    """accuracy_below_threshold: 'below average' 같은 일반 표현은 매칭하지 않아야 한다."""
+    # Arrange
+    msg = "Training below average accuracy on validation"
+    # Act
+    result = classify_failure(msg)
+    # Assert — 'target/threshold' 없으므로 unknown_exception 이어야 함
+    assert result == "unknown_exception", f"got {result}, should not match accuracy_below_threshold"
+
+
+# ── 기존 카테고리 sanity check ─────────────────────────────────────────
+
+
+def test_sanity_oom_still_works():
+    """기존 oom 패턴이 신규 패턴 추가 후에도 그대로 동작하는지 확인."""
+    assert classify_failure("RuntimeError: CUDA out of memory") == "oom"
+
+
+def test_sanity_nan_loss_still_works():
+    """기존 nan_loss 패턴이 신규 패턴 추가 후에도 그대로 동작하는지 확인."""
+    assert classify_failure("loss is NaN at epoch 10") == "nan_loss"
+
+
 def test_save_run_summary_auto_classifies_failure(tmp_path, monkeypatch):
     """save_run_summary 가 failure category 를 자동으로 enrich 한다."""
     cfg = {"output_dir": str(tmp_path), "seed": 42}
