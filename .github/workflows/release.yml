@@ -1,0 +1,109 @@
+name: Release
+
+# Triggers on semver tags only (v*.*.*) so that pre-release branches and
+# arbitrary tags do not publish. Wheels are signed by sigstore and ship
+# with SLSA provenance via the official PyPA action.
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release (e.g. v4.3.0). Must already exist."
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build wheel + sdist
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+      - name: Build distributions
+        run: uv build
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v5
+        with:
+          name: dist
+          path: dist/*
+          if-no-files-found: error
+
+  publish-pypi:
+    name: Publish to PyPI (Trusted Publishing + sigstore + provenance)
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/pcq/
+    permissions:
+      # PyPI Trusted Publishing — no API token, OIDC only.
+      id-token: write
+      # Provenance attestations are written to the repo's attestations API.
+      attestations: write
+      contents: read
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v5
+        with:
+          name: dist
+          path: dist
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          # Trusted publisher must be configured at
+          # https://pypi.org/manage/project/pcq/settings/publishing/
+          # No `password:` / `user:` — OIDC takes care of it.
+          attestations: true
+          print-hash: true
+
+  github-release:
+    name: Create GitHub Release
+    needs: publish-pypi
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+      - name: Download build artifacts
+        uses: actions/download-artifact@v5
+        with:
+          name: dist
+          path: dist
+      - name: Extract changelog section for this tag
+        id: changelog
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME:-${{ inputs.tag }}}"
+          VERSION="${TAG#v}"
+          # CHANGELOG.md format: "## [4.2.0] — 2026-05-10"
+          # Capture the body between the matching version header and the next
+          # "## " header (= next version section).
+          awk -v ver="$VERSION" '
+            $0 ~ "^## \\["ver"\\]" { inblock=1; next }
+            inblock && /^## / { exit }
+            inblock { print }
+          ' CHANGELOG.md > release-notes.md
+          {
+            echo "Signed wheels and SLSA provenance attestations are published with this release."
+            echo
+            echo "See:"
+            echo "- PyPI: https://pypi.org/project/pcq/${VERSION}/"
+            echo "- Verifying provenance: \`gh attestation verify dist/pcq-${VERSION}-py3-none-any.whl --owner playidea-lab\`"
+            echo
+            cat release-notes.md
+          } > full-notes.md
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          body_path: full-notes.md
+          generate_release_notes: false
+          fail_on_unmatched_files: true

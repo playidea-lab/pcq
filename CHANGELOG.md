@@ -4,6 +4,27 @@ All notable changes to pcq. Format: [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+### Added
+- **Signed releases (sigstore) + SLSA provenance attestations.** Starting
+  with the next tagged release, wheel + sdist on PyPI are signed and
+  ship with build-provenance attestations via
+  [`.github/workflows/release.yml`](.github/workflows/release.yml). PyPI
+  Trusted Publishing is used (no long-lived API token). Verify with
+  `gh attestation verify <wheel> --owner playidea-lab`.
+- [`SECURITY.md`](SECURITY.md): supported versions, private vulnerability
+  reporting via GitHub Security Advisories, in-scope / out-of-scope
+  surfaces, single-maintainer response targets.
+- GitHub Release auto-generation from the matching `CHANGELOG.md`
+  section on every `v*.*.*` tag push.
+
+### Changed
+- (none)
+
+### Notes
+- PyPI Trusted Publishing must be enabled once at
+  https://pypi.org/manage/project/pcq/settings/publishing/ (one-time
+  maintainer setup, no token).
+
 ## [4.2.0] — 2026-05-10
 
 > **mcp-dogfood-driven hotfix release.**
