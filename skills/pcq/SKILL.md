@@ -287,10 +287,81 @@ done | jq -s '[.[] | select(.worker_spec_gpu_model_0 | test("RTX 5080"))]'
 For the full env var table, cgroups host-view warning, and PII guidance, see
 `templates/AGENTS.pcq.md` → `## Worker Spec`.
 
+## Fingerprint Usage Pattern
+
+Every run can record the **dataset problem type** (modality, task kind, domain,
+size class, PII flag) in `run_record.json`. The fingerprint is the third axis
+of the matchmaker: 행위자 (Attribution) + 컴퓨터 (Worker Spec) + 문제 (Fingerprint).
+
+### One-line agent call
+
+```python
+import pcq
+
+fp = pcq.fingerprint(X_train, y_train, modality="tabular", task_kind="classification")
+pcq.save_all(..., fingerprint=fp)
+```
+
+### Accessing fingerprint in describe-run output
+
+`pcq describe-run <output_dir> --json` exposes fingerprint in two forms:
+
+**Nested (full object)**:
+
+```bash
+pcq describe-run output/ --json | jq '.fingerprint'
+# {
+#   "schema_version": 1,
+#   "modality": "tabular",
+#   "task_kind": "classification",
+#   "domain": "general",
+#   "n_samples": 10000,
+#   "size_class": "medium",
+#   "pii_flag": false,
+#   "pii_layers": [],
+#   "content_hash": "a3f8c1e2...",
+#   "source": "detected"
+# }
+```
+
+**Flat surface fields** (top-level, for easy filtering):
+
+```bash
+pcq describe-run output/ --json | jq '{
+  mod: .fingerprint_modality,
+  task: .fingerprint_task_kind,
+  n: .fingerprint_n_samples,
+  sc: .fingerprint_size_class
+}'
+```
+
+### Filtering by modality across run sets
+
+```bash
+# tabular 실험만 선택
+for d in runs/*/; do
+  pcq describe-run "$d" --json
+done | jq -s '[.[] | select(.fingerprint_modality=="tabular")]'
+
+# multi-modality 필터: tabular 또는 time_series
+for d in runs/*/; do
+  pcq describe-run "$d" --json
+done | jq -s '[.[] | select(.fingerprint_modality | IN("tabular","time_series"))]'
+
+# PII 없는 classification 실험만 (content hash 비교 가능)
+for d in runs/*/; do
+  pcq describe-run "$d" --json
+done | jq -s '[.[] | select(.fingerprint_task_kind=="classification" and .fingerprint_modality!="") | select(.fingerprint | .pii_flag==false)]'
+```
+
+For the full schema, modality detection rules, domain gate warning, PII
+4-layer policy, and 6 warning codes, see
+`templates/AGENTS.pcq.md` → `## Fingerprint`.
+
 ## References
 
 - `docs/CQ_YAML_RUNTIME_CONTRACT.md`
 - `docs/AGENT_OPERATING_GUIDE.md`
 - `docs/JSON_CONTRACTS.md`
 - `docs/STRICTNESS.md`
-- `templates/AGENTS.pcq.md` — env var table + PII guidance + Worker Spec
+- `templates/AGENTS.pcq.md` — env var table + PII guidance + Worker Spec + Fingerprint

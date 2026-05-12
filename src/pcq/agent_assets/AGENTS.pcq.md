@@ -245,6 +245,131 @@ status to `warn` but do not fail validation).
 > - Auto-detected values (psutil / torch) do not contain hostnames and are
 >   not subject to this warning.
 
+## Fingerprint (agent-managed, R13)
+
+Every `run_record.json` (and all six standard artifacts) can carry a
+`fingerprint` object that describes **the dataset problem type** — the third
+axis of the TheCommons matchmaker (행위자 + 컴퓨터 + 문제). This enables
+semantic matching, dataset-type filtering, and PII-safe content hashing
+across run sets.
+
+Call `pcq.fingerprint()` directly from your script or agent — no full run
+required.
+
+### One-line example
+
+```python
+import pcq
+
+fp = pcq.fingerprint(X_train, y_train, modality="tabular", task_kind="classification")
+# fp is a JSON-serialisable dict, byte-identical for the same X_train/y_train
+```
+
+Pass the result to `pcq.save_all(fingerprint=fp, ...)` to embed it in all
+standard artifacts.
+
+### Schema summary
+
+```
+fingerprint
+├── schema_version   1
+├── modality         tabular | image | text | audio | video | time_series | other
+├── task_kind        classification | regression | ranking | detection |
+│                    segmentation | generation | translation | summarization |
+│                    embedding | other
+├── domain?          general | medical | financial | legal | other
+├── n_samples?       integer (row count or element count)
+├── size_class       tiny | small | medium | large | huge
+├── dtype_map?       { column_name: dtype_string, ... }
+├── pii_flag         boolean
+├── pii_layers[]     declared | heuristic | domain_gate | redacted
+├── content_hash?    sha256 hex string (absent when pii_flag is active + domain gate)
+└── source           detected | declared | detected_sampled | merged
+```
+
+`source` indicates how the fingerprint was produced:
+- `detected`          — fully auto-inferred from input type/shape
+- `declared`          — caller supplied all fields explicitly
+- `detected_sampled`  — large/huge input was sampled before hash/dtype extraction
+- `merged`            — caller supplied some fields, rest auto-detected
+
+### Modality detection rules
+
+| Input type / shape | Auto-detected modality |
+|---|---|
+| `pandas.DataFrame` or dict-of-lists | `tabular` |
+| `numpy.ndarray` with `ndim==4` (N,H,W,C) or (N,C,H,W) | `image` |
+| `numpy.ndarray` with `ndim==2` (N,features) | `tabular` |
+| `list[str]` or `numpy` string array | `text` |
+| `torch.Tensor` with `ndim==4` | `image` |
+| `torch.Tensor` with `ndim==2` | `tabular` |
+| `pandas.Series` with `DatetimeIndex` | `time_series` |
+| Anything else | `other` (set `modality="other"` explicitly or override) |
+
+When auto-detection is uncertain, `FINGERPRINT_MODALITY_INFERRED` warning
+is emitted. Override by passing `modality=` explicitly.
+
+### Domain gate warning
+
+> **WARNING — medical / financial domain gate**: When `domain="medical"` or
+> `domain="financial"`, `content_hash` is **not computed** unless `pii_flag`
+> is explicitly declared by the caller.
+>
+> - If you know the data is de-identified, pass `pii_flag=False, domain="medical"`
+>   with `source="declared"` to unlock hashing.
+> - If unsure, use `domain="medical"` without overriding `pii_flag`. The gate
+>   will block hashing and emit `FINGERPRINT_DOMAIN_GATE_ACTIVE`.
+>
+> Recommendation: use `source="declared"` for medical/financial data to make
+> the caller's intent explicit and auditable.
+
+### PII 4-layer policy summary
+
+| Layer | Rule |
+|---|---|
+| **R10** | `pii_flag` boolean in fingerprint — declared or inferred |
+| **R5** | `pii_layers[]` tracks active layers: `declared`, `heuristic`, `domain_gate`, `redacted` |
+| **R5b** | Heuristic sniffer: column names containing sensitive keywords → auto `pii_flag=True` + `FINGERPRINT_PII_HEURISTIC` warning |
+| **R14** | Domain gate: `medical` / `financial` domain blocks `content_hash` unless `pii_flag` explicitly declared |
+
+### R5b heuristic column keyword list
+
+Column names (case-insensitive substring match) that trigger automatic
+`pii_flag=True`:
+
+`patient`, `diagnosis`, `ssn`, `dob`, `email`, `phone`, `credit_card`,
+`passport`, `iban`
+
+This applies to `pandas.DataFrame` column names and dict-of-lists keys.
+Rename or anonymise columns before fingerprinting if you need content hashing.
+
+### 6 Warning codes
+
+| Code | Meaning |
+|---|---|
+| `FINGERPRINT_MODALITY_INFERRED` | Modality was auto-detected; may be wrong — override with explicit `modality=` |
+| `FINGERPRINT_DOMAIN_GATE_ACTIVE` | Domain gate blocked content_hash; use `pii_flag=False, source="declared"` to unlock |
+| `FINGERPRINT_PII_HEURISTIC` | Heuristic sniffer found sensitive column keyword; `pii_flag` set to `True` |
+| `FINGERPRINT_SAMPLE_APPLIED` | Large/huge input was auto-sampled; `source` set to `detected_sampled` |
+| `FINGERPRINT_DTYPE_PARTIAL` | `dtype_map` incomplete; some columns were skipped |
+| `FINGERPRINT_HASH_SKIPPED` | `content_hash` not computed; `pii_flag` is active |
+
+### R15 determinism
+
+Same `X` input → byte-identical fingerprint JSON across runs, agents, and
+Python versions. Guaranteed by `sort_keys=True` on all serialisation paths
+and deterministic sampling (seed=42 for large/huge inputs).
+
+### Direct submodule access
+
+`pcq.fingerprint` is both a callable and a submodule. If you encounter a
+`TypeError` when calling `pcq.fingerprint(...)`, use the submodule path:
+
+```python
+from pcq.fingerprint import fingerprint
+fp = fingerprint(X_train, y_train, modality="tabular", task_kind="classification")
+```
+
 ## Do Not
 
 - Do not write artifacts to a hard-coded `output/` path.

@@ -4,6 +4,128 @@ All notable changes to pcq. Format: [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [4.6.0] — 2026-05-13
+
+> **Fingerprint: dataset identity axis — matchmaker 3-축 완성 (행위자 + 컴퓨터 + 문제).**
+>
+> `run_record.json` now carries a nested `fingerprint` object (modality, task_kind,
+> domain, n_samples, size_class, dtype_map, pii_flag, pii_layers, content_hash)
+> plus 4 flat surface fields for easy `jq`/grep access. Seven modality values,
+> 10 task_kind values, 5 domain values, and 4 source values (incl. `detected_sampled`)
+> cover the full problem-type space. PII 4-layer policy (R10 + R5 + R5b + R14)
+> enforces data safety at every fingerprint path. All artifacts are byte-identical
+> for the same input (R15, `sort_keys=True`). One-line agent install via `pcq.fingerprint()`.
+
+### Added
+- **Nested `fingerprint` object in `run_record.json`** and all six standard
+  artifacts. Shape: `{schema_version, modality, task_kind, domain?, n_samples?,
+  size_class, dtype_map?, pii_flag, pii_layers[], content_hash?, source}`.
+  `source` is one of `"detected"`, `"declared"`, `"detected_sampled"`, or
+  `"merged"`.
+- **7 modality enum values**: `tabular`, `image`, `text`, `audio`, `video`,
+  `time_series`, `other` (free-form fallback for novel modalities).
+  `modality_other` renamed to `other` (R-WFP-2, commit `ac84530`).
+- **10 task_kind values**: `classification`, `regression`, `ranking`,
+  `detection`, `segmentation`, `generation`, `translation`, `summarization`,
+  `embedding`, `other`.
+- **5 domain values**: `general`, `medical`, `financial`, `legal`, `other`.
+- **4 source values**: `detected`, `declared`, `detected_sampled`, `merged`.
+  `detected_sampled` signals that n_samples was reduced automatically for
+  large/huge size_class inputs.
+- **4 flat surface fields** on `describe-run` output
+  (`fingerprint_modality`, `fingerprint_task_kind`, `fingerprint_n_samples`,
+  `fingerprint_size_class`) for easy `jq`/grep access without nested traversal.
+- **PII 4-layer policy**:
+  - **R10** — `pii_flag` boolean in fingerprint object (declared or inferred).
+  - **R5** — `pii_layers[]` array tracks which protection layers are active
+    (`"declared"`, `"heuristic"`, `"domain_gate"`, `"redacted"`).
+  - **R5b** — heuristic sniffer: column names containing `patient`, `diagnosis`,
+    `ssn`, `dob`, `email`, `phone`, `credit_card`, `passport`, or `iban` trigger
+    automatic `pii_flag=true` and emit `FINGERPRINT_PII_HEURISTIC` warning.
+  - **R14** — domain gate: `domain="medical"` or `domain="financial"` blocks
+    content-hash computation unless `pii_flag` is explicitly `declared`.
+- **6 warning codes** in `validation_report.json` (non-blocking):
+  `FINGERPRINT_MODALITY_INFERRED` (modality auto-detected, may be wrong),
+  `FINGERPRINT_DOMAIN_GATE_ACTIVE` (domain gate blocked content hash),
+  `FINGERPRINT_PII_HEURISTIC` (heuristic sniffer triggered),
+  `FINGERPRINT_SAMPLE_APPLIED` (large/huge input auto-sampled),
+  `FINGERPRINT_DTYPE_PARTIAL` (dtype_map incomplete, some columns skipped),
+  `FINGERPRINT_HASH_SKIPPED` (content_hash not computed, pii_flag active).
+- **R15 byte-identical determinism** — `sort_keys=True` applied to all
+  fingerprint JSON serialisation paths. Same input X → byte-identical
+  fingerprint across runs, agents, and Python versions.
+- **Heuristic sniffer** — medical/financial keyword detection in column
+  names and free-text fields. Triggered for pandas DataFrames,
+  dict-of-lists, and CSV-like structures.
+- **Sample option** (`detected_sampled`) — inputs of `large` (>100k rows)
+  or `huge` (>1M rows) size_class are automatically sampled before
+  dtype_map extraction and content_hash computation. Sample size is
+  deterministic (seed=42).
+- **`pcq.fingerprint()` — agent-fillable one-liner** (R13). Agents can
+  call `pcq.fingerprint(X, y, modality="tabular", task_kind="classification")`
+  to produce a fingerprint dict directly, without running a full experiment.
+  Result is JSON-serialisable and byte-identical for the same input.
+- **`describe-run` schema extension** — `DescribeRunOutput` now includes
+  `fingerprint` (nested) and the four flat fields.
+- **Unit tests R1–R16** (`tests/test_fingerprint.py`) covering:
+  fingerprint schema, modality detection, PII heuristic, domain gate,
+  content_hash, dtype_map, size_class, and sample behaviour.
+  6 tests currently skipped pending pandas test dependency (R-WFP-6 follow-up).
+- **Two conformance fixtures** under `tests/conformance/fingerprint/`:
+  `baseline` (tabular/classification) and `pii_declared` (medical domain,
+  declared pii_flag).
+- **`templates/AGENTS.pcq.md`** `## Fingerprint` section (R13 agent-managed):
+  schema summary, modality detection rules table, one-line example,
+  domain gate warning, PII 4-layer policy summary, 6 warning codes table,
+  R5b heuristic guidance, R15 determinism note.
+- **`skills/pcq/SKILL.md`** Fingerprint Usage Pattern section:
+  nested jq example, flat fields jq example, multi-modality filter pattern,
+  cross-reference to `templates/AGENTS.pcq.md ## Fingerprint`.
+- **TheCommons matchmaker 3-축 완성**: 행위자(Attribution) + 컴퓨터(Worker Spec) +
+  문제(Fingerprint) — 세 축이 모두 `run_record.json`에 내장됩니다.
+
+### Changed
+- `modality_other` enum value renamed to `other` for consistency with
+  `task_kind` and `domain` schemas (R-WFP-2, commit `ac84530`).
+
+### Fixed (R-WFP-4, commit `dfc4ea3`)
+- Financial keyword heuristic code path: incorrect condition guard removed.
+- dtype_map iterator: generator exhaustion bug fixed (`.items()` clone).
+- `sort_keys=True` applied consistently to all artifact serialisation
+  (was missing in two nested object paths).
+
+### Notes
+- **R-WFP-5 nits (non-blocking)**: unused import in `fingerprint.py` (cosmetic),
+  lazy-import pattern suggested for heavy deps (pandas/numpy), and
+  `pcq.fingerprint` name collision with the `pcq.fingerprint` submodule —
+  see `templates/AGENTS.pcq.md ## Fingerprint → Direct submodule access`.
+- **R-WFP-6 follow-up**: 6 pandas-dependent tests are currently skipped.
+  Activating them requires adding pandas to the test dependency group.
+  Tracked for next cycle.
+- **`agent_assets` mirror**: `src/pcq/agent_assets/{AGENTS.pcq.md,skills/pcq/SKILL.md}`
+  is kept in sync with `templates/AGENTS.pcq.md` and `skills/pcq/SKILL.md`.
+
+### Backward-compat
+- `fingerprint` is entirely optional in all schemas. Existing runs without
+  fingerprint data produce artifacts identical to 4.5.0 — no field is added,
+  no schema validation fails.
+- `pcq.save_all()` signature unchanged; fingerprint is injected via an
+  optional `fingerprint=` keyword argument, defaulting to `None`.
+- All existing conformance fixtures (non-fingerprint) continue to pass
+  without modification.
+
+### Commits
+- `b6a99f6` — spec docs (T-WFP-1)
+- `e0fd7de` — describe_run schema extension (T-WFP-2)
+- `ac84530` — modality_other → other rename fix (T-WFP-2 hotfix)
+- `b63ed54` — sibling schemas (T-WFP-3)
+- `37c7e7a` — fingerprint.py + contract.py (T-WFP-4)
+- `dfc4ea3` — 3 bug fixes: financial code, dtype iter, sort_keys (T-WFP-4 hotfix)
+- `faf907b` — core API + describe + validate L3 (T-WFP-5)
+- `98e22c9` — 16 unit tests, 10 pass + 6 skip on pandas (T-WFP-6)
+- `ad5b75f` — 2 conformance fixtures (T-WFP-7)
+- *(this)* — CHANGELOG + AGENTS.pcq.md R13 + SKILL.md + agent_assets sync (T-WFP-8)
+
 ## [4.5.0] — 2026-05-13
 
 > **Worker Spec: hardware fingerprint embedded in every RunRecord.**
