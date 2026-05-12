@@ -8,13 +8,14 @@ v4.0: contract-script focus only. recipe/atom/Trainer 의존 gate 제거.
             detected_frameworks
   - post-run: manifest_evidence
   - reproducibility (strictness>=3): seed_evidence, lockfile_evidence,
-            inputs_evidence
+            inputs_evidence, worker_spec_pii (R14)
   - service-grade (strictness=4): service_input_identity, service_metric_schema,
             service_lineage_evidence
 """
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +26,77 @@ from pcq.agent.strictness import (
     strictness_check,
     strictness_name,
 )
+
+# R14: declared/merged worker_spec 에서 PII 유사 패턴을 탐지하는 정규식.
+# hostname, MacBook 모델명, 사용자명 포함 경로 등을 감지한다 (warn only).
+_WORKER_PII_PATTERNS: list[re.Pattern[str]] = [
+    re.compile(r"\b[a-zA-Z][a-zA-Z0-9-]+\.local\b"),          # hostname.local 패턴
+    re.compile(r"\bMacBook(?:Pro|Air)?\b"),                     # MacBook 모델명
+    re.compile(r"\bWorkstation\b", re.IGNORECASE),              # Workstation 호스트명
+    re.compile(r"\bDesktop\b", re.IGNORECASE),                  # Desktop 호스트명
+    re.compile(r"/home/[a-zA-Z][a-zA-Z0-9_-]+/"),              # /home/<username>/ 경로
+    re.compile(r"/Users/[a-zA-Z][a-zA-Z0-9_-]+/"),             # /Users/<username>/ 경로 (macOS)
+    re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b"),               # IP 주소
+]
+
+
+def _collect_worker_spec_strings(obj: Any, prefix: str = "") -> list[tuple[str, str]]:
+    """worker_spec dict 에서 문자열 필드를 재귀적으로 수집한다.
+
+    Returns:
+        [(field_path, value)] 리스트.
+    """
+    results: list[tuple[str, str]] = []
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            path = f"{prefix}.{k}" if prefix else k
+            results.extend(_collect_worker_spec_strings(v, path))
+    elif isinstance(obj, list):
+        for i, item in enumerate(obj):
+            path = f"{prefix}[{i}]"
+            results.extend(_collect_worker_spec_strings(item, path))
+    elif isinstance(obj, str) and obj:
+        results.append((prefix, obj))
+    return results
+
+
+def _check_worker_spec_pii(
+    report: ValidationReport,
+    worker_spec: dict,
+) -> None:
+    """R14: declared/merged worker_spec 자유 문자열 필드에서 PII 유사 패턴 탐지.
+
+    감지 시 warning_code=WORKER_DECLARED_PII_LIKE 추가 (warn only, exit_code 영향 없음).
+    """
+    source = worker_spec.get("source", "")
+    # declared 또는 merged source 일 때만 검사
+    if source not in ("declared", "merged"):
+        return
+
+    string_fields = _collect_worker_spec_strings(worker_spec)
+    pii_hits: list[str] = []
+
+    for field_path, value in string_fields:
+        for pattern in _WORKER_PII_PATTERNS:
+            if pattern.search(value):
+                pii_hits.append(f"{field_path}={value!r}")
+                break
+
+    if pii_hits:
+        report.add(ValidationCheck(
+            id="worker_spec_pii",
+            status="warn",
+            severity="warning",
+            detail=(
+                f"WORKER_DECLARED_PII_LIKE: declared worker_spec 에 PII 패턴 의심값 포함 "
+                f"({len(pii_hits)} 필드): {pii_hits[:3]}"
+            ),
+            evidence={"warning_code": "WORKER_DECLARED_PII_LIKE", "fields": pii_hits},
+            suggested_fix=(
+                "worker_spec 의 cpu.model, os.release, container.image 등에서 "
+                "hostname, 경로, IP 등 개인 식별 정보를 제거하거나 일반화하세요."
+            ),
+        ))
 
 
 def _add_script_aware_gates(
@@ -511,6 +583,15 @@ def _add_project_reproducibility_gates(
             evidence={"strictness": strictness, "expected": "inputs"},
             suggested_fix="add `inputs: {}` or declare dataset inputs in cq.yaml",
         ))
+
+    # R14: L3+ declared worker_spec PII 유사 패턴 탐지 (warn only).
+    try:
+        from pcq.contract import build_worker_spec_object as _build_ws
+        _ws_obj, _ = _build_ws(cli_args=None, cfg=cfg)
+        if isinstance(_ws_obj, dict):
+            _check_worker_spec_pii(report, _ws_obj)
+    except Exception:  # noqa: BLE001
+        pass  # worker_spec 생성 실패 시 PII 게이트 skip (다른 게이트에 영향 없음)
 
     if strictness < 4:
         return

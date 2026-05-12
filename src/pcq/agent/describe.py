@@ -81,6 +81,12 @@ class RunDescription:
     attribution_committer_kind: str | None = None
     attribution_operator: str | None = None
     attribution_session_id: str | None = None
+    # worker_spec — T-WSPEC-5: 중첩 객체 + 플랫 표면 (에이전트 쿼리 편의)
+    worker_spec: dict | None = None
+    worker_spec_cpu_model: str | None = None
+    worker_spec_memory_gb: float | None = None
+    worker_spec_accelerator_kind: str | None = None
+    worker_spec_gpu_model_0: str | None = None
 
     def to_dict(self) -> dict:
         out: dict = {}
@@ -374,6 +380,21 @@ def describe_run(output_dir: str | Path) -> RunDescription:
         desc.attribution_committer_kind = committer.get("kind") or None
         desc.attribution_operator = raw_attribution.get("operator") or None
         desc.attribution_session_id = raw_attribution.get("session_id") or None
+
+    # worker_spec — T-WSPEC-5: run_record 의 중첩 객체를 그대로 보존하고 플랫 표면도 노출.
+    raw_worker_spec = rr.get("worker_spec")
+    if isinstance(raw_worker_spec, dict):
+        desc.worker_spec = raw_worker_spec
+        cpu = raw_worker_spec.get("cpu") or {}
+        memory = raw_worker_spec.get("memory") or {}
+        accelerator = raw_worker_spec.get("accelerator") or {}
+        gpus = accelerator.get("gpus") or []
+        desc.worker_spec_cpu_model = cpu.get("model") or None
+        total_gb = memory.get("total_gb")
+        desc.worker_spec_memory_gb = float(total_gb) if isinstance(total_gb, (int, float)) else None
+        desc.worker_spec_accelerator_kind = accelerator.get("kind") or None
+        gpu_0 = gpus[0] if gpus else {}
+        desc.worker_spec_gpu_model_0 = gpu_0.get("model") or None if isinstance(gpu_0, dict) else None
 
     desc.decision_facts = _decision_facts(desc)
 

@@ -1,11 +1,12 @@
 """pcq.core — cq.yaml 런타임 컨트랙트 어댑터.
 
-5개 공개 함수:
+6개 공개 함수:
 - config()         : CQ_CONFIG_JSON 파싱
 - log(**values)    : stdout @key=value 출력 + 미선언 메트릭 경고
 - output_dir()     : 출력 디렉토리 생성/반환
 - input_dir(name)  : worker가 fetch한 데이터 디렉토리 경로
 - seed_everything(): random/numpy/torch 시드 고정
+- worker_spec()    : 현재 실행 환경의 worker_spec dict 반환 (T-WSPEC-5)
 """
 
 from __future__ import annotations
@@ -264,3 +265,21 @@ def seed_everything(seed: int) -> None:
     except ImportError:
         # torch 미설치 환경 (core only)에서는 건너뛴다
         pass
+
+
+def worker_spec() -> dict | None:
+    """현재 실행 환경의 worker_spec dict 를 반환한다 (T-WSPEC-5).
+
+    save_all() 이 내부적으로 자동 호출하므로 사용자는 직접 호출할 필요가 없다.
+    build_worker_spec_object 를 env + cfg 기반으로 호출하고 결과 dict 만 반환.
+    감지 실패 시 None 반환.
+    """
+    from pcq.contract import build_worker_spec_object
+
+    try:
+        cfg = config()
+    except RuntimeError:
+        # CQ_CONFIG_JSON 없는 환경에서는 cfg 없이 자동 감지만 수행
+        cfg = {}
+    spec, _ = build_worker_spec_object(cli_args=None, cfg=cfg)
+    return spec

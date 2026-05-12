@@ -1753,6 +1753,22 @@ def save_all(
             persona_id_author=persona_id_author,
             persona_id_committer=persona_id_committer,
         )
+        # T-WSPEC-5: worker_spec 객체를 env + cfg 에서 자동 픽업.
+        # save_all 호출자는 별도 인자 없이 build_worker_spec_object 가 처리.
+        try:
+            from pcq.agent.resolver import resolve_run_context as _resolve_rc
+            _wspec_ctx = _resolve_rc(
+                path=project_root,
+                output_dir=output_dir,
+                ensure_output_dir=False,
+            )
+            _wspec_cfg = _wspec_ctx.cfg
+        except Exception:  # noqa: BLE001
+            _wspec_cfg = {}
+        worker_spec_obj, worker_spec_warnings = build_worker_spec_object(
+            cli_args=None,
+            cfg=_wspec_cfg,
+        )
         rr_path = finalize_run(
             history=history,
             status=status,
@@ -1765,6 +1781,8 @@ def save_all(
             output_dir=output_dir,
             project_root=project_root,
             attribution=attribution_obj,
+            worker_spec=worker_spec_obj,
+            worker_spec_warnings=worker_spec_warnings,
         )
         paths["run_record"] = rr_path
         vr_path = rr_path.parent / "validation_report.json"
