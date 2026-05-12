@@ -133,6 +133,9 @@
     },
     "validation": {
       "type": "object"
+    },
+    "worker_spec_changed": {
+      "type": "boolean"
     }
   },
   "x-pcq-schema-version": 1,

@@ -37,6 +37,89 @@ JSON_CONTRACTS: dict[str, dict[str, Any]] = {
             # attribution 패스스루 필드 (T-PCQ-ATTR-3 additive)
             # describe-run 스키마의 attribution 객체와 동일한 형태로 전달됨
             "attribution": "object",
+            # worker_spec 패스스루 필드 (T-WSPEC-3 additive)
+            # describe-run 스키마의 worker_spec 객체와 동일한 중첩 형태로 전달됨
+            "worker_spec": "object",
+        },
+        # worker_spec 풀 JSON Schema — describe_run.record의 property_overrides와 동일한 구조
+        "property_overrides": {
+            "worker_spec": {
+                "type": ["object", "null"],
+                "additionalProperties": False,
+                "properties": {
+                    "schema_version": {"type": "integer", "const": 1},
+                    "cpu": {
+                        "type": ["object", "null"],
+                        "additionalProperties": False,
+                        "properties": {
+                            "model": {"type": ["string", "null"]},
+                            "cores_physical": {"type": ["integer", "null"]},
+                            "cores_logical": {"type": ["integer", "null"]},
+                            "max_freq_mhz": {"type": ["integer", "null"]},
+                        },
+                    },
+                    "memory": {
+                        "type": ["object", "null"],
+                        "additionalProperties": False,
+                        "properties": {
+                            "total_gb": {"type": ["number", "null"]},
+                        },
+                    },
+                    "accelerator": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {
+                            "kind": {
+                                "type": "string",
+                                "enum": ["mps", "cuda", "cpu"],
+                            },
+                            "gpus": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "additionalProperties": False,
+                                    "properties": {
+                                        "model": {"type": "string"},
+                                        "vram_gb": {"type": ["number", "null"]},
+                                        "cuda_version": {"type": ["string", "null"]},
+                                        "torch_ordinal": {"type": ["integer", "null"]},
+                                    },
+                                    "required": ["model"],
+                                },
+                            },
+                            "visible_devices": {"type": ["string", "null"]},
+                        },
+                        "required": ["kind", "gpus"],
+                    },
+                    "os": {
+                        "type": ["object", "null"],
+                        "additionalProperties": False,
+                        "properties": {
+                            "system": {"type": "string"},
+                            "machine": {"type": "string"},
+                            "release": {"type": ["string", "null"]},
+                        },
+                    },
+                    "container": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {
+                            "kind": {
+                                "type": "string",
+                                "enum": ["none", "docker", "k8s", "other"],
+                            },
+                            "image": {"type": ["string", "null"]},
+                            "detector_hint": {"type": ["string", "null"]},
+                        },
+                        "required": ["kind"],
+                    },
+                    "source": {
+                        "type": "string",
+                        "enum": ["detected", "declared", "merged"],
+                    },
+                },
+                "required": ["schema_version", "accelerator", "container", "source"],
+            },
         },
         "enums": {
             "status": ["completed", "failed", "config_only", "error"],
@@ -125,8 +208,15 @@ JSON_CONTRACTS: dict[str, dict[str, Any]] = {
             "attribution_committer_kind": "string",
             "attribution_operator": "string",
             "attribution_session_id": "string",
+            # worker_spec 중첩 객체 (R13 additive)
+            "worker_spec": "object",
+            # worker_spec 플랫 표면 — 에이전트가 쿼리하기 쉽도록 최상위 노출
+            "worker_spec_cpu_model": "string",
+            "worker_spec_memory_gb": "number",
+            "worker_spec_accelerator_kind": "string",
+            "worker_spec_gpu_model_0": "string",
         },
-        # attribution 필드의 상세 JSON Schema — property_overrides가 단순 타입 표기를 덮어씀
+        # attribution 및 worker_spec 필드의 상세 JSON Schema — property_overrides가 단순 타입 표기를 덮어씀
         "property_overrides": {
             "attribution": {
                 "type": ["object", "null"],
@@ -162,6 +252,89 @@ JSON_CONTRACTS: dict[str, dict[str, Any]] = {
             "attribution_committer_kind": {"type": ["string", "null"]},
             "attribution_operator": {"type": ["string", "null"]},
             "attribution_session_id": {"type": ["string", "null"]},
+            # worker_spec 풀 JSON Schema (R13)
+            "worker_spec": {
+                "type": ["object", "null"],
+                "additionalProperties": False,
+                "properties": {
+                    "schema_version": {"type": "integer", "const": 1},
+                    "cpu": {
+                        "type": ["object", "null"],
+                        "additionalProperties": False,
+                        "properties": {
+                            "model": {"type": ["string", "null"]},
+                            "cores_physical": {"type": ["integer", "null"]},
+                            "cores_logical": {"type": ["integer", "null"]},
+                            "max_freq_mhz": {"type": ["integer", "null"]},
+                        },
+                    },
+                    "memory": {
+                        "type": ["object", "null"],
+                        "additionalProperties": False,
+                        "properties": {
+                            "total_gb": {"type": ["number", "null"]},
+                        },
+                    },
+                    "accelerator": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {
+                            "kind": {
+                                "type": "string",
+                                "enum": ["mps", "cuda", "cpu"],
+                            },
+                            "gpus": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "additionalProperties": False,
+                                    "properties": {
+                                        "model": {"type": "string"},
+                                        "vram_gb": {"type": ["number", "null"]},
+                                        "cuda_version": {"type": ["string", "null"]},
+                                        "torch_ordinal": {"type": ["integer", "null"]},
+                                    },
+                                    "required": ["model"],
+                                },
+                            },
+                            "visible_devices": {"type": ["string", "null"]},
+                        },
+                        "required": ["kind", "gpus"],
+                    },
+                    "os": {
+                        "type": ["object", "null"],
+                        "additionalProperties": False,
+                        "properties": {
+                            "system": {"type": "string"},
+                            "machine": {"type": "string"},
+                            "release": {"type": ["string", "null"]},
+                        },
+                    },
+                    "container": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {
+                            "kind": {
+                                "type": "string",
+                                "enum": ["none", "docker", "k8s", "other"],
+                            },
+                            "image": {"type": ["string", "null"]},
+                            "detector_hint": {"type": ["string", "null"]},
+                        },
+                        "required": ["kind"],
+                    },
+                    "source": {
+                        "type": "string",
+                        "enum": ["detected", "declared", "merged"],
+                    },
+                },
+                "required": ["schema_version", "accelerator", "container", "source"],
+            },
+            # worker_spec 플랫 표면 오버라이드 (null 허용)
+            "worker_spec_cpu_model": {"type": ["string", "null"]},
+            "worker_spec_memory_gb": {"type": ["number", "null"]},
+            "worker_spec_accelerator_kind": {"type": ["string", "null"]},
+            "worker_spec_gpu_model_0": {"type": ["string", "null"]},
         },
         "nested_required": {
             "decision_facts": {
@@ -225,6 +398,9 @@ JSON_CONTRACTS: dict[str, dict[str, Any]] = {
             "attribution_author_changed": "boolean",
             "attribution_committer_changed": "boolean",
             "attribution_operator_changed": "boolean",
+            # worker_spec diff 필드 (T-WSPEC-3 additive)
+            # True: 두 run의 worker_spec 객체가 다름 (하드웨어/컨테이너 환경 불일치)
+            "worker_spec_changed": "boolean",
         },
         "nested_required": {
             "decision_facts": {
@@ -286,6 +462,12 @@ JSON_CONTRACTS: dict[str, dict[str, Any]] = {
             "status": ["pass", "warn", "fail"],
             # warning_codes의 알려진 값 — 추가 코드는 하위 호환으로 허용
             # "PII_PATTERN_DETECTED": attribution.operator에 PII 패턴 감지
+            # "WORKER_PSUTIL_MISSING": psutil 미설치로 CPU/메모리 정보 수집 불가
+            # "WORKER_PSUTIL_PARTIAL": psutil 설치됐으나 일부 정보 누락 (권한 부족 등)
+            # "WORKER_TORCH_MISSING": torch 미설치로 GPU 정보 수집 불가
+            # "WORKER_CGROUP_DENIED": cgroup 파일시스템 접근 거부로 컨테이너 메모리 한도 확인 불가
+            # "WORKER_CONTAINER_AMBIGUOUS": 컨테이너 탐지 결과가 불확실함 (복수 힌트 충돌)
+            # "WORKER_DECLARED_PII_LIKE": declared worker_spec에 PII 패턴으로 의심되는 값 포함
         },
     },
     "pcq.agent_install.result": {

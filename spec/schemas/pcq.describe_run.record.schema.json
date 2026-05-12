@@ -212,6 +212,213 @@
     },
     "validation_status": {
       "type": "string"
+    },
+    "worker_spec": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "type": "integer",
+          "const": 1
+        },
+        "cpu": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "model": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "cores_physical": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "cores_logical": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "max_freq_mhz": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        },
+        "memory": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "total_gb": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          }
+        },
+        "accelerator": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "mps",
+                "cuda",
+                "cpu"
+              ]
+            },
+            "gpus": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "model": {
+                    "type": "string"
+                  },
+                  "vram_gb": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "cuda_version": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "torch_ordinal": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "model"
+                ]
+              }
+            },
+            "visible_devices": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "gpus"
+          ]
+        },
+        "os": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "system": {
+              "type": "string"
+            },
+            "machine": {
+              "type": "string"
+            },
+            "release": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        "container": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "none",
+                "docker",
+                "k8s",
+                "other"
+              ]
+            },
+            "image": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "detector_hint": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        "source": {
+          "type": "string",
+          "enum": [
+            "detected",
+            "declared",
+            "merged"
+          ]
+        }
+      },
+      "required": [
+        "schema_version",
+        "accelerator",
+        "container",
+        "source"
+      ]
+    },
+    "worker_spec_accelerator_kind": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "worker_spec_cpu_model": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "worker_spec_gpu_model_0": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "worker_spec_memory_gb": {
+      "type": [
+        "number",
+        "null"
+      ]
     }
   },
   "x-pcq-schema-version": 1,
