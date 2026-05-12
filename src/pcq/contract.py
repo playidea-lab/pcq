@@ -996,6 +996,439 @@ def save_partial_run_record(
     return rr_path
 
 
+# ---------------------------------------------------------------------------
+# worker_spec 빌더 — T-WSPEC-4
+# ---------------------------------------------------------------------------
+
+_VALID_ACCELERATOR_KINDS: frozenset[str] = frozenset({"mps", "cuda", "cpu"})
+_VALID_CONTAINER_KINDS: frozenset[str] = frozenset({"none", "docker", "k8s", "other"})
+_VALID_WORKER_SPEC_SOURCES: frozenset[str] = frozenset({"detected", "declared", "merged"})
+
+
+def _ws_warning(
+    code: str,
+    message: str,
+    field: str | None = None,
+) -> dict:
+    """worker_spec warning 엔트리를 생성합니다."""
+    w: dict = {"code": code, "message": message}
+    if field is not None:
+        w["field"] = field
+    return w
+
+
+def _detect_cpu(warnings: list[dict]) -> dict:
+    """psutil 로 CPU 정보를 감지합니다. 필드 단위 try/except."""
+    result: dict = {
+        "model": None,
+        "cores_physical": None,
+        "cores_logical": None,
+        "max_freq_mhz": None,
+    }
+    try:
+        import psutil  # noqa: PLC0415 — 지연 import, 옵션 dep
+    except ImportError:
+        warnings.append(_ws_warning(
+            "WORKER_PSUTIL_MISSING",
+            "psutil을 임포트할 수 없습니다. CPU/메모리 자동 감지 불가.",
+        ))
+        return result
+
+    # cores_physical
+    try:
+        val = psutil.cpu_count(logical=False)
+        if val is not None:
+            result["cores_physical"] = int(val)
+    except Exception:  # noqa: BLE001
+        warnings.append(_ws_warning(
+            "WORKER_PSUTIL_PARTIAL",
+            "psutil.cpu_count(logical=False) 실패.",
+            field="cpu.cores_physical",
+        ))
+
+    # cores_logical
+    try:
+        val = psutil.cpu_count()
+        if val is not None:
+            result["cores_logical"] = int(val)
+    except Exception:  # noqa: BLE001
+        warnings.append(_ws_warning(
+            "WORKER_PSUTIL_PARTIAL",
+            "psutil.cpu_count() 실패.",
+            field="cpu.cores_logical",
+        ))
+
+    # max_freq_mhz
+    try:
+        freq = psutil.cpu_freq()
+        if freq is not None and freq.max:
+            result["max_freq_mhz"] = float(freq.max)
+    except Exception:  # noqa: BLE001
+        warnings.append(_ws_warning(
+            "WORKER_PSUTIL_PARTIAL",
+            "psutil.cpu_freq() 실패.",
+            field="cpu.max_freq_mhz",
+        ))
+
+    # model — platform.processor() 폴백
+    try:
+        model = platform.processor()
+        if model:
+            result["model"] = str(model)
+    except Exception:  # noqa: BLE001
+        pass  # model은 선택 필드 — warning 생략
+
+    return result
+
+
+def _detect_memory(warnings: list[dict]) -> dict:
+    """psutil 로 메모리 합계를 감지합니다."""
+    result: dict = {"total_gb": None}
+    try:
+        import psutil  # noqa: PLC0415
+    except ImportError:
+        # WORKER_PSUTIL_MISSING은 _detect_cpu 에서 이미 emit — 중복 방지.
+        return result
+
+    try:
+        mem = psutil.virtual_memory()
+        result["total_gb"] = round(mem.total / 1024 ** 3, 2)
+    except Exception:  # noqa: BLE001
+        warnings.append(_ws_warning(
+            "WORKER_PSUTIL_PARTIAL",
+            "psutil.virtual_memory() 실패.",
+            field="memory.total_gb",
+        ))
+    return result
+
+
+def _detect_gpus_nvml() -> list[dict] | None:
+    """pynvml 로 GPU 목록을 PCI bus_id 오름차순으로 반환합니다.
+
+    pynvml 미설치 또는 초기화 실패 시 None 반환 (torch 폴백 사용).
+    """
+    try:
+        import pynvml  # noqa: PLC0415 — 옵션 dep
+
+        pynvml.nvmlInit()
+        device_count = pynvml.nvmlDeviceGetCount()
+        entries: list[tuple[str, dict]] = []
+        for i in range(device_count):
+            handle = pynvml.nvmlDeviceGetHandleByIndex(i)
+            name = pynvml.nvmlDeviceGetName(handle)
+            if isinstance(name, bytes):
+                name = name.decode("utf-8", errors="replace")
+            # PCI bus_id 수집 (R13 결정성)
+            try:
+                pci_info = pynvml.nvmlDeviceGetPciInfo(handle)
+                bus_id: str = pci_info.busId
+                if isinstance(bus_id, bytes):
+                    bus_id = bus_id.decode("ascii", errors="replace")
+            except Exception:  # noqa: BLE001
+                bus_id = f"unknown_{i}"
+            try:
+                mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
+                vram_gb: float | None = round(mem_info.total / 1024 ** 3, 2)
+            except Exception:  # noqa: BLE001
+                vram_gb = None
+            try:
+                cuda_ver_raw = pynvml.nvmlSystemGetCudaDriverVersion()
+                major = cuda_ver_raw // 1000
+                minor = (cuda_ver_raw % 1000) // 10
+                cuda_version: str | None = f"{major}.{minor}"
+            except Exception:  # noqa: BLE001
+                cuda_version = None
+            gpu_entry: dict = {
+                "model": name,
+                "vram_gb": vram_gb,
+                "cuda_version": cuda_version,
+                "pci_bus_id": bus_id,
+                "torch_ordinal": None,  # NVML 경로는 CUDA_VISIBLE_DEVICES 전후 매핑 불확실
+            }
+            entries.append((bus_id, gpu_entry))
+        # R13 — PCI bus_id 오름차순 정렬
+        entries.sort(key=lambda x: x[0])
+        return [e for _, e in entries]
+    except Exception:  # noqa: BLE001 — pynvml 없거나 초기화 실패
+        return None
+
+
+def _detect_accelerator(warnings: list[dict]) -> tuple[dict, list[dict]]:
+    """torch 로 accelerator 종류 + GPU 목록을 감지합니다.
+
+    반환: (accelerator_dict, gpu_list)
+    """
+    gpus: list[dict] = []
+    try:
+        import torch  # noqa: PLC0415 — 옵션 dep
+
+        # MPS 확인 (Apple Silicon)
+        try:
+            mps_available = torch.backends.mps.is_available()
+        except Exception:  # noqa: BLE001
+            mps_available = False
+
+        if mps_available:
+            kind = "mps"
+        elif torch.cuda.is_available():
+            kind = "cuda"
+            device_count = torch.cuda.device_count()
+            visible_devices: str | None = os.environ.get("CUDA_VISIBLE_DEVICES")
+
+            # pynvml 우선 시도 (PCI bus_id 정렬, R13)
+            nvml_gpus = _detect_gpus_nvml()
+            if nvml_gpus is not None:
+                gpus = nvml_gpus
+                # torch_ordinal 보정 (visible_devices audit)
+                for ordinal, gpu in enumerate(gpus):
+                    gpu["torch_ordinal"] = ordinal
+            else:
+                # torch 폴백 — torch ordinal 순서
+                for i in range(device_count):
+                    try:
+                        name = str(torch.cuda.get_device_name(i))
+                    except Exception:  # noqa: BLE001
+                        name = "unknown"
+                    try:
+                        props = torch.cuda.get_device_properties(i)
+                        vram_gb: float | None = round(props.total_memory / 1024 ** 3, 2)
+                    except Exception:  # noqa: BLE001
+                        vram_gb = None
+                    cuda_ver: str | None = getattr(torch.version, "cuda", None)
+                    gpus.append({
+                        "model": name,
+                        "vram_gb": vram_gb,
+                        "cuda_version": cuda_ver,
+                        "pci_bus_id": None,
+                        "torch_ordinal": i,
+                    })
+            if visible_devices is not None:
+                # visible_devices audit — 실제 매핑 기록용
+                for gpu in gpus:
+                    gpu.setdefault("visible_devices_env", visible_devices)
+        else:
+            kind = "cpu"
+    except ImportError:
+        warnings.append(_ws_warning(
+            "WORKER_TORCH_MISSING",
+            "torch를 임포트할 수 없습니다. accelerator 감지 불가. kind=cpu로 폴백.",
+        ))
+        kind = "cpu"
+
+    accelerator: dict = {"kind": kind, "gpus": gpus}
+    return accelerator, gpus
+
+
+def _detect_os() -> dict:
+    """platform 모듈로 OS 정보를 감지합니다."""
+    return {
+        "system": platform.system() or None,
+        "machine": platform.machine() or None,
+        "release": platform.release() or None,
+    }
+
+
+def _detect_container(warnings: list[dict]) -> dict:
+    """컨테이너 환경을 감지합니다 (docker/k8s/other/none).
+
+    /proc/1/cgroup 과 환경변수를 보수적으로 확인합니다.
+    모호한 경우 WORKER_CONTAINER_AMBIGUOUS warning을 emit합니다.
+    """
+    signals: list[str] = []
+    detector_hint: str | None = None
+
+    # cgroup 파일 확인 (Linux, EACCES 시 warning 예약)
+    cgroup_path = "/proc/1/cgroup"
+    try:
+        with open(cgroup_path, encoding="utf-8", errors="replace") as f:
+            cgroup_content = f.read()
+        if "docker" in cgroup_content or "containerd" in cgroup_content:
+            signals.append("docker")
+    except PermissionError:
+        # R11 — WORKER_CGROUP_DENIED (1.0 미사용, 자리만 확보)
+        warnings.append(_ws_warning(
+            "WORKER_CGROUP_DENIED",
+            f"{cgroup_path} 읽기 권한 없음. 컨테이너 감지 불완전.",
+        ))
+    except (FileNotFoundError, OSError):
+        pass  # Linux 아닌 환경 — 정상
+
+    # k8s 확인
+    if os.environ.get("KUBERNETES_SERVICE_HOST"):
+        signals.append("k8s")
+
+    # podman / LXC / nspawn 등 (R12)
+    container_env = os.environ.get("container")
+    if container_env:
+        signals.append("other")
+        detector_hint = container_env  # 예: "podman", "lxc"
+
+    # 결정
+    if len(signals) > 1:
+        # R12 — 복수 신호 충돌 → ambiguous
+        warnings.append(_ws_warning(
+            "WORKER_CONTAINER_AMBIGUOUS",
+            f"복수의 컨테이너 신호 감지: {signals}. 첫 번째를 사용합니다.",
+        ))
+
+    if "k8s" in signals:
+        kind = "k8s"
+    elif "docker" in signals:
+        kind = "docker"
+    elif "other" in signals:
+        kind = "other"
+    else:
+        kind = "none"
+
+    result: dict = {"kind": kind, "image": None}
+    if detector_hint is not None:
+        result["detector_hint"] = detector_hint
+    return result
+
+
+def build_worker_spec_object(
+    cli_args: dict | None = None,
+    cfg: dict | None = None,
+) -> tuple[dict | None, list[dict]]:
+    """worker_spec 객체를 생성하고 반환합니다.
+
+    우선순위: CLI args > CQ_WORKER_* 환경변수 > cfg(cq.yaml.worker.*) > auto-detect > None.
+    각 필드는 독립적으로 try/except 처리되어, 한 필드 실패가 다른 필드를 막지 않습니다.
+
+    PII 차단 (R10): hostname, IP, MAC, 사용자명은 절대 수집하지 않습니다.
+
+    Args:
+        cli_args: CLI에서 명시적으로 전달된 worker 필드 dict (예: {"cpu_model": "..."}).
+        cfg: cq.yaml 전체 dict. worker.* 섹션을 탐색합니다.
+
+    Returns:
+        (worker_spec, warnings) 튜플.
+        worker_spec: dict(schema_version=1) 또는 None(모든 감지 실패 시).
+        warnings: [{code, message, field?}] 목록.
+
+    Raises:
+        ValueError: accelerator.kind / container.kind / source 가 유효하지 않은 경우.
+    """
+    warnings: list[dict] = []
+    cli = cli_args or {}
+    worker_cfg: dict = {}
+
+    # cfg 에서 worker.* 섹션 추출
+    if cfg is not None:
+        raw_worker = cfg.get("worker", {})
+        if isinstance(raw_worker, dict):
+            worker_cfg = raw_worker
+
+    # 환경변수 (CQ_WORKER_*) 폴백 레이어
+    def _env(key: str) -> str | None:
+        return os.environ.get(f"CQ_WORKER_{key.upper()}")
+
+    def _resolve(field: str, detected_val: object = None) -> object:
+        """CLI > env > cfg > detected 순서로 값을 결정합니다."""
+        if field in cli and cli[field] is not None:
+            return cli[field]
+        env_val = _env(field)
+        if env_val is not None:
+            return env_val
+        if field in worker_cfg and worker_cfg[field] is not None:
+            return worker_cfg[field]
+        return detected_val
+
+    # ---- 자동 감지 ----
+    detected_cpu = _detect_cpu(warnings)
+    detected_memory = _detect_memory(warnings)
+    detected_accelerator, _ = _detect_accelerator(warnings)
+    detected_os = _detect_os()
+    detected_container = _detect_container(warnings)
+
+    # ---- 필드 결정 ----
+    cpu_model = _resolve("cpu_model", detected_cpu["model"])
+    cores_physical = _resolve("cores_physical", detected_cpu["cores_physical"])
+    cores_logical = _resolve("cores_logical", detected_cpu["cores_logical"])
+    max_freq_mhz = _resolve("max_freq_mhz", detected_cpu["max_freq_mhz"])
+    total_gb = _resolve("memory_total_gb", detected_memory["total_gb"])
+
+    accelerator_kind_raw = _resolve("accelerator_kind", detected_accelerator["kind"])
+    accelerator_kind = str(accelerator_kind_raw) if accelerator_kind_raw is not None else "cpu"
+    if accelerator_kind not in _VALID_ACCELERATOR_KINDS:
+        raise ValueError(
+            f"accelerator.kind must be one of {sorted(_VALID_ACCELERATOR_KINDS)!r}, "
+            f"got {accelerator_kind!r}"
+        )
+
+    # gpus는 cfg/cli override 없으면 감지값 사용
+    gpus: list[dict] = detected_accelerator["gpus"]
+    if "gpus" in worker_cfg and isinstance(worker_cfg["gpus"], list):
+        gpus = worker_cfg["gpus"]
+
+    container_kind_raw = _resolve("container_kind", detected_container["kind"])
+    container_kind = str(container_kind_raw) if container_kind_raw is not None else "none"
+    if container_kind not in _VALID_CONTAINER_KINDS:
+        raise ValueError(
+            f"container.kind must be one of {sorted(_VALID_CONTAINER_KINDS)!r}, "
+            f"got {container_kind!r}"
+        )
+
+    # ---- source 결정 ----
+    # 어떤 필드가 override(cli/env/cfg)로 채워졌는지 판단
+    has_override = bool(
+        cli
+        or any(f"CQ_WORKER_{k.upper()}" in os.environ for k in [
+            "cpu_model", "cores_physical", "cores_logical", "max_freq_mhz",
+            "memory_total_gb", "accelerator_kind", "container_kind",
+        ])
+        or worker_cfg
+    )
+    has_detected = bool(
+        detected_cpu["cores_physical"] is not None
+        or detected_cpu["cores_logical"] is not None
+        or detected_memory["total_gb"] is not None
+    )
+
+    if has_override and has_detected:
+        source = "merged"
+    elif has_override and not has_detected:
+        source = "declared"
+    else:
+        source = "detected"
+
+    if source not in _VALID_WORKER_SPEC_SOURCES:
+        raise ValueError(
+            f"source must be one of {sorted(_VALID_WORKER_SPEC_SOURCES)!r}, "
+            f"got {source!r}"
+        )
+
+    # ---- 결과 조립 ----
+    worker_spec: dict = {
+        "schema_version": 1,
+        "cpu": {
+            "model": cpu_model,
+            "cores_physical": cores_physical,
+            "cores_logical": cores_logical,
+            "max_freq_mhz": max_freq_mhz,
+        },
+        "memory": {
+            "total_gb": total_gb,
+        },
+        "accelerator": {
+            "kind": accelerator_kind,
+            "gpus": gpus,
+        },
+        "os": {
+            "system": _resolve("os_system", detected_os["system"]),
+            "machine": _resolve("os_machine", detected_os["machine"]),
+            "release": _resolve("os_release", detected_os["release"]),
+        },
+        "container": detected_container,
+    }
+    # container.kind override 적용
+    worker_spec["container"]["kind"] = container_kind
+
+    worker_spec["source"] = source
+
+    return worker_spec, warnings
+
+
 _VALID_ATTRIBUTION_KINDS: frozenset[str] = frozenset({"human", "agent"})
 
 
@@ -1106,6 +1539,8 @@ def finalize_run(
     output_dir: str | Path | None = None,
     project_root: str | Path | None = None,
     attribution: dict | None = None,
+    worker_spec: dict | None = None,
+    worker_spec_warnings: list[dict] | None = None,
 ) -> Path:
     """run_record.json + validation_report.json 작성.
 
@@ -1130,6 +1565,11 @@ def finalize_run(
         attribution: v3.0 — build_attribution_object() 반환값 또는 동일 형태
                      dict. run_record 의 attribution 필드로 그대로 전달.
                      None 이면 attribution 필드 생략.
+        worker_spec: T-WSPEC-4 — build_worker_spec_object() 반환값 또는 동일 형태
+                     dict. run_record 의 worker_spec 필드로 그대로 전달.
+                     None 이면 worker_spec 필드 생략 (옛 record 호환).
+        worker_spec_warnings: build_worker_spec_object() 에서 반환된 warnings 목록.
+                              None 또는 [] 이면 validation_report 에 추가 없음.
 
     Returns:
         run_record.json Path.
@@ -1171,26 +1611,55 @@ def finalize_run(
     record_dict = record.to_dict()
     if attribution is not None:
         record_dict["attribution"] = attribution
+    # T-WSPEC-4: worker_spec 필드를 run_record dict 에 추가 (있을 때만).
+    if worker_spec is not None:
+        record_dict["worker_spec"] = worker_spec
     # v2.11: atomic write — partial RunRecord 와 동일한 보장.
     _atomic_write_json(rr_path, record_dict)
 
     # post-run validation 실행 후 validation_report.json + run_record.validation patch
-    _run_post_validation_and_patch(out, rr_path, strictness=cfg.get("strictness"))
+    _run_post_validation_and_patch(
+        out,
+        rr_path,
+        strictness=cfg.get("strictness"),
+        extra_warnings=worker_spec_warnings or [],
+    )
 
     return rr_path
 
 
 def _run_post_validation_and_patch(
-    output_dir: Path, run_record_path: Path, strictness: int | None = None
+    output_dir: Path,
+    run_record_path: Path,
+    strictness: int | None = None,
+    extra_warnings: list[dict] | None = None,
 ) -> None:
-    """post-run validation 실행 → validation_report.json + run_record.validation 갱신."""
+    """post-run validation 실행 → validation_report.json + run_record.validation 갱신.
+
+    Args:
+        extra_warnings: worker_spec_warnings 등 추가 warning 목록. validation_report
+                        의 warning_codes 에 code 를 추가합니다.
+    """
     from pcq.agent.validate_run import validate_run
 
     report = validate_run(output_dir, strictness=strictness)
-    vr_path = output_dir / "validation_report.json"
-    vr_path.write_text(
-        json.dumps(report.to_dict(), indent=2), encoding="utf-8"
-    )
+
+    # worker_spec 등 extra_warnings 를 validation_report 에 합류.
+    if extra_warnings:
+        report_dict = report.to_dict()
+        existing_codes: list = report_dict.get("warning_codes", [])
+        for w in extra_warnings:
+            code = w.get("code")
+            if code and code not in existing_codes:
+                existing_codes.append(code)
+        report_dict["warning_codes"] = existing_codes
+        vr_path = output_dir / "validation_report.json"
+        vr_path.write_text(json.dumps(report_dict, indent=2), encoding="utf-8")
+    else:
+        vr_path = output_dir / "validation_report.json"
+        vr_path.write_text(
+            json.dumps(report.to_dict(), indent=2), encoding="utf-8"
+        )
 
     # run_record.validation 갱신.
     try:
