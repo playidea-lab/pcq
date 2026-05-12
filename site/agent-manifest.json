@@ -2,6 +2,7 @@
   "schema_version": 1,
   "name": "pcq",
   "version": "4.1.0",
+  "pcq_version": "4.6",
   "description": "pcq is the contract for agent-run ML experiments — cq.yaml format, JSON contracts, MCP tool surface, strictness gates, and run-evidence schema. This package is the reference Python implementation of that contract. Other-language implementations (notably the CQ Go service worker) target the same contract.",
   "license": "Apache-2.0",
   "package": {
@@ -223,5 +224,39 @@
     "training_loop_owned_by_pcq": false,
     "project_local_training_code_first_class": true,
     "prefer_mcp_when_available": true
-  }
+  },
+  "features": [
+    {
+      "name": "attribution",
+      "version": "4.4",
+      "kind": "metadata_field",
+      "json_path": "$.attribution",
+      "purpose": "Record who ran the experiment (author/committer/operator)",
+      "agent_fillable": true,
+      "env_prefix": "CQ_ATTRIBUTION_",
+      "spec_ref": "spec/SPEC.md#attribution"
+    },
+    {
+      "name": "worker_spec",
+      "version": "4.5",
+      "kind": "metadata_field",
+      "json_path": "$.worker_spec",
+      "purpose": "Record where the experiment ran (cpu/gpu/memory/os, host-view)",
+      "agent_fillable": true,
+      "env_prefix": "CQ_WORKER_",
+      "spec_ref": "spec/SPEC.md#worker-spec",
+      "pii_safe": true
+    },
+    {
+      "name": "fingerprint",
+      "version": "4.6",
+      "kind": "metadata_field",
+      "json_path": "$.fingerprint",
+      "purpose": "PII-safe data fingerprint (modality/task_kind/size/distribution)",
+      "agent_fillable": true,
+      "env_prefix": "CQ_FINGERPRINT_",
+      "spec_ref": "spec/SPEC.md#fingerprint",
+      "pii_layered": true
+    }
+  ]
 }
