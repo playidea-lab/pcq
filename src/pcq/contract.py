@@ -996,6 +996,102 @@ def save_partial_run_record(
     return rr_path
 
 
+_VALID_ATTRIBUTION_KINDS: frozenset[str] = frozenset({"human", "agent"})
+
+
+def build_attribution_object(
+    operator: str | None = None,
+    author_id: str | None = None,
+    author_kind: str | None = None,
+    committer_id: str | None = None,
+    committer_kind: str | None = None,
+    session_id: str | None = None,
+    persona_id_author: str | None = None,
+    persona_id_committer: str | None = None,
+) -> dict | None:
+    """attribution 객체를 생성하고 반환합니다.
+
+    parent_run_id 패턴과 동일한 우선순위로 값을 결정합니다:
+      1. 명시 인자 (explicit args)
+      2. 환경변수 (CQ_ATTRIBUTION_*)
+      3. auto-infer: operator 만 있으면 author=committer, kind="human"
+      4. 아무것도 없으면 None 반환 (attribution 필드 생략)
+
+    kind 검증: "human" | "agent" 이외는 ValueError.
+    Phase 2 예약 필드 (signature 등)는 포함하지 않습니다.
+
+    Args:
+        operator: 작업을 수행한 사람/시스템의 식별자 (자유 문자열).
+        author_id: 변경을 작성한 주체 id.
+        author_kind: "human" 또는 "agent".
+        committer_id: 변경을 커밋한 주체 id.
+        committer_kind: "human" 또는 "agent".
+        session_id: CQ 세션 id (opaque 보존).
+        persona_id_author: author 의 페르소나 id.
+        persona_id_committer: committer 의 페르소나 id.
+
+    Returns:
+        attribution dict (schema_version=1) 또는 None.
+
+    Raises:
+        ValueError: kind 가 "human" / "agent" 이외인 경우.
+    """
+    # 1단계: 명시 인자 우선, 없으면 환경변수 폴백.
+    resolved_operator = operator or os.environ.get("CQ_ATTRIBUTION_OPERATOR")
+    resolved_author_id = author_id or os.environ.get("CQ_ATTRIBUTION_AUTHOR_ID")
+    resolved_author_kind = author_kind or os.environ.get("CQ_ATTRIBUTION_AUTHOR_KIND")
+    resolved_committer_id = committer_id or os.environ.get("CQ_ATTRIBUTION_COMMITTER_ID")
+    resolved_committer_kind = committer_kind or os.environ.get("CQ_ATTRIBUTION_COMMITTER_KIND")
+    resolved_session_id = session_id or os.environ.get("CQ_ATTRIBUTION_SESSION_ID")
+    resolved_persona_author = persona_id_author or os.environ.get("CQ_ATTRIBUTION_PERSONA_AUTHOR")
+    resolved_persona_committer = persona_id_committer or os.environ.get("CQ_ATTRIBUTION_PERSONA_COMMITTER")
+
+    # 2단계: auto-infer — operator 만 있고 author/committer 미지정이면 동일 주체로 설정.
+    if resolved_operator and not resolved_author_id and not resolved_committer_id:
+        resolved_author_id = resolved_operator
+        resolved_committer_id = resolved_operator
+        if not resolved_author_kind:
+            resolved_author_kind = "human"
+        if not resolved_committer_kind:
+            resolved_committer_kind = "human"
+
+    # 3단계: author/committer 가 모두 미지정이면 None 반환.
+    if not resolved_author_id and not resolved_committer_id and not resolved_operator:
+        return None
+
+    # kind 기본값 — 명시 없으면 "human".
+    final_author_kind: str = resolved_author_kind or "human"
+    final_committer_kind: str = resolved_committer_kind or "human"
+
+    # kind 검증.
+    if final_author_kind not in _VALID_ATTRIBUTION_KINDS:
+        raise ValueError(
+            f"author_kind must be one of {sorted(_VALID_ATTRIBUTION_KINDS)!r}, "
+            f"got {final_author_kind!r}"
+        )
+    if final_committer_kind not in _VALID_ATTRIBUTION_KINDS:
+        raise ValueError(
+            f"committer_kind must be one of {sorted(_VALID_ATTRIBUTION_KINDS)!r}, "
+            f"got {final_committer_kind!r}"
+        )
+
+    return {
+        "schema_version": 1,
+        "author": {
+            "kind": final_author_kind,
+            "id": resolved_author_id or "",
+            "persona_id": resolved_persona_author or None,
+        },
+        "committer": {
+            "kind": final_committer_kind,
+            "id": resolved_committer_id or "",
+            "persona_id": resolved_persona_committer or None,
+        },
+        "operator": resolved_operator or None,
+        "session_id": resolved_session_id or None,
+    }
+
+
 def finalize_run(
     history: list[dict] | None = None,
     status: str = "completed",
@@ -1009,6 +1105,7 @@ def finalize_run(
     parent_run_path: str | None = None,
     output_dir: str | Path | None = None,
     project_root: str | Path | None = None,
+    attribution: dict | None = None,
 ) -> Path:
     """run_record.json + validation_report.json 작성.
 
@@ -1030,6 +1127,9 @@ def finalize_run(
                     chdir/env tmp 트릭 제거). 없으면 RunContext 가 결정.
         project_root: v2.5 — explicit project_root override. cwd ancestor
                       walk-up 결과를 무시하고 이 디렉토리에서 cq.yaml 탐색.
+        attribution: v3.0 — build_attribution_object() 반환값 또는 동일 형태
+                     dict. run_record 의 attribution 필드로 그대로 전달.
+                     None 이면 attribution 필드 생략.
 
     Returns:
         run_record.json Path.
@@ -1067,8 +1167,12 @@ def finalize_run(
     )
 
     rr_path = out / "run_record.json"
+    # attribution 필드를 run_record dict 에 추가 (있을 때만).
+    record_dict = record.to_dict()
+    if attribution is not None:
+        record_dict["attribution"] = attribution
     # v2.11: atomic write — partial RunRecord 와 동일한 보장.
-    _atomic_write_json(rr_path, record.to_dict())
+    _atomic_write_json(rr_path, record_dict)
 
     # post-run validation 실행 후 validation_report.json + run_record.validation patch
     _run_post_validation_and_patch(out, rr_path, strictness=cfg.get("strictness"))
