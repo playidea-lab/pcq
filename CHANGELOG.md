@@ -4,6 +4,30 @@ All notable changes to pcq. Format: [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [4.8.0] — 2026-05-13
+
+> 16 failure categories — normative spec + retry/abort hints.
+
+### Added
+- 4 new failure categories: `accuracy_below_threshold`, `user_interrupted`,
+  `disk_full`, `model_load_failed` (joins the existing 12: `config_error`,
+  `missing_dependency`, `dataset_missing`, `dataset_shape`, `label_contract`,
+  `loss_contract`, `metric_contract`, `oom`, `nan_loss`, `timeout`,
+  `distributed_write_race`, `unknown_exception`)
+- `spec/SPEC.md` `## Failure Categories` normative section: 16-row reference
+  table with example trigger messages; heuristic classifier link
+- `docs/AGENT_OPERATING_GUIDE.md` `## Failure Categories` section: 16-row
+  table with retry / abort decision hints per category
+- `docs/RUN_RECORD.md` `## Result Semantics For Agents` section: 16-row
+  retry / abort table aligned with the spec
+- `site/llms.txt` and `site/llms-full.txt` updated with all 16 categories
+
+### Notes
+- Regex heuristic only — `failure.category` is derived from `failure.message`.
+  Free string values remain valid when no pattern matches.
+- No schema version bump: `failure.category` was already a free string; new
+  values are additive and backward-compatible.
+
 ## [4.7.0] — 2026-05-13
 
 > Inference metrics recommended keys — pcq scope: format only.

@@ -1068,6 +1068,33 @@ cross-run comparison-friendliness without adding any validation gate.
 - flat surface fields for inference metrics in `describe-run`
 - helper API (`pcq.log_inference(...)`) wrapping latency capture
 
+## Failure Categories
+
+`failure.category` is a regex-based heuristic applied to `failure.message`. Not
+exhaustive — free string values are allowed when no category matches.
+
+| Category | Meaning | Example trigger / message |
+|---|---|---|
+| `config_error` | `cq.yaml` or runtime config is invalid or unparseable | `"invalid cq.yaml: unknown key 'batch'"`  |
+| `missing_dependency` | A required Python package is not installed | `"ModuleNotFoundError: No module named 'timm'"` |
+| `dataset_missing` | Dataset file or URI not found at resolution time | `"FileNotFoundError: data/train.csv not found"` |
+| `dataset_shape` | Tensor or array dimensions do not match expected shape | `"Expected shape (N,3,H,W) got (N,1,H,W)"` |
+| `label_contract` | Label range or dtype violates the declared contract | `"Label 5 out of range [0,4]"` |
+| `loss_contract` | Loss function receives inputs it cannot process | `"loss() got unexpected keyword argument 'reduction'"` |
+| `metric_contract` | A metric key is emitted but not declared in `cq.yaml` | `"Undeclared metric 'f1_score' at strictness 3"` |
+| `oom` | CUDA or host memory exhausted during run | `"CUDA out of memory at batch 17"` |
+| `nan_loss` | Loss became NaN or Inf during training | `"Loss is NaN at epoch 2, step 140"` |
+| `timeout` | Run exceeded the configured time budget | `"Run timed out after 3600s"` |
+| `distributed_write_race` | Concurrent workers wrote to the same artifact path | `"OSError: [Errno 17] File exists: output/run_record.json"` |
+| `accuracy_below_threshold` | Validation metric fell below a declared acceptance threshold | `"eval_acc 0.42 < required 0.80"` |
+| `user_interrupted` | Run was interrupted by an explicit user or operator signal | `"KeyboardInterrupt"`, `"SIGTERM received"` |
+| `disk_full` | Output directory ran out of disk space | `"OSError: [Errno 28] No space left on device"` |
+| `model_load_failed` | Model checkpoint or weights file could not be loaded | `"RuntimeError: PytorchStreamReader failed reading zip archive"` |
+| `unknown_exception` | Unclassified exception — no other category matched | any unrecognised traceback |
+
+Agents may use `failure.category` for retry / abort decisions. The heuristic
+classifier lives at `spec/agent/failure_classifier.py`.
+
 ## Non-Goals
 
 - reimplementing Lightning, HF Trainer, PyCaret, W&B, MLflow, DVC, or CQ

@@ -491,6 +491,30 @@ should treat the field as a `FailureInfo` envelope:
   reason about. pcq does not turn it into commands. That mapping is policy
   and lives outside the library.
 
+## Result Semantics For Agents
+
+`failure.category` is a regex-based heuristic on `failure.message`. Free
+strings are allowed when no category matches.
+
+| Category | Retry / Abort hint |
+|---|---|
+| `config_error` | Abort — fix `cq.yaml` first; retry will fail identically |
+| `missing_dependency` | Abort — run `uv add <package>` then retry |
+| `dataset_missing` | Abort — verify input URIs or paths, then retry |
+| `dataset_shape` | Abort — check tensor dimensions; fix code before retry |
+| `label_contract` | Abort — check label range / dtype; fix code before retry |
+| `loss_contract` | Abort — check loss function signature; fix before retry |
+| `metric_contract` | Abort — declare the metric in `cq.yaml.metrics`, then retry |
+| `oom` | Retry with smaller `batch_size` (halve); abort if already at minimum |
+| `nan_loss` | Retry with lower `lr` or add gradient clipping; abort after 2 retries |
+| `timeout` | Retry with larger `time_budget`; abort if resource limits are firm |
+| `distributed_write_race` | Retry with reduced concurrent writers; abort if architecture issue |
+| `accuracy_below_threshold` | Retry with tuned hyperparameters (smaller `lr`, longer training); abort after budget exhausted |
+| `user_interrupted` | Respect the interruption — do not auto-retry |
+| `disk_full` | Abort — free disk space then retry; auto-retry is unsafe |
+| `model_load_failed` | Retry once after re-downloading or verifying checkpoint integrity; abort if hash mismatch persists |
+| `unknown_exception` | Manual investigation required before retry |
+
 ## Validation Gates
 
 Pre-run validation should check:

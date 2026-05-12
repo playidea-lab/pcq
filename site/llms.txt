@@ -97,6 +97,19 @@ remains free-key.
 | `batch_size` | — | inference batch size |
 | `sequence_length` | — | input sequence length |
 
+## Failure Categories (v4.8)
+
+`failure.category` — regex heuristic on `failure.message`. Free strings
+allowed when no pattern matches. 16 categories:
+
+`config_error`, `missing_dependency`, `dataset_missing`, `dataset_shape`,
+`label_contract`, `loss_contract`, `metric_contract`, `oom`, `nan_loss`,
+`timeout`, `distributed_write_race`, `accuracy_below_threshold`,
+`user_interrupted`, `disk_full`, `model_load_failed`, `unknown_exception`.
+
+Agents use this field for retry / abort decisions. Full table with hints in
+docs/AGENT_OPERATING_GUIDE.md and spec/SPEC.md `## Failure Categories`.
+
 Runtime surfaces:
 
 - `--json` emits one final parseable JSON object.

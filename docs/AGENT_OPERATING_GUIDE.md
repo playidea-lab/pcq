@@ -494,6 +494,31 @@ These keys are recommended for comparison-friendliness across runs, but
 `pcq.log()` accepts free keys — use whatever is meaningful for your project.
 No validation gate exists for these keys.
 
+## Failure Categories
+
+`failure.category` in `run_summary.json` is a regex-based heuristic on
+`failure.message`. Free strings are allowed when no category matches. Agents
+should use the category to decide whether to retry or abort.
+
+| Category | Meaning | Retry / Abort hint |
+|---|---|---|
+| `config_error` | `cq.yaml` or runtime config invalid | Abort — fix `cq.yaml` before retry |
+| `missing_dependency` | Required Python package not installed | Abort — `uv add <package>` then retry |
+| `dataset_missing` | Dataset file or URI not found | Abort — check input URIs / paths then retry |
+| `dataset_shape` | Tensor / array dimensions mismatch | Abort — fix tensor dims in code before retry |
+| `label_contract` | Label range or dtype violation | Abort — check label range / dtype before retry |
+| `loss_contract` | Loss function received incompatible inputs | Abort — check loss signature before retry |
+| `metric_contract` | Undeclared metric emitted at strictness ≥ 3 | Abort — declare metric in `cq.yaml` then retry |
+| `oom` | CUDA or host memory exhausted | Retry with smaller `batch_size`; abort if at minimum |
+| `nan_loss` | Loss became NaN or Inf | Retry with lower `lr` or gradient clipping |
+| `timeout` | Run exceeded configured time budget | Retry with larger `time_budget` |
+| `distributed_write_race` | Concurrent writers collided on artifact path | Retry with fewer concurrent writers |
+| `accuracy_below_threshold` | Validation metric below acceptance threshold | Retune (smaller `lr`, longer training); abort after budget exhausted |
+| `user_interrupted` | Explicit user or operator signal (SIGTERM / KeyboardInterrupt) | Respect the interruption — do not auto-retry |
+| `disk_full` | Output directory ran out of disk space | Abort — free space then retry; auto-retry unsafe |
+| `model_load_failed` | Checkpoint or weights file could not be loaded | Retry after re-download or integrity check; abort on persistent hash mismatch |
+| `unknown_exception` | Unclassified exception | Manual investigation required before retry |
+
 ## Forbidden Patterns
 
 | Pattern | Why it is bad | Fix |

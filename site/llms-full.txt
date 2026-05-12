@@ -474,6 +474,32 @@ Notes:
 - All 11 keys appear in `compare-runs` output when present in both runs,
   enabling automated regression detection.
 
+## Failure Categories (v4.8)
+
+`failure.category` in `run_summary.json` is set by a regex-based heuristic
+on `failure.message`. Free string values are valid when no pattern matches.
+
+| Category | Meaning | Example trigger | Retry / Abort hint |
+|---|---|---|---|
+| `config_error` | `cq.yaml` or runtime config invalid | `"invalid cq.yaml: unknown key 'batch'"` | Abort — fix `cq.yaml` before retry |
+| `missing_dependency` | Required Python package absent | `"ModuleNotFoundError: No module named 'timm'"` | Abort — `uv add <package>` then retry |
+| `dataset_missing` | Dataset file or URI not found | `"FileNotFoundError: data/train.csv not found"` | Abort — verify inputs then retry |
+| `dataset_shape` | Tensor / array dimension mismatch | `"Expected shape (N,3,H,W) got (N,1,H,W)"` | Abort — fix tensor dims in code |
+| `label_contract` | Label range or dtype violation | `"Label 5 out of range [0,4]"` | Abort — check label range / dtype |
+| `loss_contract` | Loss function received incompatible inputs | `"loss() got unexpected keyword argument 'reduction'"` | Abort — check loss signature |
+| `metric_contract` | Undeclared metric emitted at strictness ≥ 3 | `"Undeclared metric 'f1_score'"` | Abort — declare in `cq.yaml.metrics` |
+| `oom` | CUDA or host memory exhausted | `"CUDA out of memory at batch 17"` | Retry with smaller `batch_size` |
+| `nan_loss` | Loss became NaN or Inf | `"Loss is NaN at epoch 2, step 140"` | Retry with lower `lr` or gradient clipping |
+| `timeout` | Run exceeded time budget | `"Run timed out after 3600s"` | Retry with larger `time_budget` |
+| `distributed_write_race` | Concurrent writers collided on artifact path | `"OSError: [Errno 17] File exists: output/run_record.json"` | Retry with fewer concurrent writers |
+| `accuracy_below_threshold` | Validation metric below acceptance threshold | `"eval_acc 0.42 < required 0.80"` | Retune (smaller `lr`, longer training) |
+| `user_interrupted` | Explicit user / operator signal | `"KeyboardInterrupt"`, `"SIGTERM received"` | Respect — do not auto-retry |
+| `disk_full` | Output directory out of disk space | `"OSError: [Errno 28] No space left on device"` | Abort — free space then retry |
+| `model_load_failed` | Checkpoint / weights file could not be loaded | `"RuntimeError: PytorchStreamReader failed reading zip archive"` | Re-download or check integrity, then retry |
+| `unknown_exception` | Unclassified exception | any unrecognised traceback | Manual investigation before retry |
+
+The heuristic classifier lives at `spec/agent/failure_classifier.py`.
+
 ## Examples
 
 ### sklearn — RandomForest on Iris
