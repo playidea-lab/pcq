@@ -165,6 +165,9 @@
             <a href="https://github.com/playidea-lab/pcq/actions/workflows/ci.yml"><img height="20"
               src="https://img.shields.io/github/actions/workflow/status/playidea-lab/pcq/ci.yml?branch=main&label=CI"
               alt="CI status (main branch)"></a>
+            <a href="https://glama.ai/mcp/servers/playidea-lab/pcq"><img height="20"
+              src="https://glama.ai/mcp/servers/playidea-lab/pcq/badges/score.svg"
+              alt="pcq MCP server verified on Glama"></a>
           </div>
           <div class="install-line" aria-label="Install command">
             <span>pcq agent install --target both --mcp</span>
@@ -546,7 +549,14 @@ pcq mcp serve                             # stdio (default); --transport sse --p
           <a href="https://github.com/playidea-lab/pcq/releases">Releases &rarr;</a>
         </p>
         <p class="roadmap-recent">
-          <strong>Recent (2026-05-10):</strong> spec/ foundation landed —
+          <strong>Recent (2026-05-12):</strong> pcq is now
+          <a href="https://glama.ai/mcp/servers/playidea-lab/pcq">verified on Glama</a> —
+          stdio MCP server builds, starts, and exposes all 14 tools to
+          the catalog. Listed on
+          <a href="https://github.com/punkpeye/awesome-mcp-servers#data-science-tools">awesome-mcp-servers</a>
+          (PR pending).
+          <br>
+          <strong>2026-05-10:</strong> spec/ foundation landed —
           contract spec moved from <code>docs/</code> to
           <code>spec/</code> with versioning + conformance policies and
           auto-exported JSON Schemas. First brick of the 1·2·3 (spec

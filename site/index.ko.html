@@ -166,6 +166,9 @@
             <a href="https://github.com/playidea-lab/pcq/actions/workflows/ci.yml"><img height="20"
               src="https://img.shields.io/github/actions/workflow/status/playidea-lab/pcq/ci.yml?branch=main&label=CI"
               alt="CI 상태 (main 브랜치)"></a>
+            <a href="https://glama.ai/mcp/servers/playidea-lab/pcq"><img height="20"
+              src="https://glama.ai/mcp/servers/playidea-lab/pcq/badges/score.svg"
+              alt="Glama에서 검증된 pcq MCP server"></a>
           </div>
           <div class="install-line" aria-label="설치 명령">
             <span>pcq agent install --target both --mcp</span>
@@ -548,7 +551,14 @@ pcq mcp serve                             # stdio 기본; HTTP는 --transport ss
           <a href="https://github.com/playidea-lab/pcq/releases">Releases &rarr;</a>
         </p>
         <p class="roadmap-recent">
-          <strong>최근 (2026-05-10):</strong> spec/ foundation 완료 —
+          <strong>최근 (2026-05-12):</strong> pcq가 이제
+          <a href="https://glama.ai/mcp/servers/playidea-lab/pcq">Glama에서 검증</a>됨 —
+          stdio MCP server가 빌드·시작되고 14개 tool 전체가 catalog에
+          노출됨.
+          <a href="https://github.com/punkpeye/awesome-mcp-servers#data-science-tools">awesome-mcp-servers</a>
+          등재 PR 진행 중.
+          <br>
+          <strong>2026-05-10:</strong> spec/ foundation 완료 —
           contract spec을 <code>docs/</code>에서 <code>spec/</code>로
           이동, versioning + conformance 정책과 자동 export되는 JSON
           Schema 추가. 1·2·3 (spec 분리 · schema versioning ·

@@ -1,5 +1,11 @@
 # pcq
 
+[![PyPI version](https://img.shields.io/pypi/v/pcq.svg?label=PyPI&color=18794e)](https://pypi.org/project/pcq/)
+[![Downloads](https://img.shields.io/pypi/dm/pcq.svg?label=downloads&color=1f5eff)](https://pypi.org/project/pcq/)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![CI](https://img.shields.io/github/actions/workflow/status/playidea-lab/pcq/ci.yml?branch=main&label=CI)](https://github.com/playidea-lab/pcq/actions/workflows/ci.yml)
+[![pcq MCP server (Glama)](https://glama.ai/mcp/servers/playidea-lab/pcq/badges/score.svg)](https://glama.ai/mcp/servers/playidea-lab/pcq)
+
 > **pcq is the contract for agent-run ML experiments.**
 > This repository hosts the contract specification under [`spec/`](spec/INDEX.md)
 > and the reference Python implementation under [`src/pcq/`](src/pcq/).
