@@ -118,6 +118,50 @@ JSON_CONTRACTS: dict[str, dict[str, Any]] = {
             "validation_report_path": "string",
             "reproducibility_evidence": "object",
             "failure": "object",
+            # attribution 중첩 객체 (Phase 1 — 서명 제외)
+            "attribution": "object",
+            # attribution 플랫 표면 — 에이전트가 쿼리하기 쉽도록 최상위 노출
+            "attribution_author_kind": "string",
+            "attribution_committer_kind": "string",
+            "attribution_operator": "string",
+            "attribution_session_id": "string",
+        },
+        # attribution 필드의 상세 JSON Schema — property_overrides가 단순 타입 표기를 덮어씀
+        "property_overrides": {
+            "attribution": {
+                "type": ["object", "null"],
+                "additionalProperties": False,
+                "properties": {
+                    "schema_version": {"type": "integer", "const": 1},
+                    "author": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {
+                            "kind": {"type": "string", "enum": ["human", "agent"]},
+                            "id": {"type": "string"},
+                            "persona_id": {"type": ["string", "null"]},
+                        },
+                        "required": ["kind", "id"],
+                    },
+                    "committer": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {
+                            "kind": {"type": "string", "enum": ["human", "agent"]},
+                            "id": {"type": "string"},
+                            "persona_id": {"type": ["string", "null"]},
+                        },
+                        "required": ["kind", "id"],
+                    },
+                    "operator": {"type": "string"},
+                    "session_id": {"type": ["string", "null"]},
+                },
+                "required": ["schema_version", "author", "committer", "operator"],
+            },
+            "attribution_author_kind": {"type": ["string", "null"]},
+            "attribution_committer_kind": {"type": ["string", "null"]},
+            "attribution_operator": {"type": ["string", "null"]},
+            "attribution_session_id": {"type": ["string", "null"]},
         },
         "nested_required": {
             "decision_facts": {

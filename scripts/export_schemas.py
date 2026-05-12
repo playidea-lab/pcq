@@ -61,6 +61,9 @@ def contract_to_schema(name: str, contract: dict[str, Any]) -> dict[str, Any]:
     for fname, values in enums.items():
         if fname in properties:
             properties[fname]["enum"] = list(values)
+    # property_overrides: 단순 타입 표기를 풍부한 JSON Schema 노드로 덮어씀
+    for fname, override_schema in contract.get("property_overrides", {}).items():
+        properties[fname] = override_schema
 
     return {
         "$schema": "https://json-schema.org/draft-07/schema#",

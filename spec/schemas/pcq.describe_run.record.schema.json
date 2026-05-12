@@ -22,6 +22,110 @@
     "artifacts_summary": {
       "type": "object"
     },
+    "attribution": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "type": "integer",
+          "const": 1
+        },
+        "author": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "human",
+                "agent"
+              ]
+            },
+            "id": {
+              "type": "string"
+            },
+            "persona_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "id"
+          ]
+        },
+        "committer": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "human",
+                "agent"
+              ]
+            },
+            "id": {
+              "type": "string"
+            },
+            "persona_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "id"
+          ]
+        },
+        "operator": {
+          "type": "string"
+        },
+        "session_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "schema_version",
+        "author",
+        "committer",
+        "operator"
+      ]
+    },
+    "attribution_author_kind": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "attribution_committer_kind": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "attribution_operator": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "attribution_session_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "best": {
       "type": "object"
     },
