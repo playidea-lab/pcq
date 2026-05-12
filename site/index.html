@@ -667,6 +667,77 @@ for epoch in range(cfg["epochs"]):
 torch.save(model.state_dict(), out / "model.pt")
 pcq.save_all(history=history, artifacts={"model": "model.pt"})</code></pre>
         </div>
+
+        <div class="example">
+          <div class="example-head">
+            <h3>PyTorch Lightning — Trainer + callback</h3>
+            <p>One tiny <code>PcqCallback</code> hooks <code>on_validation_epoch_end</code>. The <code>LightningModule</code> stays pcq-free.</p>
+          </div>
+          <pre><code># train.py
+import pcq, lightning.pytorch as pl
+
+cfg = pcq.config()
+out = pcq.output_dir()
+pcq.seed_everything(cfg.get("seed", 42))
+
+# ... LightningModule + DataLoaders defined here ...
+
+history = []
+
+class PcqCallback(pl.Callback):
+    def on_validation_epoch_end(self, trainer, _):
+        m = trainer.callback_metrics
+        row = {"epoch": int(trainer.current_epoch),
+               "train_loss": float(m.get("train_loss", 0.0)),
+               "val_loss":   float(m.get("val_loss",   0.0)),
+               "val_acc":    float(m.get("val_acc",    0.0))}
+        history.append(row)
+        pcq.log(**row)
+
+trainer = pl.Trainer(max_epochs=cfg["epochs"], callbacks=[PcqCallback()],
+                    logger=False, enable_checkpointing=False)
+trainer.fit(model, train_loader, val_loader)
+trainer.save_checkpoint(str(out / "lightning.ckpt"))
+pcq.save_all(history=history, artifacts={"model": "lightning.ckpt"})</code></pre>
+        </div>
+
+        <div class="example">
+          <div class="example-head">
+            <h3>HuggingFace Trainer — <code>TrainerCallback</code></h3>
+            <p>Same idea: a <code>TrainerCallback.on_evaluate</code> hook emits pcq metrics; <code>Trainer</code> / <code>TrainingArguments</code> stay framework-idiomatic.</p>
+          </div>
+          <pre><code># train.py
+import pcq
+from transformers import Trainer, TrainerCallback, TrainingArguments
+
+cfg = pcq.config()
+out = pcq.output_dir()
+pcq.seed_everything(cfg.get("seed", 42))
+
+# ... model, tokenizer, train_ds, eval_ds, compute_metrics defined here ...
+
+history = []
+
+class PcqCallback(TrainerCallback):
+    def on_evaluate(self, _args, state, _control, metrics=None, **_):
+        row = {"epoch":         int(state.epoch or 0),
+               "eval_loss":     float(metrics.get("eval_loss",     0.0)) if metrics else 0.0,
+               "eval_accuracy": float(metrics.get("eval_accuracy", 0.0)) if metrics else 0.0}
+        history.append(row)
+        pcq.log(**row)
+
+args = TrainingArguments(output_dir=str(out / "hf_trainer"),
+                         num_train_epochs=cfg["epochs"],
+                         eval_strategy="epoch", save_strategy="no",
+                         report_to=[], disable_tqdm=True)
+trainer = Trainer(model=model, args=args,
+                  train_dataset=train_ds, eval_dataset=eval_ds,
+                  compute_metrics=compute_metrics,
+                  callbacks=[PcqCallback()])
+trainer.train()
+model.save_pretrained(out / "model")
+pcq.save_all(history=history, artifacts={"model": "model"})</code></pre>
+        </div>
       </section>
 
       <section id="agents" class="section split-section">
