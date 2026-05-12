@@ -1,0 +1,11 @@
+{
+  "invocation": {
+    "kind": "cli",
+    "command": ["pcq", "describe-run", "FIXTURE_OUTPUT", "--json"]
+  },
+  "fixtures": {
+    "FIXTURE_OUTPUT": "fixtures/output"
+  },
+  "schema_version": 1,
+  "notes": "fingerprint 부재 픽스처: run_record.json에 fingerprint 키가 없는 경우 (옛 레코드). describe-run은 fingerprint 관련 필드를 출력하지 않아야 한다. (T-WFP-7)"
+}

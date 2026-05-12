@@ -1,0 +1,11 @@
+{
+  "invocation": {
+    "kind": "cli",
+    "command": ["pcq", "describe-run", "FIXTURE_OUTPUT", "--json"]
+  },
+  "fixtures": {
+    "FIXTURE_OUTPUT": "fixtures/output"
+  },
+  "schema_version": 1,
+  "notes": "fingerprint fixture: run_record.json에 tabular fingerprint 객체가 포함된 경우. describe-run은 중첩 fingerprint 객체 + 4개의 플랫 필드를 모두 노출해야 한다. (T-WFP-7)"
+}
