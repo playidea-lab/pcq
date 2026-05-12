@@ -151,6 +151,70 @@ A complete run should produce:
 source, environment, input identity, metric schema, artifact manifest, agent
 provenance, validation, and summary evidence.
 
+## Metadata Fields (v4.4–4.6)
+
+Starting from v4.4, every `run_record.json` may carry three optional sibling
+fields — `attribution`, `worker_spec`, and `fingerprint` — that together form
+the evidence triad consumed by downstream services and agents. All three are
+**additive and backward-compatible**: records without them remain valid, and
+readers must treat their absence as `null`.
+
+These fields are **agent-fillable**: `pcq agent install` writes runtime assets
+that guide coding agents (Claude Code, Codex) to populate them automatically.
+
+### `attribution` — who ran the experiment
+
+Records the author (who originated the intent), committer (who built and
+submitted the job), operator (the human or organisation bearing legal
+responsibility), and an optional session trace handle. It follows the
+Git author/committer convention and is the accountability layer for both
+human and AI-agent runs.
+
+```json
+"attribution": { "author": {"kind": "agent", "id": "claude"}, "operator": "pilab", "session_id": "sess-001" }
+```
+
+Full schema and resolution order: [spec/SPEC.md — Attribution](../spec/SPEC.md#attribution).
+
+### `worker_spec` — where the run executed
+
+Records the hardware environment: CPU model and core counts, total memory,
+accelerator kind and per-GPU details (model, VRAM, bus ID), OS, and container
+context. Populated automatically via psutil and PyTorch; individual fields can
+be overridden with `CQ_WORKER_*` environment variables or `cq.yaml.worker.*`
+entries.
+
+```json
+"worker_spec": { "cpu": {"model": "AMD EPYC 7763", "cores_physical": 64}, "accelerator": {"kind": "cuda", "gpus": [{"model": "RTX 5080", "vram_gb": 16}]} }
+```
+
+Full schema, env vars, and `source` audit values: [spec/SPEC.md — Worker Spec](../spec/SPEC.md#worker-spec).
+
+### `fingerprint` — what kind of data was used
+
+Records dataset shape, modality, task kind, size class, and domain — without
+any PII or raw values. Auto-detected via `pcq.fingerprint(X_train, y_train,
+modality="tabular", task_kind="classification")`; declared fallback available
+in `cq.yaml.fingerprint.*`. Enables cross-run and cross-project matching by
+providing a PII-free, machine-readable description.
+
+```json
+"fingerprint": { "modality": "tabular", "task_kind": "classification", "n_samples": 50000, "size_class": "medium", "domain": "general" }
+```
+
+Full schema, enum tables, and PII policy: [spec/SPEC.md — Fingerprint](../spec/SPEC.md#fingerprint).
+
+### PII layered policy (summary)
+
+`attribution` operator and `id` fields are free strings and **may** contain
+PII — use a pseudonym or UUID instead of real names or email addresses in any
+environment where records may be shared. `worker_spec` auto-detection is
+prohibited from emitting hostnames, IPs, or login names (R10); declared fields
+are inspected for hostname-like patterns and emit a validation warning (R14).
+`fingerprint` auto-detection never emits column names or raw values (R10);
+regulated domains (medical, financial) disable auto-detection entirely (R5);
+a heuristic sniffer checks column names even for general-domain data (R5b).
+
 ## Relationship With CQ
 
 ```text

@@ -343,6 +343,97 @@ Target `output/run_record.json`:
 }
 ```
 
+### Metadata Fields: `attribution`, `worker_spec`, `fingerprint` (v4.4–4.6)
+
+Three optional sibling fields extend the RunRecord schema with provenance,
+hardware, and dataset-shape evidence. All three are additive: existing records
+without them are valid.
+
+#### `attribution` — who authored and operated the run
+
+```json
+"attribution": {
+  "schema_version": 1,
+  "author":    { "kind": "human" | "agent", "id": "...", "persona_id": "..." | null },
+  "committer": { "kind": "human" | "agent", "id": "...", "persona_id": "..." | null },
+  "operator":  "...",
+  "session_id": "..." | null
+}
+```
+
+| Field | Comes from | Meaning |
+|---|---|---|
+| `author` | `CQ_ATTRIBUTION_AUTHOR_*` / `cq.yaml.attribution.*` / auto (git user) | Who originated the experiment intent |
+| `committer` | `CQ_ATTRIBUTION_COMMITTER_*` / auto | Who built and submitted the job (may be an AI agent) |
+| `operator` | `CQ_ATTRIBUTION_OPERATOR` / `cq.yaml.attribution.operator` | Human or organisation bearing legal/reputational responsibility |
+| `session_id` | `CQ_ATTRIBUTION_SESSION_ID` / CLI flag | Conversation or session trace handle (optional) |
+
+Resolution precedence: `CLI flags > CQ_ATTRIBUTION_* env vars > cq.yaml attribution.* > auto-infer > NULL`.
+
+**PII**: `operator` and `id` are free strings and may contain real names or email addresses. Use a pseudonym or UUID in any environment where records may be shared externally.
+
+#### `worker_spec` — where the run executed
+
+```json
+"worker_spec": {
+  "schema_version": 1,
+  "cpu":  { "model": "...", "cores_physical": null, "cores_logical": null, "max_freq_mhz": null },
+  "memory": { "total_gb": null },
+  "accelerator": { "kind": "cuda | mps | cpu", "gpus": [{ "model": "...", "vram_gb": null, "cuda_version": null, "bus_id": null, "torch_ordinal": null }] },
+  "os": { "system": "...", "machine": "...", "release": null },
+  "container": { "kind": "none | docker | k8s | other", "image": null, "detector_hint": null },
+  "source": "detected | declared | merged",
+  "visible_devices": null
+}
+```
+
+| Field group | Comes from |
+|---|---|
+| `cpu.*`, `memory.*` | Auto-detected via psutil; overridable by `CQ_WORKER_CPU_*` / `CQ_WORKER_MEMORY_*` |
+| `accelerator.*`, `gpus[*].*` | Auto-detected via PyTorch/NVML; overridable by `CQ_WORKER_ACCELERATOR_KIND`, `CQ_WORKER_GPU_*` |
+| `os.*` | Auto-detected via `platform`; overridable by `CQ_WORKER_OS_*` |
+| `container.*` | Heuristic detection (`.dockerenv`, env vars); overridable by `CQ_WORKER_CONTAINER_KIND` |
+| `source` | Set to `detected`, `declared`, or `merged` based on which resolution paths contributed |
+
+`pcq describe-run --json` also exposes four top-level flat fields: `worker_spec_cpu_model`, `worker_spec_memory_gb`, `worker_spec_accelerator_kind`, `worker_spec_gpu_model_0`.
+
+**PII policy (two layers)**:
+- **R10 — auto-detection prohibition**: hostname, IP, MAC address, and login name are never emitted by auto-detection code.
+- **R14 — declared path warning**: when fields are supplied via `CQ_WORKER_*` or `cq.yaml.worker.*`, pcq inspects free strings for hostname-like patterns and adds `WORKER_DECLARED_PII_LIKE` (severity L3) to `validation_report.json`.
+
+#### `fingerprint` — what kind of data was used
+
+```json
+"fingerprint": {
+  "schema_version": 1,
+  "modality":   "tabular | image | text | time_series | audio | graph | other",
+  "task_kind":  "classification | regression | segmentation | detection | seq2seq | generation | forecasting | anomaly_detection | clustering | other",
+  "n_samples":  50000,
+  "size_class": "small | medium | large | huge",
+  "domain":     "general | medical | financial | regulated | other",
+  "source":     "detected | detected_sampled | declared | merged"
+}
+```
+
+| Field | Comes from |
+|---|---|
+| `modality`, `task_kind` | `pcq.fingerprint(X, y, modality=..., task_kind=...)` API argument, or `cq.yaml.fingerprint.modality` |
+| `n_samples`, `size_class` | Auto-counted from dataset shape; declared fallback via `cq.yaml.fingerprint.n_samples` |
+| `domain` | `cq.yaml.fingerprint.domain` or `CQ_FINGERPRINT_*`; defaults to `"general"` |
+| `tabular.*`, `image.*`, etc. | Auto-extracted statistics (type counts, shape, target balance) by `pcq.fingerprint()` |
+| `source` | `detected` / `detected_sampled` / `declared` / `merged` |
+
+`pcq describe-run --json` exposes four flat fields: `fingerprint_modality`, `fingerprint_task_kind`, `fingerprint_n_samples`, `fingerprint_size_class`.
+
+**PII 4-layer policy**:
+
+| Layer | Rule | Effect |
+|---|---|---|
+| R10 | Auto-detection format prohibition | Column names, raw values, top-N frequencies are never emitted |
+| R5 | Domain gate | `medical`, `financial`, `regulated` domains disable auto-detection; only declared values accepted |
+| R5b | Heuristic sniffer | Column names checked against medical/financial keywords even at `domain = "general"`; emits L2 warning (no matched names in output) |
+| R14 | Declared path PII warning | Free-string declared fields inspected for hostname, email, SSN-shape patterns; emits `FINGERPRINT_DECLARED_PII_LIKE` (L3) |
+
 ### Streaming Partial RunRecord (v2.11)
 
 While training is in progress, callers may write a partial `run_record.json`
