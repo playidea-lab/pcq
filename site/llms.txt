@@ -28,6 +28,7 @@ uv add 'pcq[mcp]'
 Canonical resources:
 
 - Website: https://playidea-lab.github.io/pcq/
+- Korean landing page: https://playidea-lab.github.io/pcq/index.ko.html
 - Repository: https://github.com/playidea-lab/pcq
 - PyPI: https://pypi.org/project/pcq/
 - v4 direction: https://github.com/playidea-lab/pcq/blob/main/docs/V4_DIRECTION.md

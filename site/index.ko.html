@@ -1,18 +1,18 @@
 <!doctype html>
-<html lang="en">
+<html lang="ko">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>pcq — Agent-operable experiment evidence, control & MCP for ML</title>
+    <title>pcq — 에이전트가 운용하는 ML 실험의 contract</title>
     <meta
       name="description"
-      content="pcq is an Apache-2.0 Python library for agent-operable ML experiment evidence and control. Bring any training code (PyTorch, sklearn, HF Trainer, Lightning, XGBoost). pcq standardizes the run boundary and exposes 14 MCP tools for Claude Code, Codex, and custom agents."
+      content="pcq는 에이전트가 운용하는 ML 실험의 contract입니다. cq.yaml로 실행을 선언하고, 학습 코드는 그대로 둡니다. 14개의 Model Context Protocol 도구로 Claude Code, Codex, 그리고 MCP 호환 에이전트가 stdout을 파싱하지 않고도 실험을 운용·검증·비교·추적합니다. Apache-2.0."
     >
-    <meta name="keywords" content="pcq, ML experiment tracking, agent-operable ML, MCP, Model Context Protocol, Claude Code MCP, Codex MCP, cq.yaml, run record, experiment contract, reproducible ML, JSONL events, validate-run, describe-run, compare-runs, lineage">
+    <meta name="keywords" content="pcq, ML 실험 추적, 에이전트 ML, MCP, Model Context Protocol, Claude Code MCP, Codex MCP, cq.yaml, run_record, 실험 contract, 재현 가능 ML, JSONL 이벤트, validate-run, describe-run, compare-runs, lineage, 한국어">
     <meta name="author" content="playidea-lab">
     <meta name="theme-color" content="#0f5132">
     <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large">
-    <link rel="canonical" href="https://playidea-lab.github.io/pcq/">
+    <link rel="canonical" href="https://playidea-lab.github.io/pcq/index.ko.html">
     <link rel="alternate" hreflang="en" href="https://playidea-lab.github.io/pcq/">
     <link rel="alternate" hreflang="ko" href="https://playidea-lab.github.io/pcq/index.ko.html">
     <link rel="alternate" hreflang="x-default" href="https://playidea-lab.github.io/pcq/">
@@ -21,30 +21,30 @@
     <!-- Open Graph -->
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="pcq">
-    <meta property="og:title" content="pcq — Your AI agent needs evidence. Your experiments need a contract.">
-    <meta property="og:description" content="pcq is the contract. cq.yaml declares the run; your training code stays yours. 14 MCP tools wire Claude Code, Codex, and any MCP-aware agent into structured evidence — no stdout scraping.">
-    <meta property="og:url" content="https://playidea-lab.github.io/pcq/">
+    <meta property="og:title" content="pcq — 당신의 AI 에이전트에게는 evidence가 필요하다. 당신의 실험에는 contract가 필요하다.">
+    <meta property="og:description" content="pcq가 그 contract입니다. cq.yaml이 실행을 선언하고 학습 코드는 그대로. 14개 MCP 도구로 Claude Code와 Codex가 구조화된 evidence를 직접 받습니다 — stdout 파싱 없이.">
+    <meta property="og:url" content="https://playidea-lab.github.io/pcq/index.ko.html">
     <meta property="og:image" content="https://playidea-lab.github.io/pcq/og-image.svg">
     <meta property="og:image:type" content="image/svg+xml">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
-    <meta property="og:locale" content="en_US">
-    <meta property="og:locale:alternate" content="ko_KR">
+    <meta property="og:locale" content="ko_KR">
+    <meta property="og:locale:alternate" content="en_US">
 
     <!-- Twitter / X -->
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="pcq — Your AI agent needs evidence. Your experiments need a contract.">
-    <meta name="twitter:description" content="cq.yaml declares the run; your training code stays yours. 14 MCP tools wire Claude Code & Codex into structured evidence.">
+    <meta name="twitter:title" content="pcq — 당신의 AI 에이전트에게는 evidence가 필요하다. 당신의 실험에는 contract가 필요하다.">
+    <meta name="twitter:description" content="cq.yaml이 실행을 선언하고 학습 코드는 그대로. 14개 MCP 도구로 Claude Code와 Codex가 구조화된 evidence를 직접 받습니다.">
     <meta name="twitter:image" content="https://playidea-lab.github.io/pcq/og-image.svg">
 
     <!-- Agent-readable surfaces (GEO / LLM discovery) -->
-    <link rel="alternate" type="text/plain" href="llms.txt" title="Agent guide (llms.txt)">
-    <link rel="alternate" type="text/plain" href="llms-full.txt" title="Full agent guide">
-    <link rel="alternate" type="application/json" href="agent-manifest.json" title="Agent manifest">
+    <link rel="alternate" type="text/plain" href="llms.txt" title="에이전트 안내 (llms.txt)">
+    <link rel="alternate" type="text/plain" href="llms-full.txt" title="전체 에이전트 안내">
+    <link rel="alternate" type="application/json" href="agent-manifest.json" title="에이전트 매니페스트">
 
     <link rel="stylesheet" href="styles.css">
 
-    <!-- JSON-LD: SoftwareApplication / SoftwareSourceCode -->
+    <!-- JSON-LD: SoftwareApplication / SoftwareSourceCode / FAQPage (ko) -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -52,24 +52,24 @@
         {
           "@type": "SoftwareApplication",
           "name": "pcq",
-          "alternateName": "pcq — experiment contracts",
+          "alternateName": "pcq — 실험 contract",
           "applicationCategory": "DeveloperApplication",
           "applicationSubCategory": "MachineLearning",
           "operatingSystem": "macOS, Linux, Windows",
-          "description": "Apache-2.0 Python library for agent-operable ML experiment evidence and control. Standardizes the run boundary around any training code and exposes 14 Model Context Protocol tools.",
-          "url": "https://playidea-lab.github.io/pcq/",
+          "description": "Apache-2.0 Python 라이브러리. 에이전트가 운용하는 ML 실험 evidence와 control 계층. 학습 코드는 그대로 두고, 실행 경계를 표준화하며 14개 Model Context Protocol 도구를 노출합니다.",
+          "url": "https://playidea-lab.github.io/pcq/index.ko.html",
           "downloadUrl": "https://pypi.org/project/pcq/",
           "softwareVersion": "4.1.0",
           "license": "https://www.apache.org/licenses/LICENSE-2.0",
           "programmingLanguage": "Python",
           "author": { "@type": "Organization", "name": "playidea-lab", "url": "https://github.com/playidea-lab" },
           "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-          "keywords": "ML, experiment tracking, MCP, Model Context Protocol, agent, Claude Code, Codex, reproducibility, cq.yaml",
-          "inLanguage": "en"
+          "keywords": "ML, 실험 추적, MCP, Model Context Protocol, 에이전트, Claude Code, Codex, 재현 가능성, cq.yaml",
+          "inLanguage": "ko"
         },
         {
           "@type": "SoftwareSourceCode",
-          "name": "pcq source",
+          "name": "pcq 소스",
           "codeRepository": "https://github.com/playidea-lab/pcq",
           "programmingLanguage": "Python",
           "license": "https://www.apache.org/licenses/LICENSE-2.0",
@@ -77,29 +77,30 @@
         },
         {
           "@type": "FAQPage",
+          "inLanguage": "ko",
           "mainEntity": [
             {
               "@type": "Question",
-              "name": "Does pcq replace PyTorch / HF Trainer / Lightning / sklearn?",
+              "name": "pcq는 PyTorch / HF Trainer / Lightning / sklearn을 대체하나요?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "No. pcq does not own the training loop. Your project keeps any framework. pcq only standardizes the surrounding evidence: cq.yaml, metric emission, artifact layout, validation, comparison, lineage, and the final run_record.json."
+                "text": "아닙니다. pcq는 학습 루프를 소유하지 않습니다. 어떤 framework든 그대로 사용하세요. pcq는 그 주변의 evidence만 표준화합니다 — cq.yaml, 메트릭 emit, artifact 레이아웃, validation, comparison, lineage, 그리고 최종 run_record.json."
               }
             },
             {
               "@type": "Question",
-              "name": "How does pcq integrate with Claude Code or Codex?",
+              "name": "pcq를 Claude Code나 Codex에 어떻게 연결하나요?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "Install pcq[mcp], run 'pcq agent install --target both --path . --mcp' to write .mcp.json, and start 'pcq mcp serve'. Both runtimes then see 14 mcp__pcq__* tools and call them with structured arguments instead of parsing stdout."
+                "text": "pcq[mcp]를 설치하고 'pcq agent install --target both --path . --mcp'로 .mcp.json을 생성한 뒤 'pcq mcp serve'를 실행하세요. 두 runtime 모두 14개 mcp__pcq__* 도구를 인식하고, stdout을 파싱하는 대신 구조화된 인자로 호출합니다."
               }
             },
             {
               "@type": "Question",
-              "name": "How does an agent decide whether a run passed?",
+              "name": "에이전트는 run이 통과했는지 어떻게 판단하나요?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "Use 'pcq validate-run output --strictness 3 --json' for pass/warn/fail facts and 'pcq describe-run output --json' for decision facts. pcq deliberately reports facts; the agent or service chooses policy."
+                "text": "'pcq validate-run output --strictness 3 --json'으로 pass/warn/fail 사실을, 'pcq describe-run output --json'으로 의사결정 사실을 받습니다. pcq는 의도적으로 *사실*만 보고합니다. 정책 결정은 에이전트나 서비스가 합니다."
               }
             }
           ]
@@ -107,7 +108,7 @@
         {
           "@type": "BreadcrumbList",
           "itemListElement": [
-            { "@type": "ListItem", "position": 1, "name": "pcq", "item": "https://playidea-lab.github.io/pcq/" }
+            { "@type": "ListItem", "position": 1, "name": "pcq (한국어)", "item": "https://playidea-lab.github.io/pcq/index.ko.html" }
           ]
         }
       ]
@@ -116,103 +117,103 @@
   </head>
   <body>
     <header class="topbar">
-      <a class="brand" href="#top" aria-label="pcq home">
+      <a class="brand" href="#top" aria-label="pcq 홈">
         <span class="brand-mark">pcq</span>
-        <span class="brand-text">experiment contracts</span>
+        <span class="brand-text">실험 contract</span>
       </a>
-      <nav class="nav" aria-label="Primary navigation">
+      <nav class="nav" aria-label="주 내비게이션">
         <a href="#connect">Connect</a>
         <a href="#tools-catalog">Tools</a>
-        <a href="#compare">Compare</a>
-        <a href="#case-studies">Cases</a>
-        <a href="#roadmap">Roadmap</a>
-        <a href="#why">Why</a>
+        <a href="#compare">비교</a>
+        <a href="#case-studies">사례</a>
+        <a href="#roadmap">로드맵</a>
+        <a href="#why">이유</a>
         <a href="#faq">FAQ</a>
         <a href="https://github.com/playidea-lab/pcq">GitHub</a>
-        <a href="index.ko.html" lang="ko" hreflang="ko" title="한국어">한국어</a>
+        <a href="./" lang="en" hreflang="en" title="English">EN</a>
       </nav>
     </header>
 
     <main id="top">
       <section class="hero">
         <div class="hero-inner">
-          <p class="eyebrow">Apache-2.0 · Python · MCP-ready</p>
-          <h1>Your AI agent needs evidence.<br>Your experiments need a contract.</h1>
+          <p class="eyebrow">Apache-2.0 · Python · MCP 지원</p>
+          <h1>당신의 AI 에이전트에게는 evidence가 필요하다.<br>당신의 실험에는 contract가 필요하다.</h1>
           <p class="lead">
-            pcq is the contract. <code>cq.yaml</code> declares the run;
-            your training code stays yours. pcq turns every run into
-            structured evidence — config, metrics, manifest, validation,
-            lineage, run record — and exposes
-            <strong>14 Model Context Protocol tools</strong> so Claude
-            Code, Codex, or any MCP-aware agent can read it without
-            scraping stdout.
+            pcq가 그 contract입니다. <code>cq.yaml</code>이 실행을
+            선언하고, 학습 코드는 그대로 둡니다. pcq는 매 실행을
+            구조화된 evidence로 바꿉니다 — config, metrics, manifest,
+            validation, lineage, run record. 그리고
+            <strong>14개의 Model Context Protocol 도구</strong>를
+            노출해서 Claude Code, Codex, 또는 MCP 호환 에이전트가
+            stdout을 파싱하지 않고도 그 evidence를 읽을 수 있게 합니다.
           </p>
-          <div class="hero-actions" aria-label="Primary actions">
-            <a class="button primary" href="#connect">Wire it into your agent</a>
-            <a class="button secondary" href="#tools-catalog">See tool responses</a>
+          <div class="hero-actions" aria-label="주요 액션">
+            <a class="button primary" href="#connect">에이전트에 연결</a>
+            <a class="button secondary" href="#tools-catalog">도구 응답 보기</a>
             <a class="button secondary" href="https://github.com/playidea-lab/pcq">GitHub</a>
           </div>
-          <div class="badges" aria-label="Project status badges">
+          <div class="badges" aria-label="프로젝트 상태 배지">
             <a href="https://pypi.org/project/pcq/"><img height="20"
               src="https://img.shields.io/pypi/v/pcq.svg?label=PyPI&color=18794e"
-              alt="PyPI version"></a>
+              alt="PyPI 버전"></a>
             <a href="https://pypi.org/project/pcq/"><img height="20"
               src="https://img.shields.io/pypi/dm/pcq.svg?label=downloads&color=1f5eff"
-              alt="PyPI downloads per month"></a>
+              alt="월간 다운로드"></a>
             <a href="https://github.com/playidea-lab/pcq/blob/main/LICENSE"><img height="20"
               src="https://img.shields.io/badge/license-Apache--2.0-blue.svg"
               alt="License: Apache-2.0"></a>
             <a href="https://github.com/playidea-lab/pcq/actions/workflows/ci.yml"><img height="20"
               src="https://img.shields.io/github/actions/workflow/status/playidea-lab/pcq/ci.yml?branch=main&label=CI"
-              alt="CI status (main branch)"></a>
+              alt="CI 상태 (main 브랜치)"></a>
           </div>
-          <div class="install-line" aria-label="Install command">
+          <div class="install-line" aria-label="설치 명령">
             <span>pcq agent install --target both --mcp</span>
           </div>
         </div>
 
-        <aside class="run-card" aria-label="What your agent gets">
+        <aside class="run-card" aria-label="에이전트가 받는 응답">
           <div class="terminal-bar">
             <span></span>
             <span></span>
             <span></span>
           </div>
           <pre><code>$ pcq agent install --target both --mcp
-✓ wrote .mcp.json (pcq server registered)
-✓ Claude Code: ready (14 mcp__pcq__* tools)
-✓ Codex:       ready (14 mcp__pcq__* tools)
+✓ .mcp.json 작성 (pcq 서버 등록됨)
+✓ Claude Code: 준비됨 (14 mcp__pcq__* 도구)
+✓ Codex:       준비됨 (14 mcp__pcq__* 도구)
 
-your agent can now call:
+이제 에이전트가 호출할 수 있습니다:
   resolve_project   inspect_project   validate_project
   run_experiment    validate_run      describe_run
-  compare_runs      lineage_chain     ...10 more</code></pre>
+  compare_runs      lineage_chain     ...외 10개</code></pre>
         </aside>
       </section>
 
       <section id="connect" class="section connect-section">
         <div class="section-heading">
           <p class="eyebrow">Connect</p>
-          <h2>One command. Both runtimes. Identical surface.</h2>
+          <h2>명령 하나. 두 runtime. 동일한 표면.</h2>
           <p class="section-lead">
-            Wire-up is the same for Claude Code, Codex, and any MCP-aware
-            runtime — only the <code>--target</code> flag differs.
-            Existing <code>.mcp.json</code> entries are preserved; only
-            the <code>pcq</code> server is merged.
+            연결 절차는 Claude Code, Codex, 그리고 모든 MCP 호환
+            runtime에 대해 동일합니다 — <code>--target</code> 플래그만
+            다릅니다. 기존 <code>.mcp.json</code> 항목은 보존되고,
+            <code>pcq</code> 서버만 추가됩니다.
           </p>
         </div>
 
-        <article class="connect-card connect-card--solo" aria-label="Connect any MCP-aware agent">
+        <article class="connect-card connect-card--solo" aria-label="MCP 호환 에이전트 연결">
           <header class="connect-head">
-            <h3>Claude Code · Codex · any MCP runtime</h3>
+            <h3>Claude Code · Codex · 모든 MCP runtime</h3>
             <span class="connect-tag">stdio · sse</span>
           </header>
 
-          <p class="connect-cap">Install &amp; serve</p>
+          <p class="connect-cap">설치 &amp; 실행</p>
           <pre><code>uv add 'pcq[mcp]'
-pcq agent install --target both --mcp     # or: --target claude / --target codex
-pcq mcp serve                             # stdio (default); --transport sse --port 8765 for HTTP</code></pre>
+pcq agent install --target both --mcp     # 또는: --target claude / --target codex
+pcq mcp serve                             # stdio 기본; HTTP는 --transport sse --port 8765</code></pre>
 
-          <p class="connect-cap">.mcp.json (project root)</p>
+          <p class="connect-cap">.mcp.json (프로젝트 루트)</p>
           <pre><code>{
   "mcpServers": {
     "pcq": {
@@ -222,7 +223,7 @@ pcq mcp serve                             # stdio (default); --transport sse --p
   }
 }</code></pre>
 
-          <p class="connect-cap">First call: <code>inspect_project</code></p>
+          <p class="connect-cap">첫 호출: <code>inspect_project</code></p>
           <pre><code>{
   "schema_version": 1,
   "project_root": "/path/to/my-exp",
@@ -236,24 +237,26 @@ pcq mcp serve                             # stdio (default); --transport sse --p
         </article>
 
         <p class="connect-foot" id="mcp">
-          <code>--target both</code> writes Model Context Protocol wire-up
-          for Claude Code and Codex in one call. Any other MCP-aware
-          runtime works too — point it at <code>pcq mcp serve</code>.
-          All 14 read-only and mutating tools are listed in the
-          <a href="agent-manifest.json">agent manifest</a> and inlined
-          under <a href="#tools-catalog">Tools &rarr;</a>.
+          <code>--target both</code>는 Claude Code와 Codex 두 runtime의
+          Model Context Protocol 연결을 한 번에 처리합니다. 다른 MCP
+          호환 runtime도 마찬가지 — <code>pcq mcp serve</code>를 가리키게
+          하면 됩니다. 14개의 read-only / mutating 도구는
+          <a href="agent-manifest.json">에이전트 매니페스트</a>와
+          <a href="#tools-catalog">Tools &rarr;</a> 섹션에 모두 나열되어
+          있습니다.
         </p>
       </section>
 
       <section id="tools-catalog" class="section catalog-section">
         <div class="section-heading">
-          <p class="eyebrow">Tool responses · real</p>
-          <h2>What your agent receives.</h2>
+          <p class="eyebrow">도구 응답 · 실제 캡처</p>
+          <h2>당신의 에이전트가 받는 응답.</h2>
           <p class="section-lead">
-            Below are four canonical MCP tool responses captured from a real
-            run of <code>examples/contract_sklearn</code>. Volatile fields
-            (timestamps, git SHA, env hashes, absolute paths) are elided as
-            <code>"..."</code>; structure and values are unmodified.
+            아래 네 개는 <code>examples/contract_sklearn</code>의 실제
+            실행에서 캡처한 MCP 도구 응답입니다. 환경 종속 필드
+            (timestamps, git SHA, env hash, 절대 경로)만
+            <code>"..."</code>로 축약했고, 구조와 값은 변경하지
+            않았습니다.
             <a href="https://github.com/playidea-lab/pcq/blob/main/docs/JSON_CONTRACTS.md">JSON contracts &rarr;</a>
           </p>
         </div>
@@ -263,10 +266,10 @@ pcq mcp serve                             # stdio (default); --transport sse --p
             <h3><code>describe_run</code></h3>
             <span class="tool-tag">read-only</span>
           </header>
-          <p class="tool-cap">Call</p>
+          <p class="tool-cap">호출</p>
           <pre><code>pcq describe-run output --json
 # MCP: mcp__pcq__describe_run({"path": "output"})</code></pre>
-          <p class="tool-cap">Response</p>
+          <p class="tool-cap">응답</p>
           <pre><code>{
   "schema_version": 1,
   "run_id": "run_20260510_001107_c87d7d",
@@ -315,10 +318,10 @@ pcq mcp serve                             # stdio (default); --transport sse --p
             <h3><code>compare_runs</code></h3>
             <span class="tool-tag">read-only</span>
           </header>
-          <p class="tool-cap">Call</p>
+          <p class="tool-cap">호출</p>
           <pre><code>pcq compare-runs output_a output_b --json
 # MCP: mcp__pcq__compare_runs({"a": "output_a", "b": "output_b"})</code></pre>
-          <p class="tool-cap">Response</p>
+          <p class="tool-cap">응답</p>
           <pre><code>{
   "schema_version": 1,
   "a_run_id": "run_20260510_001106_26fbda",
@@ -355,10 +358,10 @@ pcq mcp serve                             # stdio (default); --transport sse --p
             <h3><code>validate_run</code></h3>
             <span class="tool-tag">read-only</span>
           </header>
-          <p class="tool-cap">Call</p>
+          <p class="tool-cap">호출</p>
           <pre><code>pcq validate-run output --strictness 3 --json
 # MCP: mcp__pcq__validate_run({"path": "output", "strictness": 3})</code></pre>
-          <p class="tool-cap">Response</p>
+          <p class="tool-cap">응답</p>
           <pre><code>{
   "schema_version": 1,
   "status": "pass",
@@ -386,10 +389,10 @@ pcq mcp serve                             # stdio (default); --transport sse --p
             <h3><code>lineage_chain</code></h3>
             <span class="tool-tag">read-only</span>
           </header>
-          <p class="tool-cap">Call</p>
+          <p class="tool-cap">호출</p>
           <pre><code>pcq lineage output --json
 # MCP: mcp__pcq__lineage_chain({"path": "output"})</code></pre>
-          <p class="tool-cap">Response</p>
+          <p class="tool-cap">응답</p>
           <pre><code>{
   "schema_version": 1,
   "chain": [
@@ -409,132 +412,131 @@ pcq mcp serve                             # stdio (default); --transport sse --p
         </article>
 
         <p class="catalog-foot">
-          Capture procedure (reproducible):
-          <code>pcq run --path examples/_sklearn_run --json</code> twice
-          (rename <code>output</code> → <code>output_a</code> in between),
-          then call the four tools against the resulting directories.
-          Volatile fields elided in this page only — the raw JSON your
-          agent receives keeps every field.
+          캡처 절차 (재현 가능):
+          <code>pcq run --path examples/_sklearn_run --json</code>을 두 번
+          실행하고 그 사이에 <code>output</code>을 <code>output_a</code>로
+          이름 바꾸기, 그 다음 네 개 도구를 각 디렉토리에 대해 호출.
+          여기서는 환경 종속 필드를 축약했지만, 실제 에이전트가 받는
+          JSON은 모든 필드를 보존합니다.
         </p>
       </section>
 
       <section id="compare" class="section compare-section">
         <div class="section-heading">
-          <p class="eyebrow">Compare</p>
-          <h2>How pcq sits next to MLflow, W&amp;B, and Neptune.</h2>
+          <p class="eyebrow">비교</p>
+          <h2>pcq는 MLflow / W&amp;B / Neptune과 어떻게 다른가.</h2>
           <p class="section-lead">
-            These are different tools for different jobs. The table below
-            states what each owns and exposes — not what is "better".
-            Use whichever matches your workflow; pcq is designed to coexist
-            (CQ service can ingest run records produced alongside any of
-            them).
+            서로 다른 작업을 위한 서로 다른 도구입니다. 아래 표는 각
+            도구가 "무엇을 소유하고 무엇을 노출하는지"를 적은 것이지,
+            "어느 쪽이 더 낫다"가 아닙니다. 본인 워크플로에 맞는 것을
+            선택하세요. pcq는 공존을 전제로 설계됐습니다 (CQ 서비스는
+            다른 도구와 함께 생성된 run record도 ingest 가능).
           </p>
         </div>
         <div class="compare-wrap">
           <table class="compare-table">
             <thead>
               <tr>
-                <th scope="col">Tool</th>
-                <th scope="col">Training-loop ownership</th>
-                <th scope="col">MCP support</th>
+                <th scope="col">도구</th>
+                <th scope="col">학습 루프 소유</th>
+                <th scope="col">MCP 지원</th>
                 <th scope="col">Self-host vs SaaS</th>
-                <th scope="col">Agent-readable surfaces</th>
+                <th scope="col">에이전트 친화 표면</th>
               </tr>
             </thead>
             <tbody>
               <tr>
                 <th scope="row">pcq</th>
-                <td>does not own — your stack stays</td>
-                <td>built-in (14 tools, v4.1.0)</td>
+                <td>소유 안 함 — 사용자의 stack 그대로</td>
+                <td>내장 (14 도구, v4.1.0)</td>
                 <td>self-host (OSS, Apache-2.0)</td>
                 <td>JSON / JSONL / MCP, llms.txt, agent-manifest.json</td>
               </tr>
               <tr>
                 <th scope="row">MLflow</th>
-                <td>does not own — wraps any framework</td>
-                <td>not built-in</td>
+                <td>소유 안 함 — 모든 framework 래핑</td>
+                <td>내장 없음</td>
                 <td>self-host (OSS, Apache-2.0)</td>
                 <td>REST API, Python SDK</td>
               </tr>
               <tr>
                 <th scope="row">Weights &amp; Biases</th>
-                <td>does not own — SDK callbacks per framework</td>
-                <td>not built-in</td>
-                <td>SaaS (self-host on Enterprise)</td>
+                <td>소유 안 함 — framework별 SDK 콜백</td>
+                <td>내장 없음</td>
+                <td>SaaS (Enterprise는 self-host)</td>
                 <td>REST API, Python SDK, GraphQL</td>
               </tr>
               <tr>
                 <th scope="row">Neptune.ai</th>
-                <td>does not own — SDK integrations</td>
-                <td>not built-in</td>
-                <td>SaaS (self-host on Enterprise)</td>
+                <td>소유 안 함 — SDK 통합</td>
+                <td>내장 없음</td>
+                <td>SaaS (Enterprise는 self-host)</td>
                 <td>REST API, Python SDK</td>
               </tr>
             </tbody>
           </table>
         </div>
         <p class="compare-foot">
-          The row that differs most is "MCP support" — pcq is the only
-          one in this set with first-class Model Context Protocol tools.
-          That is the design center, not a value judgment about the
-          others. Need full experiment dashboards or team RBAC? MLflow
-          and W&amp;B both ship those today; pcq does not.
+          가장 차이가 큰 행은 "MCP 지원" — 이 표에서 pcq만이 first-class
+          Model Context Protocol 도구를 가지고 있습니다. 이건 pcq의 설계
+          중심이지 다른 도구에 대한 가치 판단이 아닙니다. 완전한 실험
+          대시보드나 팀 RBAC이 필요하다면 MLflow와 W&amp;B가 그 자리를
+          채웁니다 — pcq는 그러지 않습니다.
         </p>
       </section>
 
       <section id="case-studies" class="section cases-section">
         <div class="section-heading">
-          <p class="eyebrow">Case studies · Production dogfoods</p>
-          <h2>Real runs that exercised the contract end-to-end.</h2>
+          <p class="eyebrow">사례 · 프로덕션 dogfood</p>
+          <h2>contract를 end-to-end로 실증한 실제 실행들.</h2>
           <p class="section-lead">
-            All four are production dogfoods — pcq's own validation cycle
-            on real ML workloads — not external customer references.
-            Each documents setup, friction observed, and concrete fixes
-            that made it back into the library.
+            네 개 모두 프로덕션 dogfood입니다 — 외부 고객 사례가 아니라
+            pcq 자체의 검증 사이클이 실제 ML 워크로드에서 돈 결과입니다.
+            각 문서는 셋업, 발견된 마찰, 그리고 라이브러리에 반영된 구체적
+            수정 사항을 기록합니다.
           </p>
         </div>
         <div class="case-grid">
           <article class="case-card">
             <h3>MNIST Dogfood</h3>
             <p class="case-meta">2026-05-08 · pcq v2.11 · MNIST · Claude Code</p>
-            <p>First end-to-end dogfood. 9 fresh agent generations, ML→DL evolution, eval_acc 0.9583 → 1.0. Surfaced the first round of friction that drove v2.12 fixes.</p>
-            <a class="case-link" href="https://github.com/playidea-lab/pcq/blob/main/docs/case-studies/mnist-dogfood-2026-05-08.md">Read case study &rarr;</a>
+            <p>첫 end-to-end dogfood. 9개의 새 에이전트 generation, ML→DL 진화, eval_acc 0.9583 → 1.0. v2.12 fix 라운드를 견인한 첫 마찰 표면.</p>
+            <a class="case-link" href="https://github.com/playidea-lab/pcq/blob/main/docs/case-studies/mnist-dogfood-2026-05-08.md">사례 읽기 &rarr;</a>
           </article>
           <article class="case-card">
             <h3>Tabular Dogfood</h3>
             <p class="case-meta">2026-05-09 · pcq 3.0.1 · breast-cancer · TabPFN/PyCaret/FLAML/XGBoost/sklearn</p>
-            <p>First post-PyPI install path (no git URL workaround). Different domain, framework diversity test. Validated the fresh-user <code>uv add pcq</code> entry point.</p>
-            <a class="case-link" href="https://github.com/playidea-lab/pcq/blob/main/docs/case-studies/tabular-dogfood-2026-05-09.md">Read case study &rarr;</a>
+            <p>PyPI 발행 이후 첫 설치 경로 검증 (git URL workaround 없음). 다른 도메인, framework 다양성 테스트. fresh-user <code>uv add pcq</code> 진입점을 검증.</p>
+            <a class="case-link" href="https://github.com/playidea-lab/pcq/blob/main/docs/case-studies/tabular-dogfood-2026-05-09.md">사례 읽기 &rarr;</a>
           </article>
           <article class="case-card">
             <h3>MCP Dogfood</h3>
             <p class="case-meta">2026-05-10 · pcq[mcp] 4.1.0 · Claude Code MCP</p>
-            <p>First v4.1.0 MCP loop end-to-end — agent operates the experiment via <code>mcp__pcq__*</code> tools instead of subprocess CLI. 3 sequential generations, fresh-context per gen.</p>
-            <a class="case-link" href="https://github.com/playidea-lab/pcq/blob/main/docs/case-studies/mcp-dogfood-2026-05-10.md">Read case study &rarr;</a>
+            <p>v4.1.0 MCP 루프의 첫 end-to-end — 에이전트가 subprocess CLI 대신 <code>mcp__pcq__*</code> 도구로 실험을 운용. 3개 sequential generation, generation마다 fresh context.</p>
+            <a class="case-link" href="https://github.com/playidea-lab/pcq/blob/main/docs/case-studies/mcp-dogfood-2026-05-10.md">사례 읽기 &rarr;</a>
           </article>
           <article class="case-card">
             <h3>CQ Worker Dogfood</h3>
             <p class="case-meta">2026-05-10 · pcq[mcp] 4.2.0 · CQ Go worker (RTX 5080)</p>
-            <p>First production CQ Go service worker dispatch end-to-end. Verified <code>cq.yaml</code> + <code>CQ_CONFIG_JSON</code> + 6-artifact protocol on real production infrastructure.</p>
-            <a class="case-link" href="https://github.com/playidea-lab/pcq/blob/main/docs/case-studies/cq-worker-dogfood-2026-05-10.md">Read case study &rarr;</a>
+            <p>CQ Go service worker dispatch의 첫 production end-to-end. <code>cq.yaml</code> + <code>CQ_CONFIG_JSON</code> + 6-artifact 프로토콜을 실제 production 인프라에서 검증.</p>
+            <a class="case-link" href="https://github.com/playidea-lab/pcq/blob/main/docs/case-studies/cq-worker-dogfood-2026-05-10.md">사례 읽기 &rarr;</a>
           </article>
         </div>
       </section>
 
       <section id="roadmap" class="section roadmap-section">
         <div class="section-heading">
-          <p class="eyebrow">Roadmap</p>
-          <h2>Where pcq is going (direction, not dates).</h2>
+          <p class="eyebrow">로드맵</p>
+          <h2>pcq가 향하는 곳 (날짜가 아닌 방향).</h2>
         </div>
         <p class="roadmap-body">
-          The thesis stays the same: <em>pcq does not compete with the
-          means of training</em>. The work ahead strengthens the
-          framework-neutral evidence and control layer — broader real-world
-          contract coverage, deeper validation/lineage facts, more
-          machine-readable surfaces for agent runtimes, and tighter
-          integration with the CQ managed consumer. Built-in models,
-          losses, datasets, and per-framework adapter matrices remain
-          deliberately out of scope.
+          명제는 그대로입니다: <em>pcq는 학습의 수단과 경쟁하지
+          않는다</em>. 앞으로의 작업은 framework 중립적인 evidence와
+          control 계층을 강화합니다 — 더 넓은 실제 contract 커버리지,
+          더 깊은 validation/lineage 사실, 에이전트 runtime을 위한 더
+          많은 기계 가독 표면, 그리고 CQ managed consumer와의 더 긴밀한
+          통합. 내장 모델, 손실, 데이터셋, framework별 어댑터 매트릭스는
+          의도적으로 범위 밖에 둡니다.
         </p>
         <p class="roadmap-links">
           <a href="https://github.com/playidea-lab/pcq/blob/main/docs/V4_DIRECTION.md">v4 Direction &rarr;</a>
@@ -546,40 +548,42 @@ pcq mcp serve                             # stdio (default); --transport sse --p
           <a href="https://github.com/playidea-lab/pcq/releases">Releases &rarr;</a>
         </p>
         <p class="roadmap-recent">
-          <strong>Recent (2026-05-10):</strong> spec/ foundation landed —
-          contract spec moved from <code>docs/</code> to
-          <code>spec/</code> with versioning + conformance policies and
-          auto-exported JSON Schemas. First brick of the 1·2·3 (spec
-          separation · schema versioning · conformance) arc.
+          <strong>최근 (2026-05-10):</strong> spec/ foundation 완료 —
+          contract spec을 <code>docs/</code>에서 <code>spec/</code>로
+          이동, versioning + conformance 정책과 자동 export되는 JSON
+          Schema 추가. 1·2·3 (spec 분리 · schema versioning ·
+          conformance) arc의 첫 벽돌.
         </p>
       </section>
 
       <section id="why" class="section">
         <div class="section-heading">
-          <p class="eyebrow">Why pcq</p>
-          <h2>Three reasons your agent prefers pcq.</h2>
+          <p class="eyebrow">왜 pcq</p>
+          <h2>당신의 에이전트가 pcq를 선호하는 세 가지 이유.</h2>
         </div>
         <div class="feature-grid">
           <article class="feature">
-            <h3>Framework-neutral</h3>
+            <h3>Framework 중립</h3>
             <p>
-              PyTorch, HF Trainer, Lightning, sklearn, XGBoost, shell, or
-              custom Python. pcq standardizes the evidence around the run,
-              not the training loop.
+              PyTorch, HF Trainer, Lightning, sklearn, XGBoost, shell,
+              혹은 사용자 정의 Python. pcq는 학습 루프가 아니라 그
+              주변의 evidence를 표준화합니다.
             </p>
           </article>
           <article class="feature">
-            <h3>Agent-readable</h3>
+            <h3>에이전트 친화</h3>
             <p>
-              JSON/JSONL CLI surfaces and 14 MCP tools — facts, not prose.
-              <code>--events</code> persists live evidence for post-hoc audits.
+              JSON/JSONL CLI 표면과 14개 MCP 도구 — 산문이 아닌
+              사실입니다. <code>--events</code>로 라이브 evidence를
+              사후 감사를 위해 영구 보존합니다.
             </p>
           </article>
           <article class="feature">
-            <h3>MCP-ready</h3>
+            <h3>MCP 지원</h3>
             <p>
-              <code>pcq[mcp]</code> wires into Claude Code, Codex, and any
-              MCP-aware runtime. Frozen JSON contracts since v2.13.
+              <code>pcq[mcp]</code>가 Claude Code, Codex, 그리고 모든
+              MCP 호환 runtime에 연결됩니다. v2.13부터 frozen JSON
+              contract.
             </p>
           </article>
         </div>
@@ -587,22 +591,22 @@ pcq mcp serve                             # stdio (default); --transport sse --p
 
       <section id="examples" class="section examples-section">
         <div class="section-heading">
-          <p class="eyebrow">Examples</p>
-          <h2>Same contract, any framework.</h2>
+          <p class="eyebrow">예제</p>
+          <h2>같은 contract, 어떤 framework든.</h2>
           <p class="section-lead">
-            Training code stays yours. pcq only needs three calls:
+            학습 코드는 그대로 둡니다. pcq는 세 개의 호출만 필요합니다:
             <code>pcq.config()</code>, <code>pcq.log(...)</code>,
-            <code>pcq.save_all(...)</code>. Full set including the
-            minimal <code>cq.yaml</code>, NumPy, and the post-run command
-            list lives in
-            <a href="https://github.com/playidea-lab/pcq/tree/main/examples">examples/</a>.
+            <code>pcq.save_all(...)</code>. 최소 <code>cq.yaml</code>,
+            NumPy, post-run 명령 목록까지 전체는
+            <a href="https://github.com/playidea-lab/pcq/tree/main/examples">examples/</a>
+            에 있습니다.
           </p>
         </div>
 
         <div class="example">
           <div class="example-head">
-            <h3>sklearn — RandomForest on Iris</h3>
-            <p>No adapter, no Trainer subclass. Three pcq calls.</p>
+            <h3>sklearn — Iris RandomForest</h3>
+            <p>어댑터 없음, Trainer 서브클래스 없음. pcq 호출 세 줄.</p>
           </div>
           <pre><code># train.py
 import pcq
@@ -631,8 +635,8 @@ pcq.save_all(history=[{"epoch": 0, "eval_acc": acc}],
 
         <div class="example">
           <div class="example-head">
-            <h3>PyTorch — training loop</h3>
-            <p>Your own model, optimizer, dataloader. pcq sits at the boundary.</p>
+            <h3>PyTorch — 학습 루프</h3>
+            <p>모델, optimizer, dataloader는 사용자 코드. pcq는 경계에 자리합니다.</p>
           </div>
           <pre><code># train.py
 import pcq, torch
@@ -647,8 +651,8 @@ opt = torch.optim.Adam(model.parameters(), lr=cfg["lr"])
 
 history = []
 for epoch in range(cfg["epochs"]):
-    train_loss = train_one_epoch(model, opt)        # your code
-    val_acc = evaluate(model)                       # your code
+    train_loss = train_one_epoch(model, opt)        # 사용자 코드
+    val_acc = evaluate(model)                       # 사용자 코드
     pcq.log(epoch=epoch, train_loss=train_loss, val_acc=val_acc)
     history.append({"epoch": epoch,
                     "train_loss": train_loss,
@@ -661,13 +665,14 @@ pcq.save_all(history=history, artifacts={"model": "model.pt"})</code></pre>
 
       <section id="agents" class="section split-section">
         <div>
-          <p class="eyebrow">Agent-operable by design</p>
-          <h2>Enough structure for an agent to inspect, run, validate, and decide.</h2>
+          <p class="eyebrow">에이전트 친화 설계</p>
+          <h2>에이전트가 inspect, run, validate, decide하기에 충분한 구조.</h2>
           <p>
-            pcq gives agents stable machine-readable surfaces while leaving
-            policy to the agent or service. The library reports facts: what
-            ran, what changed, what passed, what failed, which artifacts
-            exist, and how a candidate compares with its parent.
+            pcq는 에이전트에게 안정적인 기계 가독 표면을 제공하면서,
+            정책 결정은 에이전트나 서비스에 맡깁니다. 라이브러리는 사실만
+            보고합니다: 무엇이 실행됐는지, 무엇이 바뀌었는지, 무엇이
+            통과했고 무엇이 실패했는지, 어떤 artifact가 있는지, 그리고
+            후보가 부모와 어떻게 비교되는지.
           </p>
           <p class="agent-links">
             <a href="llms.txt">llms.txt</a> ·
@@ -675,7 +680,7 @@ pcq.save_all(history=history, artifacts={"model": "model.pt"})</code></pre>
             <a href="agent-manifest.json">agent-manifest.json</a>
           </p>
         </div>
-        <div class="surface-grid" aria-label="Agent JSON surfaces">
+        <div class="surface-grid" aria-label="에이전트 JSON 표면">
           <span>resolve</span>
           <span>inspect</span>
           <span>validate</span>
@@ -693,8 +698,8 @@ pcq.save_all(history=history, artifacts={"model": "model.pt"})</code></pre>
 
       <section id="quickstart" class="section quickstart">
         <div class="section-heading">
-          <p class="eyebrow">Quickstart</p>
-          <h2>Create a contract project and produce a run record.</h2>
+          <p class="eyebrow">빠른 시작</p>
+          <h2>contract 프로젝트를 만들고 run record를 생성한다.</h2>
         </div>
         <pre><code>uv add 'pcq[mcp]'
 pcq init-experiment --style script --output ./my-exp --with-pyproject --agent claude
@@ -709,54 +714,56 @@ pcq describe-run output --json</code></pre>
       <section id="faq" class="section faq-section">
         <div class="section-heading">
           <p class="eyebrow">FAQ</p>
-          <h2>Three things people actually ask.</h2>
+          <h2>사람들이 실제로 묻는 세 가지.</h2>
           <p class="section-lead">
-            Longer FAQ + JSON contracts + strictness reference live in the
-            <a href="https://github.com/playidea-lab/pcq/tree/main/docs">docs/</a>.
+            더 긴 FAQ + JSON contract + strictness 레퍼런스는
+            <a href="https://github.com/playidea-lab/pcq/tree/main/docs">docs/</a>
+            에 있습니다.
           </p>
         </div>
         <div class="faq-list">
           <details>
-            <summary>Does pcq replace PyTorch / HF Trainer / Lightning / sklearn?</summary>
-            <p>No. pcq does not own the training loop. Your project keeps any framework. pcq only standardizes the surrounding evidence: <code>cq.yaml</code>, metric emission, artifact layout, validation, comparison, lineage, and the final <code>run_record.json</code>.</p>
+            <summary>pcq는 PyTorch / HF Trainer / Lightning / sklearn을 대체하나요?</summary>
+            <p>아닙니다. pcq는 학습 루프를 소유하지 않습니다. 어떤 framework든 그대로 쓰세요. pcq는 그 주변의 evidence만 표준화합니다 — <code>cq.yaml</code>, 메트릭 emit, artifact 레이아웃, validation, comparison, lineage, 그리고 최종 <code>run_record.json</code>.</p>
           </details>
           <details>
-            <summary>How does pcq integrate with Claude Code or Codex?</summary>
-            <p>Install <code>pcq[mcp]</code>, run <code>pcq agent install --target both --path . --mcp</code> to write <code>.mcp.json</code>, and start <code>pcq mcp serve</code>. Both runtimes then see 14 <code>mcp__pcq__*</code> tools and call them with structured arguments instead of parsing stdout. See <a href="#tools-catalog">tool responses &rarr;</a></p>
+            <summary>pcq를 Claude Code나 Codex에 어떻게 연결하나요?</summary>
+            <p><code>pcq[mcp]</code>를 설치하고 <code>pcq agent install --target both --path . --mcp</code>로 <code>.mcp.json</code>을 작성한 뒤 <code>pcq mcp serve</code>를 실행하세요. 두 runtime 모두 14개 <code>mcp__pcq__*</code> 도구를 인식하고, stdout 파싱 대신 구조화된 인자로 호출합니다. <a href="#tools-catalog">도구 응답 보기 &rarr;</a></p>
           </details>
           <details>
-            <summary>How does an agent decide whether a run passed?</summary>
-            <p>Use <code>pcq validate-run output --strictness 3 --json</code> for pass/warn/fail facts and <code>pcq describe-run output --json</code> for decision facts. pcq deliberately reports facts; the agent or service chooses policy.</p>
+            <summary>에이전트는 run이 통과했는지 어떻게 판단하나요?</summary>
+            <p><code>pcq validate-run output --strictness 3 --json</code>으로 pass/warn/fail 사실을, <code>pcq describe-run output --json</code>으로 의사결정 사실을 받습니다. pcq는 의도적으로 사실만 보고합니다. 정책은 에이전트나 서비스가 결정합니다.</p>
           </details>
         </div>
       </section>
 
       <section class="section cq-section">
         <div>
-          <p class="eyebrow">Relationship with CQ</p>
-          <h2>pcq is the open contract. CQ is one managed consumer.</h2>
+          <p class="eyebrow">CQ와의 관계</p>
+          <h2>pcq는 공개 contract. CQ는 하나의 managed consumer.</h2>
         </div>
         <div class="cq-grid">
           <article>
             <h3>pcq</h3>
-            <p>Open-source authoring, validation, artifact, and run-evidence library. Apache-2.0. Useful standalone.</p>
+            <p>오픈소스 저작, validation, artifact, run-evidence 라이브러리. Apache-2.0. 단독으로도 유용합니다.</p>
           </article>
           <article>
             <h3>CQ</h3>
-            <p>Managed execution, queueing, artifact collection, dashboards, and agent loops. Consumes the same contract.</p>
+            <p>Managed 실행, 큐, artifact 수집, 대시보드, 에이전트 루프. 같은 contract를 consume합니다.</p>
           </article>
         </div>
       </section>
     </main>
 
     <footer class="footer">
-      <span>pcq is Apache-2.0.</span>
-      <a href="https://github.com/playidea-lab/pcq">Source</a>
+      <span>pcq는 Apache-2.0입니다.</span>
+      <a href="https://github.com/playidea-lab/pcq">소스</a>
       <a href="https://pypi.org/project/pcq/">PyPI</a>
       <a href="https://github.com/playidea-lab/pcq/blob/main/README.md">README</a>
       <a href="https://github.com/playidea-lab/pcq/blob/main/docs/MCP_INTEGRATION.md">MCP</a>
       <a href="llms.txt">llms.txt</a>
-      <a href="agent-manifest.json">Agent manifest</a>
+      <a href="agent-manifest.json">에이전트 매니페스트</a>
+      <a href="./" lang="en" hreflang="en">English</a>
     </footer>
   </body>
 </html>
