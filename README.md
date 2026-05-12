@@ -81,6 +81,63 @@ CQ: locally, in CI, in notebooks, and inside third-party orchestrators.
 - **Service-ready** — CQ can consume the same contract for managed execution and
   automatic experiment loops.
 
+## What's New (v4.4 – v4.6)
+
+Three agent-fillable metadata fields were added to `run_record.json` across the
+last three minor releases, making each run's evidence richer with zero extra
+code in most cases.
+
+| Field | Since | Captures | Auto-filled? |
+|---|---|---|---|
+| `attribution` | v4.4 | author / committer / operator — **who** ran the experiment | Yes (agent identity injected at runtime) |
+| `worker_spec` | v4.5 | cpu / gpu / memory / os — **where** it ran | Yes (`pcq.worker_spec()` auto-detects hardware) |
+| `fingerprint` | v4.6 | modality / task_kind / shape / PII-safe stats — **what** data | Semi-auto (`pcq.fingerprint(X, y)` detects most fields) |
+
+### attribution — who
+
+Records the human author, the AI committer, and the operator that launched the
+run. Coding agents (Claude Code, Codex) fill this automatically from their
+identity context.
+
+```python
+pcq.attribution(
+    author={"kind": "human", "id": "alice"},
+    committer={"kind": "agent", "id": "claude-code"},
+    operator="ci-runner-42",
+)
+```
+
+Spec: [spec/SPEC.md § Attribution](spec/SPEC.md#attribution)
+
+### worker_spec — where
+
+Records CPU model, core count, GPU kind/VRAM, total memory, and OS. Called with
+no arguments for a full auto-detection pass.
+
+```python
+pcq.worker_spec()          # 자동 감지 — 인수 불필요
+```
+
+Spec: [spec/SPEC.md § Worker Spec](spec/SPEC.md#worker-spec)
+
+### fingerprint — what
+
+Records dataset modality, task kind, sample count, size class, domain, and
+PII-safe summary statistics. Accepts a NumPy/pandas array or DataFrame and
+infers most fields.
+
+```python
+pcq.fingerprint(X, y, modality="tabular")
+```
+
+Spec: [spec/SPEC.md § Fingerprint](spec/SPEC.md#fingerprint)
+
+---
+
+All three fields are **optional** — existing runs remain valid. When present
+they appear as first-class evidence in `run_record.json` and are surfaced
+through `pcq describe-run --json`.
+
 ## Installation
 
 ```bash
