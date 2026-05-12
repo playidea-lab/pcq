@@ -1,0 +1,11 @@
+{
+  "invocation": {
+    "kind": "cli",
+    "command": ["pcq", "describe-run", "FIXTURE_OUTPUT", "--json"]
+  },
+  "fixtures": {
+    "FIXTURE_OUTPUT": "fixtures/output"
+  },
+  "schema_version": 1,
+  "notes": "worker_spec fixture: run_record.json에 worker_spec 객체가 직접 포함된 경우. describe-run은 중첩 worker_spec 객체 + 4개의 플랫 필드를 모두 노출해야 한다. (T-WSPEC-7)"
+}

@@ -1,0 +1,11 @@
+{
+  "invocation": {
+    "kind": "cli",
+    "command": ["pcq", "describe-run", "FIXTURE_OUTPUT", "--json"]
+  },
+  "fixtures": {
+    "FIXTURE_OUTPUT": "fixtures/output"
+  },
+  "schema_version": 1,
+  "notes": "worker_spec fixture: run_record.json에 worker_spec 필드가 없는 경우 (옛 record 시뮬). describe-run은 worker_spec 및 4개의 플랫 필드를 출력에서 생략해야 한다. (T-WSPEC-7)"
+}
