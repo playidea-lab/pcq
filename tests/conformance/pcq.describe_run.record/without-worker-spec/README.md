@@ -18,6 +18,10 @@
 `worker_spec` 부재는 `describe.py`의 `to_dict()` 에서 `None` 값이 `_ALWAYS_KEEP_KEYS`에
 포함되지 않아 자동으로 생략된다. 따라서 `expected.json`에서 이 필드들은 존재하지 않는다.
 
+`worker_spec_gpu_model_0` 필드는 `null`이 아닌 **omitted (키 자체 부재)** 상태이다.
+이는 `to_dict()` 의 None-strip 동작에 의한 것이며, 값이 명시적으로 `null`인 것과 다르다.
+(field is omitted, not explicitly null — due to `to_dict()` None-strip behavior)
+
 ## Volatile 필드
 
 `expected.json`에서 `"..."` placeholder 처리된 필드:

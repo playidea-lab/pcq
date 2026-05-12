@@ -1,6 +1,10 @@
 """fingerprint 기능 단위 테스트 — R1~R15 + sniffer + sample 커버리지.
 
 각 테스트는 pcq-data-fingerprint.md EARS 요구사항에 대응한다.
+
+Note: R10 은 design-invariant (format-layer prohibition). column 이름·raw 값 등은
+extract_* 함수가 애초에 emit 하지 않는다. 이는 코드 구조와 PII 감사(code review)로
+보장되며, not a runtime gate — 런타임 테스트 게이트가 아니다.
 """
 from __future__ import annotations
 
