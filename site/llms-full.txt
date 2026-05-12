@@ -270,6 +270,139 @@ resolve = next(t for t in tools if t.name == "resolve_project")
 result = asyncio.run(resolve.handler({"path": "."}))
 ```
 
+## Evidence Metadata Fields
+
+Three agent-fillable APIs enrich the run record with machine-environment,
+identity, and data-fingerprint evidence. All three are additive — omitting
+them does not invalidate a run at any strictness level, but including them
+enables richer comparison, audit, and reproducibility checks.
+
+### pcq.attribution — who ran this experiment
+
+```python
+pcq.attribution(
+    operator="claude-sonnet-4-6",   # agent or service that launched the run
+    author="alice@example.com",     # human who owns the experiment (optional)
+    committer="bob@example.com",    # git committer identity (optional)
+)
+```
+
+All three parameters accept free-form strings; the contract normalises them
+but does not validate format. Call once, typically before `pcq.run()` or at
+the start of the training script.
+
+Environment variable equivalents (env overrides constructor args):
+
+| Variable | Maps to | Notes |
+|---|---|---|
+| `CQ_ATTRIBUTION_OPERATOR` | operator | agent id, bot username, service name |
+| `CQ_ATTRIBUTION_AUTHOR` | author | human email or display name |
+| `CQ_ATTRIBUTION_COMMITTER` | committer | git committer identity |
+| `CQ_ATTRIBUTION_WIKI_SOURCE` | — | URL when content originates from a wiki page |
+| `CQ_ATTRIBUTION_BOT_MODEL` | — | exact model id for bot/LLM-generated content |
+| `CQ_ATTRIBUTION_BOT_VERSION` | — | version string of the bot runner |
+| `CQ_ATTRIBUTION_CONTEXT_URL` | — | permalink to the conversation or task context |
+| `CQ_ATTRIBUTION_TEAM_ID` | — | team or org identifier for multi-tenant setups |
+
+**When to set**: always when an agent or CI bot runs an experiment, so audit
+trails can distinguish human-initiated from bot-initiated runs. For Wiki or
+automated content, set `CQ_ATTRIBUTION_WIKI_SOURCE` and
+`CQ_ATTRIBUTION_BOT_MODEL` for full model-context provenance.
+
+PII policy: operator/author/committer values are stored verbatim and appear in
+`run_record.json`. Do not place secrets or sensitive PII in these fields.
+Governed by **R10** (attribution field retention) and **R14** (consent for
+personally-identifying operator strings; use a pseudonym or service account
+where consent is not established).
+
+### pcq.worker_spec — machine environment fingerprint
+
+```python
+spec = pcq.worker_spec()
+# Returns and stores: cpu model, core count, RAM, GPU list, OS, Python version.
+```
+
+`worker_spec()` requires no arguments; it auto-detects the current host. The
+result is attached to `run_record.json` under `environment.worker_spec`.
+
+Environment variable overrides (useful in containers or CI where detection
+is unreliable):
+
+| Variable | Meaning |
+|---|---|
+| `CQ_WORKER_CPU_MODEL` | CPU model string |
+| `CQ_WORKER_CPU_CORES` | logical core count |
+| `CQ_WORKER_RAM_GB` | total RAM in gigabytes |
+| `CQ_WORKER_GPU_COUNT` | number of GPUs |
+| `CQ_WORKER_GPU_0_NAME` | name of primary GPU |
+| `CQ_WORKER_GPU_0_VRAM_GB` | VRAM of primary GPU (GB) |
+| `CQ_WORKER_GPU_0_DRIVER` | driver version string |
+| `CQ_WORKER_OS` | OS identifier (e.g. `linux`, `darwin`, `windows`) |
+| `CQ_WORKER_OS_VERSION` | OS version string |
+| `CQ_WORKER_PYTHON_VERSION` | Python version string |
+| `CQ_WORKER_HOSTNAME` | hostname override |
+| `CQ_WORKER_CONTAINER_ID` | container / pod id |
+| `CQ_WORKER_REGION` | cloud region or datacenter label |
+
+**When to set**: set env vars when the auto-detected values are wrong (cloud
+VMs, WSL2, Docker). Do not set `CQ_WORKER_HOSTNAME` to a real hostname if
+that hostname is considered PII in your deployment.
+
+PII policy: `worker_spec` fields are environment-infrastructure metadata, not
+personal data. Governed by **R5** (machine-env retention; purge on
+infrastructure decommission) and **R5b** (cloud-instance identifiers; replace
+with region+type labels before external sharing).
+
+### pcq.fingerprint — PII-safe data statistics
+
+```python
+pcq.fingerprint(
+    X,                       # array-like: features
+    y=None,                  # array-like: labels (optional)
+    modality="tabular",      # "tabular" | "image" | "text" | "audio" | "video" | "other"
+    task_kind="classification",  # "classification" | "regression" | "generation" | ...
+    domain="general",        # "general" | "medical" | "financial" | "legal" | ...
+)
+```
+
+`fingerprint()` computes and stores in `run_record.json`:
+
+- shape, dtype, and content hash (SHA-256 of sorted row hashes — row order
+  independent, satisfies **R15** byte-identical reproducibility gate)
+- per-column distribution stats (mean, std, min, max, null rate) for tabular
+- class balance for classification targets
+- modality-appropriate structural stats for image/text/audio
+
+No raw data values are stored. The hash is one-way; the contract cannot
+reconstruct the dataset from the fingerprint.
+
+Environment variable equivalents:
+
+| Variable | Meaning |
+|---|---|
+| `CQ_FINGERPRINT_MODALITY` | modality string override |
+| `CQ_FINGERPRINT_TASK_KIND` | task_kind string override |
+| `CQ_FINGERPRINT_DOMAIN` | domain string override |
+| `CQ_FINGERPRINT_DISABLE` | set to `1` to skip fingerprinting entirely |
+| `CQ_FINGERPRINT_HASH_ONLY` | set to `1` to record hash only (no dist stats) |
+
+**Domain gate**: when `domain` is `"medical"` or `"financial"`, fingerprint
+recording is restricted to **declared-only mode** — only fields explicitly
+listed in `cq.yaml` under `fingerprint.declared_fields` are included in the
+stats output. This prevents accidental leakage of sensitive column names or
+distribution shapes. Other regulated domains (e.g. `"legal"`) should also use
+declared-only mode as a precaution.
+
+**When to set**: call `pcq.fingerprint()` immediately after loading the
+dataset, before any train/test split. This records the canonical dataset
+identity for the run. Agents that skip fingerprinting cannot benefit from
+the R15 byte-identical reproducibility gate in downstream validation.
+
+PII policy: fingerprint stores only statistical summaries and a content hash.
+Governed by **R10** (fingerprint field retention in run_record),
+**R5b** (suppress column names for sensitive domains unless declared),
+**R14** (domain declaration required for medical/financial data).
+
 ## Examples
 
 ### sklearn — RandomForest on Iris

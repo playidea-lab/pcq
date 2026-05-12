@@ -68,6 +68,15 @@ MCP tools (with `pcq[mcp]` installed):
 `apply_planset`, `init_experiment`, `finalize_run`, `agent_install`,
 `agent_status`, `run_experiment`.
 
+Metadata APIs (v4.4-4.6):
+
+- `pcq.attribution(operator, author, committer)` — record who ran the experiment
+  (agent identity, human author, git committer). env: CQ_ATTRIBUTION_*
+- `pcq.worker_spec()` — auto-detect cpu/gpu/memory/os of the executing machine.
+  env: CQ_WORKER_*
+- `pcq.fingerprint(X, y, modality, task_kind, domain)` — PII-safe statistical
+  summary of input data (shape, dtype, hash, distribution stats). env: CQ_FINGERPRINT_*
+
 Runtime surfaces:
 
 - `--json` emits one final parseable JSON object.
