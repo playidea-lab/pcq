@@ -140,3 +140,99 @@ Every contract change that needs MAJOR enforcement should have a
 golden pair under
 [`tests/conformance/<contract>/`](../tests/conformance/) demonstrating
 the new shape — see [`CONFORMANCE.md`](./CONFORMANCE.md).
+
+## Attribution field — env precedence and PII guidance
+
+This section is normative for the `attribution` object introduced in
+`run_record.json` / `pcq.describe_run.record`. See [`SPEC.md §
+Attribution`](./SPEC.md) for the schema and field semantics.
+
+### Resolution priority
+
+When pcq writes `run_record.json`, it resolves each attribution field using
+the following precedence (first winning source is used, remaining sources are
+ignored for that field):
+
+```
+1. CLI flag (highest)
+2. CQ_ATTRIBUTION_* environment variable
+3. cq.yaml  attribution.*  config block
+4. auto-infer (e.g. git config user.email)
+5. NULL (field absent or null)    ← lowest
+```
+
+No source is mandatory. If all sources are absent, `attribution` itself is
+`null` in the output, which is valid under `schema_version: 1`.
+
+### Environment variables (CQ_ATTRIBUTION_*)
+
+| Variable | Populated field |
+|---|---|
+| `CQ_ATTRIBUTION_OPERATOR` | `attribution.operator` |
+| `CQ_ATTRIBUTION_AUTHOR_ID` | `attribution.author.id` |
+| `CQ_ATTRIBUTION_AUTHOR_KIND` | `attribution.author.kind` |
+| `CQ_ATTRIBUTION_COMMITTER_ID` | `attribution.committer.id` |
+| `CQ_ATTRIBUTION_COMMITTER_KIND` | `attribution.committer.kind` |
+| `CQ_ATTRIBUTION_SESSION_ID` | `attribution.session_id` |
+| `CQ_ATTRIBUTION_PERSONA_AUTHOR` | `attribution.author.persona_id` |
+| `CQ_ATTRIBUTION_PERSONA_COMMITTER` | `attribution.committer.persona_id` |
+
+`CQ_ATTRIBUTION_AUTHOR_KIND` and `CQ_ATTRIBUTION_COMMITTER_KIND` accept the
+values `"human"` or `"agent"`. Any other value should be rejected with a clear
+error at write time.
+
+### `cq.yaml` attribution block (example)
+
+```yaml
+attribution:
+  operator: pilab
+  author:
+    id: changmin
+    kind: human
+  committer:
+    id: claude-opus-4-7
+    kind: agent
+```
+
+All sub-keys are optional. Omitted keys fall through to auto-infer or NULL.
+
+### Additive-only schema bump policy for `attribution`
+
+The `attribution` object itself is an optional additive field at
+`schema_version: 1`. Its internal `schema_version` sub-field tracks the
+shape of the object independently:
+
+- Adding new optional keys inside `attribution` (e.g. `session_id`,
+  `persona_id`) does **not** require a bump of the outer `schema_version`.
+- The `attribution.schema_version` counter increments only when a field
+  inside `attribution` is *removed or renamed* — which is itself a MAJOR
+  bump of the outer `schema_version` (because it changes the contract of a
+  field that callers may depend on).
+- The `signature` key is reserved and must not be treated as absent-required;
+  its absence is normal in Phase 1.
+
+In practice: attribution additions ship as minor pcq releases with no
+`schema_version` change.
+
+### PII (Personally Identifiable Information) guidance
+
+`operator`, `author.id`, and `committer.id` are free strings. They have no
+built-in privacy enforcement at the pcq format layer.
+
+**Recommended practice**:
+
+1. **Use a pseudonym or UUID** for `operator`. Examples: `"pilab"`,
+   `"550e8400-e29b-41d4-a716-446655440000"`. Avoid email addresses and real
+   names as the primary identifier.
+2. **Do not use email addresses directly** in `author.id` or `committer.id`
+   in any environment where run records may be shared externally or ingested
+   into TheCommons / a public evidence store.
+3. **CI environments**: `git config user.email` auto-infer may expose real
+   email addresses. Set `CQ_ATTRIBUTION_AUTHOR_ID` explicitly in CI if the
+   output will be published.
+4. **Redaction is the consumer's responsibility**. CQ Hub, TheCommons, and
+   any downstream store must apply their own PII policy before persisting or
+   publishing attribution data.
+
+pcq will never strip or hash attribution fields on behalf of a caller. The
+format is a neutral carrier; policy is upstream.

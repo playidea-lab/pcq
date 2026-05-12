@@ -124,6 +124,47 @@ Required fields for a readable `run_record.json`:
 
 Agents decide what to do with those facts.
 
+#### `attribution` object in `pcq.describe_run.record`
+
+The `attribution` object is an **optional** field in `pcq.describe_run.record`
+(and in the underlying `run_record.json`). When present it conforms to this
+nested shape:
+
+```json
+"attribution": {
+  "schema_version": 1,
+  "author": {
+    "kind": "human" | "agent",
+    "id": "<free string>",
+    "persona_id": "<string>" | null
+  },
+  "committer": {
+    "kind": "human" | "agent",
+    "id": "<free string>",
+    "persona_id": "<string>" | null
+  },
+  "operator": "<free string>",
+  "session_id": "<string>" | null
+}
+```
+
+When absent, readers must treat `attribution` as `null` — the absence is not a
+contract violation. This preserves backward compatibility with run records
+produced before attribution was introduced.
+
+The `attribution` object is exposed verbatim by `pcq describe-run --json`; no
+field is redacted or normalised at the format layer.
+
+**Flat surface (T-PCQ-ATTR-2)**: A future task will expose the same data as
+top-level flat keys (e.g. `attribution_operator`, `attribution_author_kind`) for
+consumers that cannot parse nested objects. Until then, the nested form is the
+only guaranteed surface.
+
+**`signature` reserved name**: Within `attribution`, the key `signature` is
+reserved for a Phase 2 cryptographic endorsement field. It is not part of the
+current contract; parsers should tolerate its presence for forward-compatibility
+but must not depend on it being absent.
+
 ### `pcq compare-runs A B --json`
 
 Contract name: `pcq.compare_runs.diff`

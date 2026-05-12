@@ -346,6 +346,102 @@ Rules:
 - examples must not become a support matrix
 - base import must remain lightweight
 
+## Attribution
+
+Every `run_record.json` may carry an `attribution` object that records *who
+authored the intent* and *who executed the run*. This is the machine-readable
+foundation of the TheCommons "Wikipedia + bots" accountability model: human
+contributors and AI agents appear on the same surface with separate roles.
+
+### Why `attribution`, not `agent`
+
+The top-level `agent` key in `run_record.json` is already reserved for the
+CQ orchestration context — `{plan_id, intent, recipe, overrides}`. Putting
+provenance data there would conflate two concerns. `attribution` is a
+sibling key with its own schema.
+
+### Schema (schema_version: 1, additive)
+
+```json
+"attribution": {
+  "schema_version": 1,
+  "author":    { "kind": "human" | "agent", "id": "...", "persona_id": "..." | null },
+  "committer": { "kind": "human" | "agent", "id": "...", "persona_id": "..." | null },
+  "operator":  "...",
+  "session_id": "..." | null
+}
+```
+
+Field semantics follow the Git author/committer convention:
+
+| Field | Meaning |
+|---|---|
+| `author` | Who originated the intent ("I want to run this experiment") |
+| `committer` | Who built and submitted the job (may be an AI agent) |
+| `operator` | The human or organisation that bears legal and reputational responsibility — always a person/org, never an agent ID |
+| `session_id` | Conversation or session trace handle (optional, aids audit) |
+
+When a single human runs `pcq` directly without an agent in the loop,
+`author`, `committer`, and `operator` all identify the same person.
+When an AI agent (e.g. Claude Code) executes the run on behalf of a human,
+`committer.kind = "agent"` and `operator` holds the human/org identity.
+
+The `attribution` field is **optional** on `run_record.json`. Existing records
+without it are valid; readers must treat absence as `null` (backward-compatible).
+
+### `signature` — Phase 2 reserved field name
+
+`signature` is a reserved name within `attribution` for a future cryptographic
+endorsement of the record (e.g. operator key sign-off). It is **not part of the
+Phase 1 schema** — do not emit or validate it now. Parsers must tolerate its
+presence for forward-compatibility. The algorithm and key-management design will
+be specified in a separate Phase 2 decision record.
+
+### Resolution priority
+
+When pcq resolves the `attribution` fields at write time, it applies this
+precedence (first match wins):
+
+```
+CLI flags  >  CQ_ATTRIBUTION_* env vars  >  cq.yaml attribution.*  >  auto-infer  >  NULL
+```
+
+Supported environment variables:
+
+| Variable | Field populated |
+|---|---|
+| `CQ_ATTRIBUTION_OPERATOR` | `attribution.operator` |
+| `CQ_ATTRIBUTION_AUTHOR_ID` | `attribution.author.id` |
+| `CQ_ATTRIBUTION_AUTHOR_KIND` | `attribution.author.kind` |
+| `CQ_ATTRIBUTION_COMMITTER_ID` | `attribution.committer.id` |
+| `CQ_ATTRIBUTION_COMMITTER_KIND` | `attribution.committer.kind` |
+| `CQ_ATTRIBUTION_SESSION_ID` | `attribution.session_id` |
+| `CQ_ATTRIBUTION_PERSONA_AUTHOR` | `attribution.author.persona_id` |
+| `CQ_ATTRIBUTION_PERSONA_COMMITTER` | `attribution.committer.persona_id` |
+
+Auto-inference (lowest priority): when git user config is available and no
+explicit value is set, pcq may populate `author.id` and `committer.id` from
+`git config user.email` or equivalent. This is a best-effort hint only.
+
+### PII guidance
+
+`attribution.operator` and the `id` fields are free strings. They **may**
+contain personally-identifiable information (PII) such as email addresses or
+real names. pcq does not redact these fields at the format layer.
+
+Recommended practice:
+- Use a **pseudonym or UUID** for `operator`, `author.id`, and `committer.id`
+  in any environment where run records may be shared externally or ingested
+  into TheCommons.
+- Do **not** use email addresses or real names as the primary identifier in
+  `operator`. An opaque organisation handle (e.g. `"pilab"`) or a UUID is
+  preferred.
+- If `git config user.email` is auto-inferred, be aware that CI environments
+  may expose real email addresses through this path.
+
+PII handling policy for stored or published records is the responsibility of
+the consuming system (CQ Hub, TheCommons, CI), not pcq.
+
 ## Non-Goals
 
 - reimplementing Lightning, HF Trainer, PyCaret, W&B, MLflow, DVC, or CQ
