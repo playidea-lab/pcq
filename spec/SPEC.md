@@ -442,6 +442,237 @@ Recommended practice:
 PII handling policy for stored or published records is the responsibility of
 the consuming system (CQ Hub, TheCommons, CI), not pcq.
 
+## Worker Spec
+
+Every `run_record.json` may carry a `worker_spec` object that records *on which
+machine the run was executed*. This is the second pillar of TheCommons
+matchmaking input — after `attribution` (who) comes `worker_spec` (where).
+
+### Why `worker_spec`, not inline fields
+
+The top-level `attribution` key records the human/agent accountable for the run.
+`worker_spec` is a sibling key that records the hardware environment. Keeping
+them separate prevents the attribution object from becoming a god object, and
+mirrors the author/committer pattern of Git: different concerns get different
+namespaces.
+
+### Schema (schema_version: 1, additive)
+
+```json
+"worker_spec": {
+  "schema_version": 1,
+  "cpu": {
+    "model": "<string> | null",
+    "cores_physical": "<int> | null",
+    "cores_logical": "<int> | null",
+    "max_freq_mhz": "<number> | null"
+  },
+  "memory": {
+    "total_gb": "<number> | null"
+  },
+  "accelerator": {
+    "kind": "cuda | mps | cpu",
+    "gpus": [
+      {
+        "model": "<string> | null",
+        "vram_gb": "<number> | null",
+        "cuda_version": "<string> | null",
+        "bus_id": "<string> | null",
+        "torch_ordinal": "<int> | null"
+      }
+    ]
+  },
+  "os": {
+    "system": "<string>",
+    "machine": "<string>",
+    "release": "<string> | null"
+  },
+  "container": {
+    "kind": "none | docker | k8s | other",
+    "image": "<string> | null",
+    "detector_hint": "<string> | null"
+  },
+  "source": "detected | declared | merged",
+  "visible_devices": "<string> | null"
+}
+```
+
+The `worker_spec` field is **optional** on `run_record.json`. Existing records
+without it are valid; readers must treat absence as `null` (backward-compatible,
+R7).
+
+### Flat surface (4 fields, attribution pattern)
+
+`pcq describe-run --json` exposes worker_spec both as the nested object above
+and as four top-level flat keys (R6):
+
+| Flat field | Source path |
+|---|---|
+| `worker_spec_cpu_model` | `worker_spec.cpu.model` |
+| `worker_spec_memory_gb` | `worker_spec.memory.total_gb` |
+| `worker_spec_accelerator_kind` | `worker_spec.accelerator.kind` |
+| `worker_spec_gpu_model_0` | `worker_spec.accelerator.gpus[0].model` (null when empty) |
+
+### Environment variables (CQ_WORKER_*)
+
+Resolution precedence (first match wins):
+
+```
+CLI flag  >  CQ_WORKER_* env var  >  cq.yaml worker.*  >  auto-detect  >  NULL
+```
+
+| Variable | Populated field |
+|---|---|
+| `CQ_WORKER_CPU_MODEL` | `worker_spec.cpu.model` |
+| `CQ_WORKER_CPU_CORES_PHYSICAL` | `worker_spec.cpu.cores_physical` |
+| `CQ_WORKER_CPU_CORES_LOGICAL` | `worker_spec.cpu.cores_logical` |
+| `CQ_WORKER_CPU_MAX_FREQ_MHZ` | `worker_spec.cpu.max_freq_mhz` |
+| `CQ_WORKER_MEMORY_TOTAL_GB` | `worker_spec.memory.total_gb` |
+| `CQ_WORKER_ACCELERATOR_KIND` | `worker_spec.accelerator.kind` |
+| `CQ_WORKER_GPU_MODEL_0` | `worker_spec.accelerator.gpus[0].model` |
+| `CQ_WORKER_GPU_VRAM_GB_0` | `worker_spec.accelerator.gpus[0].vram_gb` |
+| `CQ_WORKER_GPU_CUDA_VERSION` | `worker_spec.accelerator.gpus[0].cuda_version` |
+| `CQ_WORKER_OS_SYSTEM` | `worker_spec.os.system` |
+| `CQ_WORKER_OS_MACHINE` | `worker_spec.os.machine` |
+| `CQ_WORKER_OS_RELEASE` | `worker_spec.os.release` |
+| `CQ_WORKER_CONTAINER_KIND` | `worker_spec.container.kind` |
+
+When a `CQ_WORKER_*` variable overrides an auto-detected field, `source`
+becomes `"merged"`. When all fields come from env vars / cfg, `source` is
+`"declared"`.
+
+### `source` audit values
+
+| Value | Meaning |
+|---|---|
+| `detected` | All populated fields came from auto-detection (psutil + torch) |
+| `declared` | All populated fields came from cfg / env vars (user-supplied) |
+| `merged` | Some fields auto-detected, some overridden by cfg / env vars |
+
+### PII layered policy
+
+Worker spec applies a two-layer PII barrier:
+
+**R10 — Auto-detection emit prohibition (format layer)**:
+Auto-detection code must NEVER emit hostname, IP address, MAC address, or
+user/login name into any `worker_spec` field. These are forbidden at the
+code path that builds the `detected` or `merged` record, not only at
+validation time. The format is a hard gate.
+
+**R14 — Declared path PII warning (validation layer)**:
+The auto-detection gate does not apply to `declared` or `merged` fields
+supplied by the user (via `CQ_WORKER_*` or `cq.yaml.worker.*`). However,
+when pcq writes `validation_report.json`, it inspects every free-string
+`worker_spec` field (cpu.model, os.release, container.image,
+container.detector_hint) for patterns that resemble a hostname
+(letters/digits/hyphens + dots without spaces, matching `\b[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)+\b`).
+If a match is found, pcq adds a severity-3 (L3) warning:
+
+```
+code: WORKER_DECLARED_PII_LIKE
+detail: "worker_spec.<field> may contain a hostname or FQDN — review before publishing"
+```
+
+Redaction is the consumer's responsibility. pcq never strips or hashes
+worker_spec fields.
+
+### Container kind enum
+
+`worker_spec.container.kind` is a closed enum:
+
+| Value | When to use |
+|---|---|
+| `none` | Bare-metal or VM — no container layer detected |
+| `docker` | `/.dockerenv` present or `DOCKER_CONTAINER=1` in env |
+| `k8s` | `KUBERNETES_SERVICE_HOST` in env |
+| `other` | Any other containerisation detected or suspected (Podman, LXC, WSL, systemd-nspawn, Singularity, etc.) |
+
+When multiple signals conflict, pcq chooses `other` and sets
+`container.detector_hint` to the primary signal (e.g. `"podman-rootless"`).
+`WORKER_CONTAINER_AMBIGUOUS` is emitted in `validation_report.json` when
+two or more detection signals disagree.
+
+### gpus[] deterministic ordering (R13)
+
+The `gpus` array is ordered by NVML PCI bus_id ascending (e.g.
+`"00000000:01:00.0"` before `"00000000:02:00.0"`). When NVML is unavailable,
+the torch device ordinal (`torch.cuda.get_device_properties(i)`) is used as
+a fallback ordering key.
+
+Each GPU entry carries:
+
+- `bus_id` — NVML PCI bus_id string when available, else null
+- `torch_ordinal` — integer index as seen by PyTorch (`CUDA_VISIBLE_DEVICES`-aware)
+- `visible_devices` — string copy of `CUDA_VISIBLE_DEVICES` at detection time
+  (null if the variable is unset)
+
+When `CUDA_VISIBLE_DEVICES` remaps ordinals, pcq records both the logical
+ordinal and the raw bus_id to enable audit. A consumer that needs the physical
+device should use `bus_id`; one that needs the PyTorch ordinal should use
+`torch_ordinal`.
+
+### Warning codes (R11 / R12 / R14)
+
+All warning codes appear in `validation_report.json` under the `checks` array:
+
+| Code | Severity | Condition |
+|---|---|---|
+| `WORKER_PSUTIL_MISSING` | L2 | `import psutil` fails — cpu/memory fields will be null |
+| `WORKER_PSUTIL_PARTIAL` | L1 | psutil available but one or more cpu/memory fields returned None |
+| `WORKER_TORCH_MISSING` | L1 | `import torch` fails — CUDA/MPS not detectable; accelerator defaults to `"cpu"` |
+| `WORKER_CGROUP_DENIED` | L1 | cgroup read failed (permission error) — memory limit may be under-reported |
+| `WORKER_CONTAINER_AMBIGUOUS` | L2 | Two or more container detection signals disagree |
+| `WORKER_DECLARED_PII_LIKE` | L3 | A declared free-string field matches a hostname-like pattern |
+
+Warnings never block run execution. They appear in `validation_report.json` and
+are surfaced by `pcq validate-run`.
+
+### cgroups — host view limitation (DEC-011)
+
+pcq 1.x reports host-view memory and CPU from psutil. It does **not** read
+cgroups v2 memory limits (`/sys/fs/cgroup/memory.max`) to infer container
+memory limits. This is an intentional out-of-scope decision (cgroups 1.0 also
+out-of-scope):
+
+- psutil reports the host's physical RAM, not the container limit
+- this is marked `source: "detected"` with no qualification
+- if the container limit differs materially, the operator should override via
+  `CQ_WORKER_MEMORY_TOTAL_GB` or `cq.yaml.worker.memory.total_gb` (declared)
+- a future phase may add cgroups limit detection; it will emit a separate
+  `memory.limit_gb` field — additive, no schema bump required
+
+The `WORKER_CGROUP_DENIED` warning fires only when pcq explicitly attempts a
+cgroup read and receives a permission error; it does not fire for the host-view
+path.
+
+### psutil dependency and wheel matrix
+
+psutil is added as a required dependency (DEC-002):
+
+```
+psutil>=5.9
+```
+
+psutil publishes pre-built wheels for all targets pcq supports:
+
+| Wheel target | psutil wheel available |
+|---|---|
+| `manylinux2014_x86_64` | yes |
+| `manylinux2014_aarch64` | yes |
+| `musllinux_1_2_x86_64` | yes |
+| `macosx_11_arm64` (Apple Silicon) | yes |
+| `macosx_10_15_x86_64` (Intel Mac) | yes |
+| `win_amd64` | yes |
+| `win_arm64` | yes |
+
+psutil is pure-Python with a thin C extension; the extension is pre-compiled in
+all wheels above. No compiler is required at install time on any of these
+targets. License: BSD-3-Clause (compatible with Apache-2.0).
+
+When psutil is not available (edge case: source-only install on an exotic
+target), pcq emits `WORKER_PSUTIL_MISSING` and continues with null cpu/memory
+fields — it does not crash.
+
 ## Non-Goals
 
 - reimplementing Lightning, HF Trainer, PyCaret, W&B, MLflow, DVC, or CQ

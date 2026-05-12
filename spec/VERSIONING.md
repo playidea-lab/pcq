@@ -236,3 +236,132 @@ built-in privacy enforcement at the pcq format layer.
 
 pcq will never strip or hash attribution fields on behalf of a caller. The
 format is a neutral carrier; policy is upstream.
+
+## Worker Spec — env precedence + cgroups limit + PII guidance
+
+This section is normative for the `worker_spec` object introduced in
+`run_record.json` / `pcq.describe_run.record`. See [`SPEC.md §
+Worker Spec`](./SPEC.md) for the full schema and field semantics.
+
+### Resolution priority
+
+When pcq writes `run_record.json`, it resolves each worker_spec field using
+the following precedence (first winning source is used):
+
+```
+1. CLI flag (highest — e.g. --worker-cpu-model)
+2. CQ_WORKER_* environment variable
+3. cq.yaml  worker.*  config block
+4. auto-detect (psutil + torch + optional GPUtil)
+5. NULL (field absent or null)    ← lowest
+```
+
+No source is mandatory. If all sources are absent or detection fails,
+`worker_spec` itself is `null` in the output, which is valid under
+`schema_version: 1`.
+
+The `source` audit field reflects which sources contributed:
+
+- `"detected"` — every populated field came from auto-detection
+- `"declared"` — every populated field came from step 2 or 3 (user-supplied)
+- `"merged"` — mix of auto-detected and user-supplied fields
+
+### Environment variables (CQ_WORKER_*)
+
+| Variable | Populated field |
+|---|---|
+| `CQ_WORKER_CPU_MODEL` | `worker_spec.cpu.model` |
+| `CQ_WORKER_CPU_CORES_PHYSICAL` | `worker_spec.cpu.cores_physical` |
+| `CQ_WORKER_CPU_CORES_LOGICAL` | `worker_spec.cpu.cores_logical` |
+| `CQ_WORKER_CPU_MAX_FREQ_MHZ` | `worker_spec.cpu.max_freq_mhz` |
+| `CQ_WORKER_MEMORY_TOTAL_GB` | `worker_spec.memory.total_gb` |
+| `CQ_WORKER_ACCELERATOR_KIND` | `worker_spec.accelerator.kind` |
+| `CQ_WORKER_GPU_MODEL_0` | `worker_spec.accelerator.gpus[0].model` |
+| `CQ_WORKER_GPU_VRAM_GB_0` | `worker_spec.accelerator.gpus[0].vram_gb` |
+| `CQ_WORKER_GPU_CUDA_VERSION` | `worker_spec.accelerator.gpus[0].cuda_version` |
+| `CQ_WORKER_OS_SYSTEM` | `worker_spec.os.system` |
+| `CQ_WORKER_OS_MACHINE` | `worker_spec.os.machine` |
+| `CQ_WORKER_OS_RELEASE` | `worker_spec.os.release` |
+| `CQ_WORKER_CONTAINER_KIND` | `worker_spec.container.kind` (must be one of: `none`, `docker`, `k8s`, `other`) |
+
+### `cq.yaml` worker block (example)
+
+```yaml
+worker:
+  cpu:
+    model: "Apple M2 Pro"
+    cores_physical: 10
+  memory:
+    total_gb: 32
+  accelerator:
+    kind: mps
+  container:
+    kind: none
+```
+
+All sub-keys are optional. Omitted keys fall through to auto-detect or NULL.
+Partial declarations produce `source: "merged"`.
+
+### cgroups host-view limitation
+
+pcq reports **host-view** memory from psutil (`psutil.virtual_memory().total`).
+It does not read cgroups v1 or v2 memory limits at detection time. This is an
+explicit out-of-scope decision (DEC-011):
+
+- In a container, `psutil.virtual_memory()` typically returns the host's physical
+  RAM, not the container's memory limit.
+- pcq records this as `source: "detected"` with no caveats in the field itself.
+- If the container limit differs materially from the host RAM, set
+  `CQ_WORKER_MEMORY_TOTAL_GB` or `cq.yaml.worker.memory.total_gb` to the
+  actual container limit (this produces `source: "merged"`).
+- Future phase: a `memory.limit_gb` field sourced from cgroup may be added
+  additively (no schema_version bump required).
+
+### PII (Personally Identifiable Information) guidance
+
+**R10 — Auto-detection layer (code-level prohibition)**:
+Auto-detection code must NEVER write hostname, IP address, MAC address, or
+user/login name into any `worker_spec` field. This applies unconditionally to
+the `source: "detected"` and `source: "merged"` (auto-detected portion) paths.
+No opt-in overrides this prohibition.
+
+**R14 — Declared path warning (validation layer)**:
+User-supplied values (via `CQ_WORKER_*` or `cq.yaml.worker.*`) are not subject
+to R10 filtering — pcq does not redact them. However, at validation time, pcq
+inspects every free-string `worker_spec` field for patterns that resemble a
+hostname (regex: `\b[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)+\b`). When a match is found
+a severity-3 (L3) warning is added to `validation_report.json`:
+
+```
+code: WORKER_DECLARED_PII_LIKE
+detail: "worker_spec.<field> may contain a hostname or FQDN — review before publishing"
+```
+
+This warning is advisory. It does not block run execution, validation, or
+publication. Consumers (CQ Hub, TheCommons) must apply their own PII policy.
+
+**Recommended practice**:
+
+1. Do not put hostnames, FQDNs, or IP addresses in `cpu.model`,
+   `os.release`, `container.image`, or `container.detector_hint`.
+2. Use an opaque identifier (e.g. `"gpu-node-42"`) when a machine label is
+   needed and the record will be published.
+3. For CI environments, set `CQ_WORKER_CPU_MODEL` and other model fields
+   explicitly so auto-detection is bypassed and the label is predictable.
+
+### Additive-only schema bump policy for `worker_spec`
+
+The `worker_spec` object is an optional additive field at `schema_version: 1`.
+Its internal `schema_version` sub-field tracks the shape of the object:
+
+- Adding new optional keys inside `worker_spec` (e.g. `disk`, `network`) does
+  **not** require a bump of the outer `schema_version`.
+- The `worker_spec.schema_version` counter increments only when a field inside
+  `worker_spec` is *removed or renamed*.
+- The four flat surface fields (`worker_spec_cpu_model`, `worker_spec_memory_gb`,
+  `worker_spec_accelerator_kind`, `worker_spec_gpu_model_0`) are frozen once
+  shipped; new summary fields follow the same flat naming convention and may be
+  added in any minor pcq release.
+
+In practice: worker_spec additions ship as minor pcq releases with no outer
+`schema_version` change.

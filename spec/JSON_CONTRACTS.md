@@ -165,6 +165,78 @@ reserved for a Phase 2 cryptographic endorsement field. It is not part of the
 current contract; parsers should tolerate its presence for forward-compatibility
 but must not depend on it being absent.
 
+#### `worker_spec` object in `pcq.describe_run.record`
+
+The `worker_spec` object is an **optional** sibling of `attribution` in
+`pcq.describe_run.record` (and in the underlying `run_record.json`). When
+present it conforms to this nested shape:
+
+```json
+"worker_spec": {
+  "schema_version": 1,
+  "cpu": {
+    "model": "<string> | null",
+    "cores_physical": "<int> | null",
+    "cores_logical": "<int> | null",
+    "max_freq_mhz": "<number> | null"
+  },
+  "memory": {
+    "total_gb": "<number> | null"
+  },
+  "accelerator": {
+    "kind": "cuda | mps | cpu",
+    "gpus": [
+      {
+        "model": "<string> | null",
+        "vram_gb": "<number> | null",
+        "cuda_version": "<string> | null",
+        "bus_id": "<string> | null",
+        "torch_ordinal": "<int> | null"
+      }
+    ]
+  },
+  "os": {
+    "system": "<string>",
+    "machine": "<string>",
+    "release": "<string> | null"
+  },
+  "container": {
+    "kind": "none | docker | k8s | other",
+    "image": "<string> | null",
+    "detector_hint": "<string> | null"
+  },
+  "source": "detected | declared | merged",
+  "visible_devices": "<string> | null"
+}
+```
+
+When absent, readers must treat `worker_spec` as `null` — the absence is not a
+contract violation. This preserves backward compatibility with run records
+produced before worker_spec was introduced.
+
+**Flat surface**: `pcq describe-run --json` also exposes four top-level flat
+fields for consumers that cannot parse nested objects:
+
+| Flat field | Type | Source path |
+|---|---|---|
+| `worker_spec_cpu_model` | `string \| null` | `worker_spec.cpu.model` |
+| `worker_spec_memory_gb` | `number \| null` | `worker_spec.memory.total_gb` |
+| `worker_spec_accelerator_kind` | `string \| null` | `worker_spec.accelerator.kind` |
+| `worker_spec_gpu_model_0` | `string \| null` | `worker_spec.accelerator.gpus[0].model` (null when gpus is empty) |
+
+These four flat fields are present whenever `worker_spec` is present (even when
+the nested field is partially null). When `worker_spec` itself is null or absent,
+all four flat fields are also null.
+
+**`pcq.compare_runs.diff` passthrough**: When worker_spec is present on both
+runs being compared, `pcq compare-runs A B --json` includes
+`worker_spec_changed: boolean` in its top-level `decision_facts` object — true
+if any field in worker_spec differs between A and B.
+
+**`pcq.run.envelope` passthrough**: `pcq run --json` carries `worker_spec` in
+the envelope at the same path as `run_record.json`, populated at run-start time
+from auto-detection or declared values.
+
 ### `pcq compare-runs A B --json`
 
 Contract name: `pcq.compare_runs.diff`
