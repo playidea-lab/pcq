@@ -248,6 +248,199 @@ pcq apply-plan experiment.plan.json --json
 Use direct project-local code edits when the next experiment needs new research
 logic. Keep those edits in the user project, not in `pcq` internals.
 
+## Metadata APIs (agent-fillable)
+
+`run_record.json` may carry three sibling metadata objects — `attribution`,
+`worker_spec`, and `fingerprint`. Each has a Python API, environment-variable
+overrides, and a `cq.yaml` declared path. Agents should fill them proactively:
+the more complete the record, the higher the evidence quality for downstream
+comparison and matchmaking.
+
+### When to use each API
+
+| API | Recommended action | Call site |
+|---|---|---|
+| `pcq.attribution(...)` | 모든 run에 추천 — `operator`(책임자) 선언이 1순위 | `train.py` 상단, `pcq.config()` 직후 |
+| `pcq.worker_spec()` | 자동 감지됨, 명시 호출 불필요. cfg override 시에만 호출 | 필요한 경우 `train.py` 상단 |
+| `pcq.fingerprint(...)` | data load 직후 한 줄 추가 — `modality` 명시 | `X_train, y_train = load_data()` 바로 아래 |
+
+All three APIs are **additive**: calling them enriches the run record without
+changing the training or metric contract. They are optional at the format
+level, but agents should include them when context is available.
+
+### attribution — operator 신고
+
+```python
+import pcq
+
+cfg = pcq.config()
+
+# operator: 법적·평판 책임을 지는 사람/조직 (에이전트 ID 불가)
+# committer: 실제로 job을 빌드·제출한 주체 (AI agent인 경우 kind="agent")
+pcq.attribution(
+    operator="alice-uuid",          # 필수: 사람 또는 조직 식별자
+    committer_kind="agent",         # "human" | "agent"
+    committer_id="claude-opus-4-7", # agent 모델명 또는 사람 UUID
+)
+```
+
+`author` (의도 기원)와 `committer` (실행 주체)는 Git의 author/committer 관례를
+따릅니다. 사람이 직접 `pcq run`을 실행하면 세 필드 모두 같은 사람입니다.
+
+환경 변수로도 선언 가능 (CI / 컨테이너 환경에 적합):
+
+```bash
+export CQ_ATTRIBUTION_OPERATOR="alice-uuid"
+export CQ_ATTRIBUTION_COMMITTER_KIND="agent"
+export CQ_ATTRIBUTION_COMMITTER_ID="claude-opus-4-7"
+```
+
+### worker_spec — 실행 환경 (자동 감지)
+
+```python
+# 자동 감지가 기본값 — 호출 생략 가능
+# cfg override가 필요할 때만 명시 호출
+pcq.worker_spec()
+```
+
+`pcq`는 `psutil`과 `torch`를 사용해 CPU/메모리/GPU/OS를 자동 감지합니다.
+컨테이너 환경이나 cgroup 제한이 있는 경우 자동 감지값이 부정확할 수 있으며,
+이때는 `CQ_WORKER_*` 환경 변수로 override하세요:
+
+```bash
+export CQ_WORKER_MEMORY_TOTAL_GB=32
+export CQ_WORKER_GPU_MODEL_0="NVIDIA RTX 5080"
+export CQ_WORKER_CONTAINER_KIND="docker"
+```
+
+`source` 필드가 자동으로 `"detected"`, `"declared"`, `"merged"` 중 하나로
+기록되어 어떤 값이 자동 감지인지 명시 선언인지 audit trail이 남습니다.
+
+### fingerprint — 데이터 특성 기록
+
+```python
+import pcq
+
+X_train, y_train = load_data()
+# data load 직후 한 줄 추가
+pcq.fingerprint(X_train, y_train, modality="tabular", task_kind="classification")
+```
+
+`fingerprint`는 PII나 원시 값 없이 데이터셋의 형태(shape), modality, task 종류,
+domain을 기록합니다. Column 이름, raw values, value-level 분포는 **절대** 방출되지
+않습니다.
+
+**modality 자동 판단 규칙** (에이전트용):
+
+| 데이터 타입 | modality 값 |
+|---|---|
+| pandas DataFrame / numpy 2-D array | `"tabular"` |
+| numpy array with shape `[N, H, W, C]` or `[N, H, W]` | `"image"` |
+| `list[str]` 또는 `list[list[str]]` | `"text"` |
+| pandas Series / numpy 1-D with datetime index | `"time_series"` |
+| numpy array with shape `[N, T]` (T = sample count) | `"audio"` |
+| dict with keys `"edge_index"` or `"adjacency"` | `"graph"` |
+| 위에 해당하지 않는 경우 | `"other"` + `other.hint` 추가 |
+
+### 환경 변수 표
+
+세 prefix 그룹으로 구성됩니다. 해결 우선순위:
+`CLI flags > CQ_*_* env vars > cq.yaml 선언 > 자동 감지 > NULL`
+
+#### CQ_ATTRIBUTION_* (8개)
+
+| 변수 | 채우는 필드 |
+|---|---|
+| `CQ_ATTRIBUTION_OPERATOR` | `attribution.operator` |
+| `CQ_ATTRIBUTION_AUTHOR_ID` | `attribution.author.id` |
+| `CQ_ATTRIBUTION_AUTHOR_KIND` | `attribution.author.kind` |
+| `CQ_ATTRIBUTION_COMMITTER_ID` | `attribution.committer.id` |
+| `CQ_ATTRIBUTION_COMMITTER_KIND` | `attribution.committer.kind` |
+| `CQ_ATTRIBUTION_SESSION_ID` | `attribution.session_id` |
+| `CQ_ATTRIBUTION_PERSONA_AUTHOR` | `attribution.author.persona_id` |
+| `CQ_ATTRIBUTION_PERSONA_COMMITTER` | `attribution.committer.persona_id` |
+
+#### CQ_WORKER_* (13개)
+
+| 변수 | 채우는 필드 |
+|---|---|
+| `CQ_WORKER_CPU_MODEL` | `worker_spec.cpu.model` |
+| `CQ_WORKER_CPU_CORES_PHYSICAL` | `worker_spec.cpu.cores_physical` |
+| `CQ_WORKER_CPU_CORES_LOGICAL` | `worker_spec.cpu.cores_logical` |
+| `CQ_WORKER_CPU_MAX_FREQ_MHZ` | `worker_spec.cpu.max_freq_mhz` |
+| `CQ_WORKER_MEMORY_TOTAL_GB` | `worker_spec.memory.total_gb` |
+| `CQ_WORKER_ACCELERATOR_KIND` | `worker_spec.accelerator.kind` |
+| `CQ_WORKER_GPU_MODEL_0` | `worker_spec.accelerator.gpus[0].model` |
+| `CQ_WORKER_GPU_VRAM_GB_0` | `worker_spec.accelerator.gpus[0].vram_gb` |
+| `CQ_WORKER_GPU_CUDA_VERSION` | `worker_spec.accelerator.gpus[0].cuda_version` |
+| `CQ_WORKER_OS_SYSTEM` | `worker_spec.os.system` |
+| `CQ_WORKER_OS_MACHINE` | `worker_spec.os.machine` |
+| `CQ_WORKER_OS_RELEASE` | `worker_spec.os.release` |
+| `CQ_WORKER_CONTAINER_KIND` | `worker_spec.container.kind` |
+
+#### CQ_FINGERPRINT_* (5개)
+
+| 변수 | 채우는 필드 |
+|---|---|
+| `CQ_FINGERPRINT_MODALITY` | `fingerprint.modality` |
+| `CQ_FINGERPRINT_TASK_KIND` | `fingerprint.task_kind` |
+| `CQ_FINGERPRINT_N_SAMPLES` | `fingerprint.n_samples` |
+| `CQ_FINGERPRINT_DOMAIN` | `fingerprint.domain` |
+| `CQ_FINGERPRINT_SAMPLE_ROWS` | stratified sampling row count (default: 100 000) |
+
+### 도메인 게이트 (R5) — medical / financial / regulated
+
+`domain`이 `medical`, `financial`, `regulated` 중 하나인 경우, `pcq.fingerprint()`의
+**자동 추출 경로가 비활성화**됩니다 (R5). 모든 통계 필드는 null로 남으며,
+`FINGERPRINT_DOMAIN_GATE_SKIP` (severity L2) 경고가 `validation_report.json`에
+기록됩니다.
+
+```yaml
+# cq.yaml — 규제 데이터 선언 경로
+fingerprint:
+  modality: tabular
+  task_kind: classification
+  n_samples: 50000
+  domain: medical        # 자동 추출 비활성
+  tabular:
+    n_columns: 25
+    type_counts: { numeric: 20, categorical: 5 }
+    target_balance: 0.91
+  source: declared
+```
+
+**R5b — 휴리스틱 도메인 스니퍼**:
+`domain`이 `"general"` 또는 미설정인 경우, `pcq`는 통계 계산 전에 column 이름을
+medical/financial 키워드 사전과 비교합니다:
+
+- **Medical 키워드**: `diagnosis`, `icd`, `mrn`, `patient`, `clinical`, `ehr`,
+  `dob`, `dod`, `lab_result`, `encounter`, `prescription`
+- **Financial 키워드**: `ssn`, `account_no`, `routing`, `iban`, `credit_score`,
+  `tax_id`, `brokerage`, `portfolio`, `loan_amount`, `transaction_id`
+
+키워드 일치 시 `FINGERPRINT_DOMAIN_SUSPECTED_MEDICAL` 또는
+`FINGERPRINT_DOMAIN_SUSPECTED_FINANCIAL` 경고 (L2)가 발생합니다.
+스니퍼는 advisory only — 자동 추출을 차단하지 않으며, 일치된 column 이름은
+어떤 출력 객체에도 나타나지 않습니다.
+
+> **에이전트 지침**: column 이름에 `patient`, `diagnosis`, `ssn` 등이 보이면
+> `cq.yaml`에 `fingerprint.domain: medical` (또는 `financial`) 을 명시하세요.
+> R5 게이트가 활성화되고 auto-detection 대신 declared path를 사용합니다.
+
+### PII layered policy 요약
+
+| 레이어 | 규칙 | 적용 API |
+|---|---|---|
+| L1 — 형식 금지 (R10) | auto-detection 코드는 절대 column 이름, raw values, 분포, sample rows 방출 불가 | fingerprint |
+| L2 — 도메인 게이트 (R5) | domain ∈ {medical, financial, regulated} → 자동 추출 비활성, declared only | fingerprint |
+| L3 — 휴리스틱 스니퍼 (R5b) | domain = "general"일 때 column 이름 키워드 검사, advisory L2 경고 | fingerprint |
+| L4 — 선언 경로 PII 경고 (R14) | declared/merged 자유 문자열 필드에서 hostname/email/SSN 패턴 감지 시 L3 경고 | fingerprint, worker_spec |
+| worker R10 | auto-detection 코드는 hostname, IP, MAC, 사용자 로그인 이름 방출 불가 | worker_spec |
+| attribution PII 권고 | operator/id에 실제 이메일·이름 대신 UUID 또는 pseudonym 권장 | attribution |
+
+`pcq`는 어떤 필드도 자동으로 redact하거나 hash하지 않습니다.
+Redaction은 소비 시스템(CQ Hub, CI)의 책임입니다.
+
 ## Forbidden Patterns
 
 | Pattern | Why it is bad | Fix |
