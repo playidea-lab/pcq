@@ -458,16 +458,38 @@ JSON_CONTRACTS: dict[str, dict[str, Any]] = {
                 "detail": "string",
             },
         },
+        # warning_codes 아이템 스키마 — items 열거형으로 알려진 코드를 문서화
+        # additionalItems: true — 미래 코드는 하위 호환으로 허용
+        "property_overrides": {
+            "warning_codes": {
+                "type": "array",
+                "items": {
+                    "type": "string",
+                    # 알려진 경고 코드 목록 (추가 코드는 하위 호환으로 허용)
+                    "description": (
+                        "알려진 경고 코드: "
+                        "PII_PATTERN_DETECTED — attribution.operator에 PII 패턴 감지; "
+                        "WORKER_PSUTIL_MISSING — psutil 미설치로 CPU/메모리 정보 수집 불가; "
+                        "WORKER_PSUTIL_PARTIAL — psutil 설치됐으나 일부 정보 누락 (권한 부족 등); "
+                        "WORKER_TORCH_MISSING — torch 미설치로 GPU 정보 수집 불가; "
+                        "WORKER_CGROUP_DENIED — cgroup 접근 거부로 컨테이너 메모리 한도 확인 불가; "
+                        "WORKER_CONTAINER_AMBIGUOUS — 컨테이너 탐지 결과 불확실 (복수 힌트 충돌); "
+                        "WORKER_DECLARED_PII_LIKE — declared worker_spec에 PII 패턴 의심값 포함"
+                    ),
+                    "x-known-values": [
+                        "PII_PATTERN_DETECTED",
+                        "WORKER_PSUTIL_MISSING",
+                        "WORKER_PSUTIL_PARTIAL",
+                        "WORKER_TORCH_MISSING",
+                        "WORKER_CGROUP_DENIED",
+                        "WORKER_CONTAINER_AMBIGUOUS",
+                        "WORKER_DECLARED_PII_LIKE",
+                    ],
+                },
+            },
+        },
         "enums": {
             "status": ["pass", "warn", "fail"],
-            # warning_codes의 알려진 값 — 추가 코드는 하위 호환으로 허용
-            # "PII_PATTERN_DETECTED": attribution.operator에 PII 패턴 감지
-            # "WORKER_PSUTIL_MISSING": psutil 미설치로 CPU/메모리 정보 수집 불가
-            # "WORKER_PSUTIL_PARTIAL": psutil 설치됐으나 일부 정보 누락 (권한 부족 등)
-            # "WORKER_TORCH_MISSING": torch 미설치로 GPU 정보 수집 불가
-            # "WORKER_CGROUP_DENIED": cgroup 파일시스템 접근 거부로 컨테이너 메모리 한도 확인 불가
-            # "WORKER_CONTAINER_AMBIGUOUS": 컨테이너 탐지 결과가 불확실함 (복수 힌트 충돌)
-            # "WORKER_DECLARED_PII_LIKE": declared worker_spec에 PII 패턴으로 의심되는 값 포함
         },
     },
     "pcq.agent_install.result": {

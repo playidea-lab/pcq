@@ -40,7 +40,20 @@
       "type": "string"
     },
     "warning_codes": {
-      "type": "array"
+      "type": "array",
+      "items": {
+        "type": "string",
+        "description": "\uc54c\ub824\uc9c4 \uacbd\uace0 \ucf54\ub4dc: PII_PATTERN_DETECTED \u2014 attribution.operator\uc5d0 PII \ud328\ud134 \uac10\uc9c0; WORKER_PSUTIL_MISSING \u2014 psutil \ubbf8\uc124\uce58\ub85c CPU/\uba54\ubaa8\ub9ac \uc815\ubcf4 \uc218\uc9d1 \ubd88\uac00; WORKER_PSUTIL_PARTIAL \u2014 psutil \uc124\uce58\ub410\uc73c\ub098 \uc77c\ubd80 \uc815\ubcf4 \ub204\ub77d (\uad8c\ud55c \ubd80\uc871 \ub4f1); WORKER_TORCH_MISSING \u2014 torch \ubbf8\uc124\uce58\ub85c GPU \uc815\ubcf4 \uc218\uc9d1 \ubd88\uac00; WORKER_CGROUP_DENIED \u2014 cgroup \uc811\uadfc \uac70\ubd80\ub85c \ucee8\ud14c\uc774\ub108 \uba54\ubaa8\ub9ac \ud55c\ub3c4 \ud655\uc778 \ubd88\uac00; WORKER_CONTAINER_AMBIGUOUS \u2014 \ucee8\ud14c\uc774\ub108 \ud0d0\uc9c0 \uacb0\uacfc \ubd88\ud655\uc2e4 (\ubcf5\uc218 \ud78c\ud2b8 \ucda9\ub3cc); WORKER_DECLARED_PII_LIKE \u2014 declared worker_spec\uc5d0 PII \ud328\ud134 \uc758\uc2ec\uac12 \ud3ec\ud568",
+        "x-known-values": [
+          "PII_PATTERN_DETECTED",
+          "WORKER_PSUTIL_MISSING",
+          "WORKER_PSUTIL_PARTIAL",
+          "WORKER_TORCH_MISSING",
+          "WORKER_CGROUP_DENIED",
+          "WORKER_CONTAINER_AMBIGUOUS",
+          "WORKER_DECLARED_PII_LIKE"
+        ]
+      }
     },
     "warning_count": {
       "type": "integer"
