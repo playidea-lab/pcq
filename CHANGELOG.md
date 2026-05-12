@@ -4,6 +4,72 @@ All notable changes to pcq. Format: [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [4.4.0] — 2026-05-13
+
+> **Attribution: agent-authorship metadata in every RunRecord.**
+>
+> RunRecord now carries a nested `attribution` object (operator, author,
+> committer, session_id, persona) built from eight `CQ_ATTRIBUTION_*`
+> env vars. All six standard artifacts written by `pcq.save_all()` embed
+> the same object. Five conformance fixtures cover the schema contracts.
+> Full backward-compatibility: `attribution` is optional everywhere.
+
+### Added
+- **Nested `attribution` object in `run_record.json`** and all six
+  standard artifacts (`config.json`, `metrics.json`, `manifest.json`,
+  `run_summary.json`, `run_record.json`, `validation_report.json`).
+  Shape: `{operator?, author?, committer?, session_id?, persona?}`.
+  `author` and `committer` each carry `{id, kind}` (e.g.
+  `kind: "agent"` for AI committers).
+- **Four flat surface fields** on `describe-run` output
+  (`attribution_operator`, `attribution_author_id`,
+  `attribution_committer_id`, `attribution_session_id`) for easy
+  `jq`/grep access without nested traversal.
+- **Eight `CQ_ATTRIBUTION_*` env vars** consumed by
+  `pcq.attribution.build_attribution_object()`:
+  `CQ_ATTRIBUTION_OPERATOR`, `CQ_ATTRIBUTION_AUTHOR_ID`,
+  `CQ_ATTRIBUTION_AUTHOR_KIND`, `CQ_ATTRIBUTION_COMMITTER_ID`,
+  `CQ_ATTRIBUTION_COMMITTER_KIND`, `CQ_ATTRIBUTION_SESSION_ID`,
+  `CQ_ATTRIBUTION_PERSONA_AUTHOR`, `CQ_ATTRIBUTION_PERSONA_COMMITTER`.
+- **`describe-run` schema extension** (`schemas/describe_run.py`) —
+  `DescribeRunOutput` now includes `attribution` (nested) and the four
+  flat fields; `schema.json` updated accordingly.
+- **`save_all` integration** — `pcq.save_all()` calls
+  `build_attribution_object()` at write time; the result is embedded in
+  every artifact without callers opting in.
+- **Unit tests R1–R10** (`tests/test_attribution.py`) covering: env var
+  parsing, partial/empty input, nested object shape, flat field
+  injection, `save_all` round-trip, `describe-run` output.
+- **Five conformance fixtures** under `tests/conformance/`:
+  `attribution/baseline`, `attribution/agent-committer`,
+  `attribution/operator-only`, `attribution/empty-env`,
+  `attribution/full` — each with `input.env`, `expected.json`, and
+  the `"..."` placeholder convention from `spec/CONFORMANCE.md`.
+- **`templates/AGENTS.pcq.md`** `## Attribution` section: env var
+  table, agent-launcher auto-fill guidance, and PII warning
+  (`operator` must be pseudonym/UUID, not real email).
+- **`skills/pcq/SKILL.md`** attribution usage pattern section:
+  `describe-run` nested + flat jq examples.
+
+### Backward-compat
+- `attribution` is entirely optional in all schemas. Existing runs
+  without `CQ_ATTRIBUTION_*` env vars produce artifacts identical to
+  4.3.0 — no field is added, no schema validation fails.
+- `pcq.save_all()` signature unchanged; attribution is injected via
+  env vars, not as a new argument.
+- All existing conformance fixtures (non-attribution) continue to pass
+  unchanged.
+
+### Commits (T-PCQ-ATTR-1 through T-PCQ-ATTR-8)
+- `b5f2d7c9` — spec docs (T-1)
+- `88708fab` — describe_run schema (T-2)
+- `65d00c2` — sibling schemas (T-3)
+- `de4bdfd1` — build_attribution_object (T-4)
+- `63b2bb1` — save_all + describe integration (T-5)
+- `69cce0d` — unit tests R1–R10 (T-6)
+- `980f590` — 5 conformance fixtures (T-7)
+- *(this commit)* — CHANGELOG + AGENTS.pcq.md + skills/pcq/SKILL.md (T-8)
+
 ## [4.3.0] — 2026-05-12
 
 > **Contract-first foundation + signed releases.**

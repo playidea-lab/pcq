@@ -173,9 +173,71 @@ A completed agent change should leave:
 - `validation_report.json`
 - clear summary of what changed and what result evidence supports it
 
+## Attribution Usage Pattern
+
+Every run can carry authorship metadata in `run_record.json`.
+Attribution is driven entirely by `CQ_ATTRIBUTION_*` env vars —
+no code changes required.
+
+### Setting up attribution
+
+Set env vars before calling `pcq run` or inside a launcher script:
+
+```bash
+export CQ_ATTRIBUTION_OPERATOR=user-a3f8c1e2        # 식별자 (pseudonym/UUID)
+export CQ_ATTRIBUTION_COMMITTER_KIND=agent
+export CQ_ATTRIBUTION_COMMITTER_ID=claude-sonnet-4-6
+export CQ_ATTRIBUTION_SESSION_ID=sess-9b2d4f1a
+
+pcq run --path . --json
+```
+
+For the full env var table and PII guidance, see
+`templates/AGENTS.pcq.md` → `## Attribution`.
+
+### Accessing attribution in describe-run output
+
+`pcq describe-run <output_dir> --json` exposes attribution in two forms:
+
+**Nested (full object)**:
+
+```bash
+pcq describe-run output/ --json | jq '.attribution'
+# {
+#   "operator": "user-a3f8c1e2",
+#   "committer": {"id": "claude-sonnet-4-6", "kind": "agent"},
+#   "session_id": "sess-9b2d4f1a"
+# }
+```
+
+**Flat surface fields** (top-level, for easy filtering):
+
+```bash
+pcq describe-run output/ --json | jq '{
+  op: .attribution_operator,
+  committer_id: .attribution_committer_id,
+  session: .attribution_session_id
+}'
+```
+
+Filter agent-committed runs across a set of outputs:
+
+```bash
+for d in runs/*/; do
+  pcq describe-run "$d" --json
+done | jq -s '[.[] | select(.attribution_committer_kind=="agent")]'
+```
+
+### Conformance fixtures
+
+Five conformance fixtures under `tests/conformance/attribution/`
+cover the full attribution schema contract: `baseline`,
+`agent-committer`, `operator-only`, `empty-env`, `full`.
+
 ## References
 
 - `docs/CQ_YAML_RUNTIME_CONTRACT.md`
 - `docs/AGENT_OPERATING_GUIDE.md`
 - `docs/JSON_CONTRACTS.md`
 - `docs/STRICTNESS.md`
+- `templates/AGENTS.pcq.md` — env var table + PII guidance
