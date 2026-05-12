@@ -441,6 +441,59 @@ medical/financial 키워드 사전과 비교합니다:
 `pcq`는 어떤 필드도 자동으로 redact하거나 hash하지 않습니다.
 Redaction은 소비 시스템(CQ Hub, CI)의 책임입니다.
 
+## Inference Metric Pattern
+
+inference 시점 표준 키를 사용하면 run 간 비교가 용이해진다. `pcq.log()`는
+자유 키를 허용하지만, 아래 권장 키를 쓰면 cross-run 분석이 편리하다.
+
+### 기본 패턴 (latency / memory)
+
+```python
+import pcq, time, psutil
+
+# Inference loop
+start = time.perf_counter()
+output = model.generate(input, max_tokens=100)
+latency_ms = (time.perf_counter() - start) * 1000
+
+pcq.log(
+    latency_p50_ms=latency_ms,
+    tokens_per_sec=100 / latency_ms * 1000,
+    memory_peak_mb=psutil.Process().memory_info().rss / 1024**2,
+    batch_size=1,
+)
+```
+
+### LLM 스트리밍 변형 (time_to_first_token_ms)
+
+```python
+import pcq, time
+
+# 스트리밍 모드: 첫 토큰 시간과 전체 throughput을 별도 기록
+t0 = time.perf_counter()
+first_token_received = False
+total_tokens = 0
+
+for chunk in model.stream(input):
+    if not first_token_received:
+        ttft_ms = (time.perf_counter() - t0) * 1000
+        first_token_received = True
+    total_tokens += len(chunk.tokens)
+
+total_ms = (time.perf_counter() - t0) * 1000
+
+pcq.log(
+    time_to_first_token_ms=ttft_ms,
+    tokens_per_sec=total_tokens / total_ms * 1000,
+    sequence_length=len(input.tokens),
+    batch_size=1,
+)
+```
+
+These keys are recommended for comparison-friendliness across runs, but
+`pcq.log()` accepts free keys — use whatever is meaningful for your project.
+No validation gate exists for these keys.
+
 ## Forbidden Patterns
 
 | Pattern | Why it is bad | Fix |

@@ -330,6 +330,9 @@ from any detected or declared values available before training begins.
   demonstrates a valid record with `fingerprint: null` and all four flat fields
   null.
 
+Inference metrics (latency, throughput, memory, etc.) live in `metrics.json`
+under recommended key names — see [SPEC.md#inference-metrics](SPEC.md).
+
 ### `pcq compare-runs A B --json`
 
 Contract name: `pcq.compare_runs.diff`

@@ -135,7 +135,11 @@ stdout, and compares against the matcher rules above.
 
 ## What conformance does NOT test
 
-- Performance, memory, latency.
+- Performance, memory, latency — conformance fixtures MAY include the recommended
+  inference metric keys: `latency_p50_ms`, `latency_p95_ms`, `latency_p99_ms`,
+  `latency_mean_ms`, `throughput_qps`, `tokens_per_sec`,
+  `time_to_first_token_ms`, `memory_peak_mb`, `vram_peak_mb`, `batch_size`,
+  `sequence_length` (see [SPEC.md#inference-metrics](SPEC.md)).
 - Correctness of training code (that's the user's project).
 - pcq library internals (those have their own unit tests under
   `tests/`).

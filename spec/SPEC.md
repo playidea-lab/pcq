@@ -1038,6 +1038,36 @@ agent-fillable guidance.
 - k-anonymity / differential privacy noise (Phase 2)
 - TheCommons matching evaluation accuracy measurement (separate cycle)
 
+## Inference Metrics (recommended)
+
+inference 시점에 사용 권장되는 표준 메트릭 키. `metrics.json`에 `pcq.log()`를
+통해 자유롭게 emit할 수 있으며, schema validation은 없음.
+동일한 키 이름을 쓰면 run 간 비교가 용이해진다.
+
+| Key | Unit | Meaning | Applicability |
+|---|---|---|---|
+| `latency_p50_ms` | ms | 50th percentile inference latency | general |
+| `latency_p95_ms` | ms | 95th percentile inference latency | general |
+| `latency_p99_ms` | ms | 99th percentile inference latency | general |
+| `latency_mean_ms` | ms | Mean inference latency | general |
+| `throughput_qps` | queries/sec | Queries processed per second | general |
+| `tokens_per_sec` | tokens/sec | Token throughput | LLM-specific (optional) |
+| `time_to_first_token_ms` | ms | Time to first token (streaming) | LLM streaming (optional) |
+| `memory_peak_mb` | MB | Peak host RAM usage | general |
+| `vram_peak_mb` | MB | Peak GPU VRAM usage | CUDA only |
+| `batch_size` | count | Batch size used during measurement | general |
+| `sequence_length` | count | Input sequence length | LLM-specific (optional) |
+
+These are recommendations, not required. `metrics` remains free-key —
+`pcq.log()` accepts any numeric key. Using the keys above improves
+cross-run comparison-friendliness without adding any validation gate.
+
+**Out of scope for Phase 1** (reserved for future phases):
+
+- validation gate on inference metric keys
+- flat surface fields for inference metrics in `describe-run`
+- helper API (`pcq.log_inference(...)`) wrapping latency capture
+
 ## Non-Goals
 
 - reimplementing Lightning, HF Trainer, PyCaret, W&B, MLflow, DVC, or CQ

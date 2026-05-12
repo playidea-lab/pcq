@@ -403,6 +403,77 @@ Governed by **R10** (fingerprint field retention in run_record),
 **R5b** (suppress column names for sensitive domains unless declared),
 **R14** (domain declaration required for medical/financial data).
 
+## Inference Metrics (v4.7, recommended)
+
+11 recommended keys for benchmarking, profiling, and runtime observability.
+Recommendation only — no validation gate, no schema change. `metrics.json`
+remains free-key; these keys provide a stable vocabulary so comparisons and
+dashboards work across projects.
+
+Emit via `pcq.log(...)` or `@key=value` stdout lines:
+
+```python
+# 학습 루프 내 — @key=value 패턴
+print(f"@latency_p50_ms={p50:.2f} @throughput_qps={qps:.1f}")
+print(f"@memory_peak_mb={mem_mb:.0f} @vram_peak_mb={vram_mb:.0f}")
+
+# 또는 pcq.log() 직접 호출
+pcq.log(
+    batch_size=32,
+    sequence_length=512,
+    latency_mean_ms=18.4,
+    tokens_per_sec=2048.0,
+    time_to_first_token_ms=5.1,
+)
+```
+
+Or via environment / cq.yaml metrics declaration:
+
+```yaml
+# cq.yaml
+metrics:
+  - latency_p50_ms
+  - latency_p95_ms
+  - latency_p99_ms
+  - latency_mean_ms
+  - throughput_qps
+  - tokens_per_sec
+  - time_to_first_token_ms
+  - memory_peak_mb
+  - vram_peak_mb
+  - batch_size
+  - sequence_length
+```
+
+Key reference:
+
+| Key | Unit | Meaning | Usage pattern |
+|-----|------|---------|---------------|
+| `latency_p50_ms` | ms | median request latency | benchmark loop |
+| `latency_p95_ms` | ms | 95th-percentile latency | SLA check |
+| `latency_p99_ms` | ms | 99th-percentile latency | tail-latency audit |
+| `latency_mean_ms` | ms | mean request latency | average perf trend |
+| `throughput_qps` | req/s | queries per second | capacity planning |
+| `tokens_per_sec` | tok/s | token generation throughput | LLM inference |
+| `time_to_first_token_ms` | ms | TTFT — first token latency | streaming UX |
+| `memory_peak_mb` | MB | peak CPU / system RAM usage | OOM prevention |
+| `vram_peak_mb` | MB | peak GPU VRAM usage | GPU fit check |
+| `batch_size` | — | inference batch size | tuning axis |
+| `sequence_length` | — | input sequence length (tokens) | tuning axis |
+
+Notes:
+
+- `latency_*` keys should reflect wall-clock time from request receipt to
+  response completion (excluding network I/O unless stated otherwise).
+- `memory_peak_mb` and `vram_peak_mb` are peak snapshots during the run,
+  not averages. Use `psutil.Process().memory_info().rss / 1e6` and
+  `torch.cuda.max_memory_allocated() / 1e6` respectively.
+- `throughput_qps` and `tokens_per_sec` are complementary: QPS counts
+  requests, tokens/s counts generated tokens. Both can be logged per epoch
+  or per benchmark window.
+- All 11 keys appear in `compare-runs` output when present in both runs,
+  enabling automated regression detection.
+
 ## Examples
 
 ### sklearn — RandomForest on Iris
