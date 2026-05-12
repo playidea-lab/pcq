@@ -1,0 +1,23 @@
+name: huggingface-trainer-contract
+cmd: uv run python examples/contract_huggingface.py
+
+configs:
+  output_dir: output
+  seed: 42
+  model_name: sshleifer/tiny-distilbert-base-uncased-finetuned-sst-2-english
+  epochs: 1
+  lr: 0.00005
+  batch_size: 8
+  n_train: 32
+  n_eval: 16
+  monitor: eval_accuracy
+  mode: max
+  _metrics_declared: [epoch, eval_loss, eval_accuracy]
+
+metrics:
+  - epoch
+  - eval_loss
+  - eval_accuracy
+
+artifacts:
+  - output/

@@ -1,0 +1,25 @@
+name: pytorch-lightning-contract
+cmd: uv run python examples/contract_pytorch_lightning.py
+
+configs:
+  output_dir: output
+  seed: 42
+  in_dim: 16
+  hidden_dim: 32
+  epochs: 2
+  lr: 0.001
+  batch_size: 32
+  n_train: 256
+  n_eval: 64
+  monitor: val_acc
+  mode: max
+  _metrics_declared: [epoch, train_loss, val_loss, val_acc]
+
+metrics:
+  - epoch
+  - train_loss
+  - val_loss
+  - val_acc
+
+artifacts:
+  - output/

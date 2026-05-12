@@ -1,0 +1,24 @@
+name: pytorch-contract
+cmd: uv run python examples/contract_pytorch.py
+
+configs:
+  output_dir: output
+  seed: 42
+  in_dim: 16
+  hidden_dim: 32
+  epochs: 2
+  lr: 0.001
+  batch_size: 32
+  n_train: 256
+  n_eval: 64
+  monitor: eval_acc
+  mode: max
+  _metrics_declared: [epoch, train_loss, eval_acc]
+
+metrics:
+  - epoch
+  - train_loss
+  - eval_acc
+
+artifacts:
+  - output/
