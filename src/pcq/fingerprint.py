@@ -54,16 +54,22 @@ def _size_class(n: int) -> str:
 def _sniff_domain_keyword(columns: list[str]) -> str | None:
     """column 이름에서 의료/금융 키워드를 탐지합니다 (R5b).
 
+    Substring containment 매칭 — 실제 column 이름은 `patient_id`, `mrn_number`,
+    `account_num` 같은 형태가 일반적이므로 exact match는 거의 잡지 못함.
+    R-WFP-4 review WEAKNESS 반영.
+
     Returns:
         "medical" | "financial" | None — 탐지된 도메인 또는 탐지 없음.
     """
-    lower_cols = {c.lower() for c in columns}
-    # 의료 키워드 확인
-    if lower_cols & MEDICAL_KEYWORDS:
-        return "medical"
-    # 금융 키워드 확인
-    if lower_cols & FINANCIAL_KEYWORDS:
-        return "financial"
+    lower_cols = [c.lower() for c in columns]
+    # 의료 키워드 확인 (substring)
+    for col in lower_cols:
+        if any(kw in col for kw in MEDICAL_KEYWORDS):
+            return "medical"
+    # 금융 키워드 확인 (substring)
+    for col in lower_cols:
+        if any(kw in col for kw in FINANCIAL_KEYWORDS):
+            return "financial"
     return None
 
 

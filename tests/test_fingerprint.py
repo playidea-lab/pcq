@@ -608,7 +608,7 @@ def test_MED3_large_data_sample():
     )
 
     # pcq.fingerprint() 를 통한 source=detected_sampled 확인
-    pcq._reset_fingerprint_cache()
+    _pcq_core._reset_fingerprint_cache()
 
     # 소형 테스트 데이터로 sampled 경로 시뮬레이션
     # build_fingerprint_object 에서 sampled=True 이면 source=detected_sampled
