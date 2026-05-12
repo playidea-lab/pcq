@@ -4,6 +4,26 @@ All notable changes to pcq. Format: [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [4.7.0] — 2026-05-13
+
+> Inference metrics recommended keys — pcq scope: format only.
+
+### Added
+- 11 recommended inference metric keys: latency_p50_ms, latency_p95_ms,
+  latency_p99_ms, latency_mean_ms, throughput_qps, tokens_per_sec,
+  time_to_first_token_ms, memory_peak_mb, vram_peak_mb, batch_size,
+  sequence_length
+- spec/SPEC.md `## Inference Metrics (recommended)` section
+- docs/AGENT_OPERATING_GUIDE.md `## Inference Metric Pattern` section
+- spec/CONFORMANCE.md updated to list recommended keys
+- site/llms.txt + llms-full.txt list the keys
+- agent_assets mirror sync (T-DOCS-6 cleanup pattern)
+
+### Notes
+- Recommendation only — no validation, no schema change. metrics.json
+  remains free-key.
+- Out of scope: validation gate, flat surface, helper API (Phase 2)
+
 ## [4.6.0] — 2026-05-13
 
 > **Fingerprint: dataset identity axis — matchmaker 3-축 완성 (행위자 + 컴퓨터 + 문제).**
