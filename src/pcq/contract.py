@@ -908,7 +908,7 @@ def _atomic_write_json(target: Path, payload: dict) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
     tmp = target.parent / f".{target.name}.tmp.{uuid.uuid4().hex[:8]}"
     tmp.write_text(
-        json.dumps(payload, indent=2, default=str), encoding="utf-8"
+        json.dumps(payload, indent=2, sort_keys=True, default=str), encoding="utf-8"
     )
     os.replace(str(tmp), str(target))
 

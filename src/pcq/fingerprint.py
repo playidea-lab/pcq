@@ -124,8 +124,9 @@ def extract_tabular(
     if columns and domain == "general":
         suspected = _sniff_domain_keyword(columns)
         if suspected is not None:
+            code = f"FINGERPRINT_DOMAIN_SUSPECTED_{suspected.upper()}"
             return {}, [_make_warning(
-                "FINGERPRINT_DOMAIN_SUSPECTED_MEDICAL",
+                code,
                 f"column 이름에서 {suspected} 도메인 키워드가 감지되었습니다. "
                 "domain='general'이지만 민감 데이터가 의심됩니다. "
                 "cq.yaml에 domain을 명시하거나 declared 경로를 사용하세요.",
@@ -190,7 +191,7 @@ def extract_tabular(
 
         if isinstance(X_work, pd.DataFrame):
             n_columns = len(X_work.columns)
-            for dtype in X_work.dtypes:
+            for col_name, dtype in X_work.dtypes.items():
                 dt = str(dtype)
                 if "int" in dt or "float" in dt or "complex" in dt:
                     type_counts["numeric"] += 1
@@ -203,7 +204,7 @@ def extract_tabular(
                     else:
                         # 첫 번째 non-null 값의 평균 길이로 text/categorical 구분
                         try:
-                            sample_strs = X_work[dtype.name].dropna().head(100).astype(str)  # type: ignore[index]
+                            sample_strs = X_work[col_name].dropna().head(100).astype(str)
                             avg_len = sample_strs.str.len().mean()
                             if avg_len > 50:
                                 type_counts["text"] += 1
