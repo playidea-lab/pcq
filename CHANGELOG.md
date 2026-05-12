@@ -4,26 +4,79 @@ All notable changes to pcq. Format: [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [4.3.0] — 2026-05-12
+
+> **Contract-first foundation + signed releases.**
+>
+> 4.3.0 promotes everything accumulated since 4.2.0 into the first
+> signed PyPI release: the contract spec moved into `spec/`, the live
+> conformance suite, the IMPLEMENTATIONS registry, the Glama-verified
+> MCP server image, a Korean landing page, and (with this release) the
+> sigstore / SLSA-provenance publish pipeline itself.
+
 ### Added
-- **Signed releases (sigstore) + SLSA provenance attestations.** Starting
-  with the next tagged release, wheel + sdist on PyPI are signed and
+- **Contract specification under [`spec/`](spec/INDEX.md).** Five spec
+  docs (`SPEC`, `JSON_CONTRACTS`, `CQ_YAML_RUNTIME_CONTRACT`,
+  `STRICTNESS`, `CQ_MCP_SPEC`) moved out of `docs/` (redirect stubs
+  left in place), plus new [`VERSIONING.md`](spec/VERSIONING.md)
+  (additive-only within MAJOR, deprecation timeline, two-MAJOR
+  coexistence), [`CONFORMANCE.md`](spec/CONFORMANCE.md) (golden pair
+  format, `"..."` placeholder matcher), and
+  [`IMPLEMENTATIONS.md`](spec/IMPLEMENTATIONS.md) (Python reference +
+  CQ Go production worker registered).
+- **Auto-exported JSON Schemas** at [`spec/schemas/`](spec/schemas/),
+  one per `JSON_CONTRACTS` registry entry, driven by
+  [`scripts/export_schemas.py`](scripts/export_schemas.py). CI guards
+  drift via the new `spec-drift` job.
+- **Live conformance suite** at [`tests/conformance/`](tests/conformance/).
+  Two cases (`pcq.run.envelope/config_only`,
+  `pcq.describe_run.record/sklearn-baseline`) invoke pcq via
+  subprocess and compare stdout JSON against `expected.json` with the
+  matcher in `spec/CONFORMANCE.md`. 7 tests pass on every PR.
+- **MCP server Dockerfile** at the repo root — `python:3.12-slim`
+  base, non-root user, `pip install 'pcq[mcp]'` from PyPI, ENTRYPOINT
+  `pcq mcp serve` on stdio. Glama uses this for verification.
+- **Glama listing** — pcq is now
+  [verified on Glama](https://glama.ai/mcp/servers/playidea-lab/pcq).
+  Includes [`glama.json`](glama.json) for code-first claim and a
+  score badge in README + site hero.
+- **Korean landing page** at
+  [`site/index.ko.html`](site/index.ko.html), with hreflang routing,
+  `og:locale_alternate`, `JSON-LD inLanguage`, sitemap alternates,
+  and an `EN`/`한국어` toggle in both nav bars.
+- **`Compare`, `Case studies`, `Roadmap`** sections on the site
+  (`#compare`, `#case-studies`, `#roadmap`). Production-dogfood
+  evidence linked from the catalog.
+- **Signed releases (sigstore) + SLSA provenance attestations.**
+  Starting with this release, wheel + sdist on PyPI are signed and
   ship with build-provenance attestations via
-  [`.github/workflows/release.yml`](.github/workflows/release.yml). PyPI
-  Trusted Publishing is used (no long-lived API token). Verify with
+  [`.github/workflows/release.yml`](.github/workflows/release.yml).
+  PyPI Trusted Publishing is used (no long-lived API token). Verify:
   `gh attestation verify <wheel> --owner playidea-lab`.
-- [`SECURITY.md`](SECURITY.md): supported versions, private vulnerability
-  reporting via GitHub Security Advisories, in-scope / out-of-scope
-  surfaces, single-maintainer response targets.
+- [`SECURITY.md`](SECURITY.md) — supported versions, private
+  vulnerability reporting via GitHub Security Advisories, in-scope /
+  out-of-scope surfaces, single-maintainer response targets.
 - GitHub Release auto-generation from the matching `CHANGELOG.md`
   section on every `v*.*.*` tag push.
 
 ### Changed
-- (none)
+- README, `site/agent-manifest.json`, `site/llms.txt`,
+  `site/llms-full.txt`: top-of-page identity rewritten as
+  *"pcq is the contract for agent-run ML experiments. The Python
+  package is the reference implementation."* — replacing the v3-era
+  *"Apache-2.0 Python library for…"* phrasing across all five external
+  entry points.
+- Site hero now leads with **"Your AI agent needs evidence. Your
+  experiments need a contract."** Connect section collapsed from two
+  side-by-side cards to a single MCP-runtime card (the duplicated
+  Claude/Codex blocks were structurally identical).
 
 ### Notes
 - PyPI Trusted Publishing must be enabled once at
   https://pypi.org/manage/project/pcq/settings/publishing/ (one-time
   maintainer setup, no token).
+- This is the first pcq release with sigstore signatures and SLSA
+  provenance. Previous releases (≤ 4.2.0) are unsigned.
 
 ## [4.2.0] — 2026-05-10
 
