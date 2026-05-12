@@ -747,12 +747,12 @@ matchmaking input.
 | `graph` | Node-edge structures (social, molecule, knowledge graph) |
 | `other` | Any modality not covered above; **must** carry a free-form sub-object |
 
-When `modality = "other"`, a `modality_other` sub-object **must** be included
+When `modality = "other"`, a `other` sub-object **must** be included
 alongside the standard modality-specific blocks. This sub-object is the Phase 2
 multimodal absorption hook (DEC-014):
 
 ```json
-"modality_other": {
+"other": {
   "hint": "multimodal-vision-language",
   "payload": { "n_image_tokens": 256, "n_text_tokens": 128 }
 }
@@ -946,7 +946,7 @@ No matched names or keywords appear in any output object.
 
 **Layer 4 — R14, declared path PII warning**:
 When `source ∈ {"declared", "merged"}`, any free-string field (including
-`modality_other.hint`, `modality_other.payload` serialized, and any future
+`other.hint`, `other.payload` serialized, and any future
 extension string fields) is inspected for patterns that resemble a hostname,
 email address, or SSN-shape (`\d{3}-\d{2}-\d{4}`). On a match, a severity-3
 (L3) warning is added to `validation_report.json`:
@@ -996,7 +996,7 @@ Agent modality detection rules:
 - pandas Series or numpy 1-D with datetime index → `modality="time_series"`
 - numpy array with shape `[N, T]` where T is known sample count → `modality="audio"`
 - dict with keys `"edge_index"` or `"adjacency"` → `modality="graph"`
-- anything else → `modality="other"` + populate `modality_other.hint`
+- anything else → `modality="other"` + populate `other.hint`
 ```
 
 The agent runtime asset is written to `templates/AGENTS.pcq.md` (and the

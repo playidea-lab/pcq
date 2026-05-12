@@ -282,7 +282,7 @@ The `fingerprint` object is an **optional** sibling of `attribution` and
     "n_edges": "<int> | null",
     "n_node_features": "<int> | null"
   },
-  "modality_other": {
+  "other": {
     "hint": "<string>",
     "payload": "<object>"
   }
@@ -292,7 +292,7 @@ The `fingerprint` object is an **optional** sibling of `attribution` and
 Only the modality-specific sub-object matching `fingerprint.modality` is
 expected to be populated. Other modality sub-objects may be absent or null.
 
-When `modality = "other"`, `modality_other` **must** be present with at least
+When `modality = "other"`, `other` **must** be present with at least
 the `hint` field; `payload` may be an empty object `{}`.
 
 When absent, readers must treat `fingerprint` as `null` — the absence is not a

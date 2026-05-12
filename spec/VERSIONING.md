@@ -472,8 +472,8 @@ object. On a keyword hit while `domain = "general"`:
 **Layer 4 — R14, declared path PII warning (validation level)**:
 User-supplied values (via `CQ_FINGERPRINT_*` or `cq.yaml.fingerprint.*`) are
 not subject to R10 filtering. However, at validation time, pcq inspects every
-free-string `fingerprint` field (including `modality_other.hint` and the
-serialized `modality_other.payload`) for patterns that resemble a hostname
+free-string `fingerprint` field (including `other.hint` and the
+serialized `other.payload`) for patterns that resemble a hostname
 (`\b[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)+\b`), email address (`\S+@\S+\.\S+`), or
 SSN-shape (`\d{3}-\d{2}-\d{4}`). On a match, a severity-3 (L3) warning is
 added:
@@ -513,7 +513,7 @@ Following the same pattern as `worker_spec` cgroups-host-view limitation
 - modality (7 enum), task_kind (10 enum), size_class (4 buckets), domain (5
   enum), source (4 enum)
 - Tabular, image, text, time_series, audio, graph modality sub-objects
-- `modality_other` free-form sub-object (multimodal Phase 2 absorption hook)
+- `other` free-form sub-object (multimodal Phase 2 absorption hook)
 - PII 4-layer policy (R10 + R5 + R5b + R14)
 - R15 deterministic output (byte-identical, sorted iteration, tie-break rules)
 - Stratified sampling for large/huge datasets (detected_sampled path)
@@ -522,7 +522,7 @@ Following the same pattern as `worker_spec` cgroups-host-view limitation
 
 **Out of scope for 1.0** (reserved for future phases):
 - k-anonymity / differential privacy noise on statistics (Phase 2)
-- Formal multimodal support beyond `modality_other` free-form (Phase 2)
+- Formal multimodal support beyond `other` free-form (Phase 2)
 - RL task kinds (Phase 2)
 - Domain enum expansion: legal, biotech, etc. (Phase 2)
 - Multi-target tabular support (Phase 2)
