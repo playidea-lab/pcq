@@ -75,6 +75,12 @@ class RunDescription:
     reproducibility_evidence: dict = field(default_factory=dict)
     decision_facts: dict = field(default_factory=dict)
     failure: dict | None = None
+    # attribution — v3.0: 중첩 객체 + 플랫 표면 (에이전트 쿼리 편의)
+    attribution: dict | None = None
+    attribution_author_kind: str | None = None
+    attribution_committer_kind: str | None = None
+    attribution_operator: str | None = None
+    attribution_session_id: str | None = None
 
     def to_dict(self) -> dict:
         out: dict = {}
@@ -357,6 +363,17 @@ def describe_run(output_dir: str | Path) -> RunDescription:
         failure = rs.get("failure")
         if failure:
             desc.failure = failure
+
+    # attribution — run_record 의 중첩 객체를 그대로 보존하고 플랫 표면도 노출.
+    raw_attribution = rr.get("attribution")
+    if isinstance(raw_attribution, dict):
+        desc.attribution = raw_attribution
+        author = raw_attribution.get("author") or {}
+        committer = raw_attribution.get("committer") or {}
+        desc.attribution_author_kind = author.get("kind") or None
+        desc.attribution_committer_kind = committer.get("kind") or None
+        desc.attribution_operator = raw_attribution.get("operator") or None
+        desc.attribution_session_id = raw_attribution.get("session_id") or None
 
     desc.decision_facts = _decision_facts(desc)
 

@@ -1223,6 +1223,14 @@ def save_all(
     parent_run_path: str | None = None,
     output_dir: str | Path | None = None,
     project_root: str | Path | None = None,
+    operator: str | None = None,
+    author_id: str | None = None,
+    author_kind: str | None = None,
+    committer_id: str | None = None,
+    committer_kind: str | None = None,
+    session_id: str | None = None,
+    persona_id_author: str | None = None,
+    persona_id_committer: str | None = None,
 ) -> dict[str, Path]:
     """5+ 개 표준 artifact 묶음 작성. contract script 마지막 한 줄로 사용.
 
@@ -1233,6 +1241,8 @@ def save_all(
     까지 생성. False 로 하면 v1.15 동작 유지.
     v1.18: parent_run_id / parent_run_path 인자 — finalize_run 으로 그대로 전달.
     v2.5: output_dir / project_root 명시 인자 — finalize_run 으로 그대로 전달.
+    v3.0: attribution 인자 — build_attribution_object() 로 결정 후 finalize_run 에 전달.
+          명시 인자 없으면 환경변수(CQ_ATTRIBUTION_*) 자동 폴백. 둘 다 없으면 생략.
 
     Returns:
         {"config", "metrics", "manifest", "run_summary"} 항상.
@@ -1263,6 +1273,17 @@ def save_all(
         ),
     }
     if finalize:
+        # v3.0: attribution 객체를 한 번만 결정한 뒤 finalize_run 에 전달.
+        attribution_obj = build_attribution_object(
+            operator=operator,
+            author_id=author_id,
+            author_kind=author_kind,
+            committer_id=committer_id,
+            committer_kind=committer_kind,
+            session_id=session_id,
+            persona_id_author=persona_id_author,
+            persona_id_committer=persona_id_committer,
+        )
         rr_path = finalize_run(
             history=history,
             status=status,
@@ -1274,6 +1295,7 @@ def save_all(
             parent_run_path=parent_run_path,
             output_dir=output_dir,
             project_root=project_root,
+            attribution=attribution_obj,
         )
         paths["run_record"] = rr_path
         vr_path = rr_path.parent / "validation_report.json"
