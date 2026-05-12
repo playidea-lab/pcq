@@ -234,10 +234,63 @@ Five conformance fixtures under `tests/conformance/attribution/`
 cover the full attribution schema contract: `baseline`,
 `agent-committer`, `operator-only`, `empty-env`, `full`.
 
+## Worker Spec Usage Pattern
+
+Every run can record hardware and runtime environment metadata in
+`run_record.json`. Worker spec is built automatically (psutil + torch) and
+optionally overridden by 13 `CQ_WORKER_*` env vars — no code changes required.
+
+### Accessing worker_spec in describe-run output
+
+`pcq describe-run <output_dir> --json` exposes worker spec in two forms:
+
+**Nested (full object)**:
+
+```bash
+pcq describe-run output/ --json | jq '.worker_spec'
+# {
+#   "schema_version": 1,
+#   "cpu": {"model": "Intel Core i9-14900K", "cores_physical": 24, "cores_logical": 32, "max_freq_mhz": 5800},
+#   "memory": {"total_gb": 64.0},
+#   "accelerator": {"kind": "cuda", "gpus": [{"model": "NVIDIA RTX 5080", "vram_gb": 16.0}]},
+#   "os": {"system": "Linux", "machine": "x86_64"},
+#   "container": {"kind": "docker"},
+#   "source": "detected"
+# }
+```
+
+**Flat surface fields** (top-level, for easy filtering):
+
+```bash
+pcq describe-run output/ --json | jq '{
+  cpu: .worker_spec_cpu_model,
+  memory: .worker_spec_memory_gb,
+  accel: .worker_spec_accelerator_kind,
+  gpu0: .worker_spec_gpu_model_0
+}'
+```
+
+### Filtering runs by hardware
+
+```bash
+# cuda GPU가 있는 실행만 선택
+for d in runs/*/; do
+  pcq describe-run "$d" --json
+done | jq -s '[.[] | select(.worker_spec_accelerator_kind=="cuda")]'
+
+# 특정 GPU 모델로 필터
+for d in runs/*/; do
+  pcq describe-run "$d" --json
+done | jq -s '[.[] | select(.worker_spec_gpu_model_0 | test("RTX 5080"))]'
+```
+
+For the full env var table, cgroups host-view warning, and PII guidance, see
+`templates/AGENTS.pcq.md` → `## Worker Spec`.
+
 ## References
 
 - `docs/CQ_YAML_RUNTIME_CONTRACT.md`
 - `docs/AGENT_OPERATING_GUIDE.md`
 - `docs/JSON_CONTRACTS.md`
 - `docs/STRICTNESS.md`
-- `templates/AGENTS.pcq.md` — env var table + PII guidance
+- `templates/AGENTS.pcq.md` — env var table + PII guidance + Worker Spec

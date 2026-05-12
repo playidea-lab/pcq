@@ -143,6 +143,108 @@ pcq run --path . --json
 > `run_record.json` is logged, version-controlled, and potentially
 > shared. PII in attribution fields cannot be redacted retroactively.
 
+## Worker Spec
+
+Every `run_record.json` (and all six standard artifacts) can carry a
+`worker_spec` object capturing the **hardware and runtime environment** of the
+machine that executed the run. This enables reproducibility auditing,
+performance regression triage, and worker-class filtering across run sets.
+
+`worker_spec` is built automatically at run time via psutil + torch introspection,
+optionally overridden or extended by 13 `CQ_WORKER_*` env vars.
+
+### Schema summary
+
+```
+worker_spec
+├── cpu?             { model?, cores_physical?, cores_logical?, max_freq_mhz? }
+├── memory?          { total_gb? }
+├── accelerator      { kind, gpus[], visible_devices? }   # kind: mps|cuda|cpu
+├── os?              { system, machine, release? }
+├── container        { kind, image?, detector_hint? }     # kind: none|docker|k8s|other
+└── source           "detected" | "declared" | "merged"
+```
+
+`source` indicates how the spec was produced:
+- `detected` — fully auto-detected (psutil + torch)
+- `declared` — taken entirely from `CQ_WORKER_*` env vars
+- `merged`   — env vars override partial auto-detection
+
+### Env var table
+
+Set these before invoking `pcq run` (or inside your launcher script). All
+variables are optional; omit any you do not need. When set, they take
+precedence over auto-detected values.
+
+| Variable | Maps to | Example value |
+|---|---|---|
+| `CQ_WORKER_CPU_MODEL` | `cpu.model` | `Intel Core i9-14900K` |
+| `CQ_WORKER_CORES_PHYSICAL` | `cpu.cores_physical` | `24` |
+| `CQ_WORKER_CORES_LOGICAL` | `cpu.cores_logical` | `32` |
+| `CQ_WORKER_MAX_FREQ_MHZ` | `cpu.max_freq_mhz` | `5800` |
+| `CQ_WORKER_MEMORY_TOTAL_GB` | `memory.total_gb` | `64.0` |
+| `CQ_WORKER_ACCELERATOR_KIND` | `accelerator.kind` | `cuda` |
+| `CQ_WORKER_GPU_MODEL_0` | `accelerator.gpus[0].model` | `NVIDIA RTX 5080` |
+| `CQ_WORKER_GPU_VRAM_GB_0` | `accelerator.gpus[0].vram_gb` | `16.0` |
+| `CQ_WORKER_GPU_CUDA_VERSION` | `accelerator.gpus[0].cuda_version` | `12.4` |
+| `CQ_WORKER_OS_SYSTEM` | `os.system` | `Linux` |
+| `CQ_WORKER_OS_MACHINE` | `os.machine` | `x86_64` |
+| `CQ_WORKER_OS_RELEASE` | `os.release` | `6.8.0-51-generic` |
+| `CQ_WORKER_CONTAINER_KIND` | `container.kind` | `docker` |
+
+### cq launcher / Claude Code auto-fill example
+
+```bash
+# 예: CQ launcher 또는 Claude Code가 pcq를 호출하기 전에 설정
+export CQ_WORKER_CPU_MODEL="$(python -c 'import cpuinfo; print(cpuinfo.get_cpu_info()[\"brand_raw\"])' 2>/dev/null || echo '')"
+export CQ_WORKER_ACCELERATOR_KIND=cuda
+export CQ_WORKER_GPU_MODEL_0="NVIDIA RTX 5080"
+export CQ_WORKER_GPU_VRAM_GB_0=16.0
+export CQ_WORKER_CONTAINER_KIND=docker   # 컨테이너 안에서 실행 중인 경우
+
+pcq run --path . --jsonl
+```
+
+When psutil is installed (`uv add psutil` or `pip install psutil`), most CPU
+and memory fields are auto-detected without any env vars.
+
+> **WARNING — cgroups host-view limitation**: `memory.total_gb` reflects
+> the **host machine's total RAM**, not the memory limit imposed by the
+> container runtime. Inside a Docker or k8s container, cgroups memory limits
+> are not automatically reflected in `worker_spec.memory.total_gb`.
+>
+> If you need the container's effective memory limit (e.g. for OOM
+> threshold planning), use `CQ_WORKER_MEMORY_TOTAL_GB` to declare the
+> actual cgroup limit as a declared override.
+
+### Warning codes
+
+`pcq validate-run` and `pcq validate` emit the following worker-spec warning
+codes in `validation_report.json`. All are non-blocking (they lower the report
+status to `warn` but do not fail validation).
+
+| Code | Meaning |
+|---|---|
+| `WORKER_PSUTIL_MISSING` | psutil not installed; CPU/memory info not collected |
+| `WORKER_PSUTIL_PARTIAL` | psutil installed but some fields unavailable (permission denied etc.) |
+| `WORKER_TORCH_MISSING` | torch not installed; GPU info not collected |
+| `WORKER_CGROUP_DENIED` | cgroup read denied; container memory limit not reflected in `total_gb` |
+| `WORKER_CONTAINER_AMBIGUOUS` | multiple container detection hints conflict; `container.kind` may be wrong |
+| `WORKER_DECLARED_PII_LIKE` | declared `worker_spec` free-text field contains hostname-shaped pattern |
+
+### R14 PII warning
+
+> **WARNING**: Free-text fields in `worker_spec` (such as `cpu.model`,
+> `os.release`, or `container.image`) populated via `CQ_WORKER_*` env vars
+> or declared overrides may inadvertently contain hostname-shaped strings
+> (e.g. `my-laptop.corp.example.com`). These are flagged as
+> `WORKER_DECLARED_PII_LIKE` at L3+.
+>
+> - If your CPU model string or container image tag embeds a hostname, use
+>   an anonymised alias (e.g. `worker-node-42` instead of the real hostname).
+> - Auto-detected values (psutil / torch) do not contain hostnames and are
+>   not subject to this warning.
+
 ## Do Not
 
 - Do not write artifacts to a hard-coded `output/` path.

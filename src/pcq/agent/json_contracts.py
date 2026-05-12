@@ -476,7 +476,7 @@ JSON_CONTRACTS: dict[str, dict[str, Any]] = {
                         "WORKER_CONTAINER_AMBIGUOUS — 컨테이너 탐지 결과 불확실 (복수 힌트 충돌); "
                         "WORKER_DECLARED_PII_LIKE — declared worker_spec에 PII 패턴 의심값 포함"
                     ),
-                    "x-known-values": [
+                    "x-pcq-known-values": [
                         "PII_PATTERN_DETECTED",
                         "WORKER_PSUTIL_MISSING",
                         "WORKER_PSUTIL_PARTIAL",

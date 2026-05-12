@@ -4,6 +4,104 @@ All notable changes to pcq. Format: [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [4.5.0] — 2026-05-13
+
+> **Worker Spec: hardware fingerprint embedded in every RunRecord.**
+>
+> `run_record.json` now carries a nested `worker_spec` object (cpu, memory,
+> accelerator, os, container, source) built from 13 `CQ_WORKER_*` env vars
+> or auto-detected at runtime via psutil + torch. Four flat surface fields
+> on `describe-run` output allow easy `jq`/grep access without nested
+> traversal. Six warning codes cover partial/missing detection. Full
+> backward-compatibility: `worker_spec` is optional everywhere.
+
+### Added
+- **Nested `worker_spec` object in `run_record.json`** and all six
+  standard artifacts. Shape: `{schema_version, cpu?, memory?, accelerator,
+  os?, container, source}`. `source` is one of `"detected"`,
+  `"declared"`, or `"merged"`.
+- **Four flat surface fields** on `describe-run` output
+  (`worker_spec_cpu_model`, `worker_spec_memory_gb`,
+  `worker_spec_accelerator_kind`, `worker_spec_gpu_model_0`) for easy
+  `jq`/grep access without nested traversal.
+- **13 `CQ_WORKER_*` env vars** consumed by
+  `pcq.worker_spec.build_worker_spec()`:
+  `CQ_WORKER_CPU_MODEL`, `CQ_WORKER_CORES_PHYSICAL`,
+  `CQ_WORKER_CORES_LOGICAL`, `CQ_WORKER_MAX_FREQ_MHZ`,
+  `CQ_WORKER_MEMORY_TOTAL_GB`, `CQ_WORKER_ACCELERATOR_KIND`,
+  `CQ_WORKER_GPU_MODEL_0`, `CQ_WORKER_GPU_VRAM_GB_0`,
+  `CQ_WORKER_GPU_CUDA_VERSION`, `CQ_WORKER_OS_SYSTEM`,
+  `CQ_WORKER_OS_MACHINE`, `CQ_WORKER_OS_RELEASE`,
+  `CQ_WORKER_CONTAINER_KIND`.
+- **4-enum container kind** field (`none` / `docker` / `k8s` / `other`)
+  auto-detected from `/proc/1/cgroup`, `/.dockerenv`, k8s service env vars,
+  and host process tree heuristics.
+- **GPU determinism** — `gpus[]` array ordered by PCI bus_id (NVML),
+  falling back to `torch_ordinal` then `CUDA_VISIBLE_DEVICES` /
+  `NVIDIA_VISIBLE_DEVICES` parse order. `bus_id` is exposed for
+  reproducibility auditing.
+- **6 warning codes** added to `validation_report.json`:
+  `WORKER_PSUTIL_MISSING` (psutil not installed),
+  `WORKER_PSUTIL_PARTIAL` (psutil installed but some fields unavailable),
+  `WORKER_TORCH_MISSING` (torch not installed, GPU info not collected),
+  `WORKER_CGROUP_DENIED` (cgroup read denied, container memory limit
+  not reflected),
+  `WORKER_CONTAINER_AMBIGUOUS` (multiple detection hints conflict),
+  `WORKER_DECLARED_PII_LIKE` (declared `worker_spec` contains
+  hostname-shaped string pattern in free-text fields).
+- **`psutil` dependency** added to `pyproject.toml` extras; auto-detected
+  paths use it for CPU model, core counts, memory total, and freq.
+- **`describe-run` schema extension** — `DescribeRunOutput` now includes
+  `worker_spec` (nested) and the four flat fields.
+- **Unit tests R11–R15** (`tests/test_worker_spec.py`) covering:
+  env var parsing, psutil fallback, GPU ordinal, container detection,
+  and PII warning emission.
+- **Two conformance fixtures** under `tests/conformance/worker_spec/`:
+  `baseline` (cpu+gpu+container) and `declared` (env-override path).
+- **`templates/AGENTS.pcq.md`** `## Worker Spec` section: env var
+  table, cgroups host-view warning, 6 warning codes table, and R14 PII
+  guidance for declared overrides.
+- **`skills/pcq/SKILL.md`** worker spec usage pattern section:
+  nested and flat jq examples, cross-reference to AGENTS.pcq.md.
+- **Cleanup**: `x-known-values` → `x-pcq-known-values` in
+  `json_contracts.py` and all exported `spec/schemas/*.schema.json`
+  to follow the project's `x-pcq-*` extension convention.
+
+### Changed
+- `export_schemas.py` preserves `x-pcq-*` extension keys from
+  `property_overrides` verbatim (no key mangling).
+
+### Notes
+- **T-3 commit message clarification**: the `worker_spec_changed` bullet
+  in the T-3 commit (`6265da5`, sibling schemas + warning codes) was
+  drafted before T-2 (`18e3a812`, describe_run schema) landed;
+  the actual `worker_spec` field on `DescribeRunOutput` was introduced
+  in T-2, not T-3. No code changes needed — this note is for audit trail.
+- **`agent_assets` mirror**: `src/pcq/agent_assets/{AGENTS.pcq.md,SKILL.md}`
+  is kept in sync with `templates/AGENTS.pcq.md` and `skills/pcq/SKILL.md`;
+  T-5 (`63da7e6`) introduced the mirror and synced the initial worker_spec
+  content. T-8 (this commit) re-syncs after adding the new sections.
+
+### Backward-compat
+- `worker_spec` is entirely optional in all schemas. Existing runs
+  without `CQ_WORKER_*` env vars and without psutil/torch produce
+  artifacts identical to 4.4.0 — no field is added, no schema validation
+  fails.
+- `pcq.save_all()` signature unchanged; worker_spec is injected via
+  env vars + auto-detection, not as a new argument.
+- All existing conformance fixtures (non-worker_spec) continue to pass
+  without modification.
+
+### Commits
+- `a48e283` — spec docs + psutil dep (T-WSPEC-1)
+- `18e3a812` — describe_run schema extension (T-WSPEC-2)
+- `6265da5` — sibling schemas + 6 warning codes (T-WSPEC-3)
+- `b32ad44` — contract.py builder (T-WSPEC-4)
+- `63da7e6` — core detection + describe integration + L3 PII (T-WSPEC-5)
+- `390335c` — 15 unit tests (T-WSPEC-6)
+- `f64031a` — 2 conformance fixtures (T-WSPEC-7)
+- *(this)* — CHANGELOG + AGENTS.pcq.md + SKILL.md + 3 cleanup (T-WSPEC-8)
+
 ## [4.4.0] — 2026-05-13
 
 > **Attribution: agent-authorship metadata in every RunRecord.**
