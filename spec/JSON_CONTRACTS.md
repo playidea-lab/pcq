@@ -237,6 +237,99 @@ if any field in worker_spec differs between A and B.
 the envelope at the same path as `run_record.json`, populated at run-start time
 from auto-detection or declared values.
 
+#### `fingerprint` object in `pcq.describe_run.record`
+
+The `fingerprint` object is an **optional** sibling of `attribution` and
+`worker_spec` in `pcq.describe_run.record` (and in the underlying
+`run_record.json`). When present it conforms to this nested shape:
+
+```json
+"fingerprint": {
+  "schema_version": 1,
+  "modality": "tabular" | "image" | "text" | "time_series" | "audio" | "graph" | "other",
+  "task_kind": "classification" | "regression" | "segmentation" | "detection"
+             | "seq2seq" | "generation" | "forecasting" | "anomaly_detection"
+             | "clustering" | "other",
+  "n_samples": "<int> | null",
+  "size_class": "small" | "medium" | "large" | "huge",
+  "domain": "general" | "medical" | "financial" | "regulated" | "other",
+  "source": "detected" | "detected_sampled" | "declared" | "merged",
+  "tabular": {
+    "n_columns": "<int> | null",
+    "type_counts": { "numeric": "<int>", "categorical": "<int>", "datetime": "<int>", "text": "<int>" },
+    "target_balance": "<float> | null",
+    "n_classes": "<int> | null",
+    "missing_ratio_max": "<float> | null"
+  },
+  "image": {
+    "input_shape": "<[int, int, int]> | null",
+    "n_classes": "<int> | null"
+  },
+  "text": {
+    "avg_token_len": "<int> | null",
+    "vocab_kind": "english" | "korean" | "multilingual" | "code" | "other"
+  },
+  "time_series": {
+    "seq_len": "<int> | null",
+    "freq": "daily" | "hourly" | "irregular" | "other"
+  },
+  "audio": {
+    "sample_rate": "<int> | null",
+    "avg_duration_sec": "<float> | null"
+  },
+  "graph": {
+    "n_nodes": "<int> | null",
+    "n_edges": "<int> | null",
+    "n_node_features": "<int> | null"
+  },
+  "modality_other": {
+    "hint": "<string>",
+    "payload": "<object>"
+  }
+}
+```
+
+Only the modality-specific sub-object matching `fingerprint.modality` is
+expected to be populated. Other modality sub-objects may be absent or null.
+
+When `modality = "other"`, `modality_other` **must** be present with at least
+the `hint` field; `payload` may be an empty object `{}`.
+
+When absent, readers must treat `fingerprint` as `null` — the absence is not a
+contract violation. This preserves backward compatibility with run records
+produced before fingerprint was introduced (R7).
+
+**Flat surface**: `pcq describe-run --json` exposes four top-level flat fields
+for consumers that cannot parse nested objects:
+
+| Flat field | Type | Source path |
+|---|---|---|
+| `fingerprint_modality` | `string \| null` | `fingerprint.modality` |
+| `fingerprint_task_kind` | `string \| null` | `fingerprint.task_kind` |
+| `fingerprint_n_samples` | `int \| null` | `fingerprint.n_samples` |
+| `fingerprint_size_class` | `string \| null` | `fingerprint.size_class` |
+
+These four flat fields are present whenever `fingerprint` is present (even when
+nested fields are partially null). When `fingerprint` itself is null or absent,
+all four flat fields are also null.
+
+**`pcq.compare_runs.diff` passthrough**: When `fingerprint` is present on both
+runs being compared, `pcq compare-runs A B --json` includes
+`fingerprint_changed: boolean` in its top-level `decision_facts` object — true
+if any top-level field in `fingerprint` differs between A and B.
+
+**`pcq.run.envelope` passthrough**: `pcq run --json` carries `fingerprint` in
+the envelope at the same path as `run_record.json`, populated at run-start time
+from any detected or declared values available before training begins.
+
+**Conformance pairs (R9)**: Two golden pairs are required:
+
+- `tests/conformance/pcq.describe_run.record/with-fingerprint-tabular/` —
+  demonstrates a complete tabular fingerprint with all four flat fields.
+- `tests/conformance/pcq.describe_run.record/without-fingerprint/` —
+  demonstrates a valid record with `fingerprint: null` and all four flat fields
+  null.
+
 ### `pcq compare-runs A B --json`
 
 Contract name: `pcq.compare_runs.diff`

@@ -673,6 +673,371 @@ When psutil is not available (edge case: source-only install on an exotic
 target), pcq emits `WORKER_PSUTIL_MISSING` and continues with null cpu/memory
 fields — it does not crash.
 
+## Fingerprint
+
+Every `run_record.json` may carry a `fingerprint` object that records *what kind
+of data the run was trained on* — without any PII or raw values. This is the
+third pillar of TheCommons matchmaking input: after `attribution` (who) and
+`worker_spec` (where) comes `fingerprint` (what).
+
+### Purpose
+
+The `fingerprint` object enables cross-run and cross-project matching by
+providing a PII-free, machine-readable description of dataset shape, modality,
+task kind, and domain. It is the evidence-quality data that TheCommons
+matchmaker uses as its third axis. A `fingerprint` at `schema_version: 1` is
+treated as a **1st-class evidence form** — the highest quality tier for
+matchmaking input.
+
+### Schema (schema_version: 1, additive)
+
+```json
+"fingerprint": {
+  "schema_version": 1,
+  "modality": "tabular" | "image" | "text" | "time_series" | "audio" | "graph" | "other",
+  "task_kind": "classification" | "regression" | "segmentation" | "detection"
+             | "seq2seq" | "generation" | "forecasting" | "anomaly_detection"
+             | "clustering" | "other",
+  "n_samples": 50000,
+  "size_class": "small" | "medium" | "large" | "huge",
+  "domain": "general" | "medical" | "financial" | "regulated" | "other",
+  "source": "detected" | "detected_sampled" | "declared" | "merged",
+  "tabular": {
+    "n_columns": 25,
+    "type_counts": { "numeric": 20, "categorical": 5, "datetime": 0, "text": 0 },
+    "target_balance": 0.91,
+    "n_classes": 2,
+    "missing_ratio_max": 0.15
+  },
+  "image": {
+    "input_shape": [512, 512, 3],
+    "n_classes": 1000
+  },
+  "text": {
+    "avg_token_len": 128,
+    "vocab_kind": "english" | "korean" | "multilingual" | "code" | "other"
+  },
+  "time_series": {
+    "seq_len": 365,
+    "freq": "daily" | "hourly" | "irregular" | "other"
+  },
+  "audio": {
+    "sample_rate": 16000,
+    "avg_duration_sec": 5.0
+  },
+  "graph": {
+    "n_nodes": 10000,
+    "n_edges": 50000,
+    "n_node_features": 8
+  }
+}
+```
+
+### Enum definitions
+
+**modality** (7 values — closed):
+
+| Value | When to use |
+|---|---|
+| `tabular` | Structured rows/columns (CSV, DataFrame, SQL result) |
+| `image` | Raster images (RGB, grayscale, medical scan, satellite) |
+| `text` | Natural language sequences, documents, corpora |
+| `time_series` | Ordered numeric sequences indexed by time |
+| `audio` | Waveform or spectrogram data |
+| `graph` | Node-edge structures (social, molecule, knowledge graph) |
+| `other` | Any modality not covered above; **must** carry a free-form sub-object |
+
+When `modality = "other"`, a `modality_other` sub-object **must** be included
+alongside the standard modality-specific blocks. This sub-object is the Phase 2
+multimodal absorption hook (DEC-014):
+
+```json
+"modality_other": {
+  "hint": "multimodal-vision-language",
+  "payload": { "n_image_tokens": 256, "n_text_tokens": 128 }
+}
+```
+
+- `hint` is a free string (≤ 64 chars) naming the modality family.
+- `payload` is an open JSON object (≤ 2 KB serialized) for any additional facts.
+- Neither field is indexed for matchmaking in 1.0; they are preserved verbatim
+  for future phases.
+
+**task_kind** (10 values — closed):
+
+| Value | When to use |
+|---|---|
+| `classification` | Assign a discrete label to an input |
+| `regression` | Predict a continuous scalar |
+| `segmentation` | Assign a label to each element (pixel, token, node) |
+| `detection` | Locate and classify objects within an input |
+| `seq2seq` | Map an input sequence to an output sequence |
+| `generation` | Produce novel outputs (text, image, audio) without a target sequence |
+| `forecasting` | Predict future values of a time series |
+| `anomaly_detection` | Identify unusual inputs relative to a normal distribution |
+| `clustering` | Partition inputs into groups without supervision |
+| `other` | Any task kind not covered above |
+
+**size_class** (4 buckets — closed):
+
+| Value | Row / sample count |
+|---|---|
+| `small` | `n_samples < 10 000` |
+| `medium` | `10 000 ≤ n_samples < 1 000 000` |
+| `large` | `1 000 000 ≤ n_samples < 100 000 000` |
+| `huge` | `n_samples ≥ 100 000 000` |
+
+**domain** (5 values — closed for 1.0):
+
+| Value | Meaning |
+|---|---|
+| `general` | No regulated-data restrictions; auto-detection permitted |
+| `medical` | Healthcare / clinical data; auto-detection disabled (R5) |
+| `financial` | Financial records; auto-detection disabled (R5) |
+| `regulated` | Any other regulated data category; auto-detection disabled (R5) |
+| `other` | Domain is known to not be general but doesn't fit the above categories |
+
+**source** (4 values — closed):
+
+| Value | Meaning |
+|---|---|
+| `detected` | All populated fields came from `pcq.fingerprint()` auto-detection on the full dataset |
+| `detected_sampled` | Auto-detected on a stratified sample (large/huge datasets); a `FINGERPRINT_SAMPLED` warning is emitted |
+| `declared` | All populated fields came from `cq.yaml.fingerprint.*` user declaration |
+| `merged` | Some fields auto-detected, some overridden by cfg / env vars |
+
+### Flat surface (4 fields, attribution/worker_spec pattern)
+
+`pcq describe-run --json` exposes `fingerprint` both as the nested object above
+and as four top-level flat fields (R6):
+
+| Flat field | Type | Source path |
+|---|---|---|
+| `fingerprint_modality` | `string \| null` | `fingerprint.modality` |
+| `fingerprint_task_kind` | `string \| null` | `fingerprint.task_kind` |
+| `fingerprint_n_samples` | `int \| null` | `fingerprint.n_samples` |
+| `fingerprint_size_class` | `string \| null` | `fingerprint.size_class` |
+
+These four flat fields are present whenever `fingerprint` is present (even when
+nested fields are partially null). When `fingerprint` itself is null or absent,
+all four flat fields are also null.
+
+### `pcq.fingerprint()` API
+
+The primary detection path:
+
+```python
+import pcq
+
+X_train, y_train = load_data()
+pcq.fingerprint(X_train, y_train, modality="tabular", task_kind="classification")
+```
+
+Internal behavior:
+
+1. `modality` argument determines which extraction function runs.
+2. Safe statistics only: type_counts, shape, target_balance ratio, missing ratio.
+   Column names, raw values, and value-level distributions are **never** emitted.
+3. Result is cached in the contract object; `finalize_run` writes it as
+   `run_record.fingerprint`.
+4. When `domain ∈ {medical, financial, regulated}` (resolved from `cq.yaml` or
+   declared), auto-extraction is disabled; only `modality` and `task_kind` hints
+   from the call arguments are recorded. The caller must supply statistics via
+   the `cq.yaml.fingerprint.*` declared path.
+
+### `cq.yaml.fingerprint` declared path
+
+```yaml
+fingerprint:
+  modality: tabular
+  task_kind: classification
+  n_samples: 50000
+  domain: medical
+  tabular:
+    n_columns: 25
+    type_counts: { numeric: 20, categorical: 5 }
+    target_balance: 0.91
+  source: declared
+```
+
+When `pcq.fingerprint()` is not called and `cq.yaml.fingerprint:` is present,
+pcq uses the declared values and sets `source: "declared"`. When both paths
+contribute, `source: "merged"`.
+
+### Sample option — large/huge datasets (DEC-013)
+
+When `n_samples ≥ 1 000 000` (size_class `large` or `huge`), pcq automatically
+applies stratified sampling to keep detection time bounded:
+
+- Default sample size: `sample_rows = 100 000` (configurable via
+  `cq.yaml.fingerprint.sample_rows` or `CQ_FINGERPRINT_SAMPLE_ROWS` env var).
+- Statistics are computed on the sample; `source` becomes `"detected_sampled"`.
+- `FINGERPRINT_SAMPLED` warning is added to `validation_report.json`.
+- Target: 1 M rows < 500 ms on a single CPU core (benchmark guideline, not a
+  hard contract).
+
+### R15 — Deterministic output (DEC-011)
+
+`fingerprint` output must be **byte-identical** across repeated calls on the
+same dataset with the same arguments:
+
+1. `type_counts` keys are sorted **lexicographically** (e.g. `categorical`
+   before `datetime` before `numeric` before `text`).
+2. `target_balance` is the majority class ratio (float), rounded to 6 decimal
+   places with Python's default `round()` semantics.
+3. When `target_balance` values tie (e.g. perfectly balanced binary), the class
+   label with the lexicographically smaller string representation is used as the
+   "majority" — this is the **key-lex tie-break**.
+4. All numeric fields are serialized using Python's standard JSON encoder
+   (no locale-dependent formatting).
+5. Sampling (detected_sampled path) uses a fixed random seed derived from
+   `n_samples` so the same dataset always produces the same sample.
+
+Implementations must pass the determinism conformance pair
+(`tests/conformance/pcq.describe_run.record/with-fingerprint-tabular/`) to be
+considered conformant.
+
+### R5b — Heuristic domain sniffer (DEC-012)
+
+The heuristic domain sniffer is an **internal-only** pre-check that runs before
+any statistics are computed:
+
+- Inspects column names (if accessible) against two keyword dictionaries:
+  - **Medical**: `diagnosis`, `icd`, `mrn`, `patient`, `clinical`, `ehr`,
+    `dob`, `dod`, `lab_result`, `encounter`, `prescription`
+  - **Financial**: `ssn`, `account_no`, `routing`, `iban`, `credit_score`,
+    `tax_id`, `brokerage`, `portfolio`, `loan_amount`, `transaction_id`
+- If any keyword matches (case-insensitive substring):
+  - Emits `FINGERPRINT_DOMAIN_SUSPECTED_MEDICAL` or
+    `FINGERPRINT_DOMAIN_SUSPECTED_FINANCIAL` warning (severity L2) to
+    `validation_report.json`.
+  - Does **not** disable auto-detection on its own — it is advisory only.
+  - Does **not** emit the matched column names in the warning.
+- The sniffer fires **only when `domain = "general"` or `domain` is unset**.
+  When `domain` is already `medical`, `financial`, or `regulated`, the sniffer
+  is skipped (the gate is already active via R5).
+- This check is **not exposed to external consumers**: no matched column names,
+  no keyword lists, no sniffer result fields appear in `run_record.json` or
+  `pcq describe-run --json` output.
+
+### PII 4-layer policy
+
+`fingerprint` applies a four-layer PII barrier:
+
+**Layer 1 — R10, auto-detection format prohibition**:
+Auto-detection code must NEVER emit column names, raw values, value-level
+distributions, top-N frequent values, or any sample rows. This prohibition is
+at the code path that builds the `detected` or `detected_sampled` record —
+not only at validation time. The format is a hard gate with no opt-in override.
+
+**Layer 2 — R5, domain gate**:
+When `domain ∈ {medical, financial, regulated}`, the full auto-detection path
+is disabled. Only `modality` and `task_kind` hints from API arguments are
+accepted; all statistics fields are null unless explicitly declared in
+`cq.yaml.fingerprint.*`. Calling `pcq.fingerprint(X, y)` on a gated domain
+emits `FINGERPRINT_DOMAIN_GATE_SKIP` warning (severity L2).
+
+**Layer 3 — R5b, heuristic sniffer**:
+Even when `domain = "general"`, the heuristic sniffer checks column names
+against medical/financial keyword dictionaries. On a match it emits an L2
+warning (`FINGERPRINT_DOMAIN_SUSPECTED_MEDICAL` or
+`FINGERPRINT_DOMAIN_SUSPECTED_FINANCIAL`) to `validation_report.json`.
+No matched names or keywords appear in any output object.
+
+**Layer 4 — R14, declared path PII warning**:
+When `source ∈ {"declared", "merged"}`, any free-string field (including
+`modality_other.hint`, `modality_other.payload` serialized, and any future
+extension string fields) is inspected for patterns that resemble a hostname,
+email address, or SSN-shape (`\d{3}-\d{2}-\d{4}`). On a match, a severity-3
+(L3) warning is added to `validation_report.json`:
+
+```
+code: FINGERPRINT_DECLARED_PII_LIKE
+detail: "fingerprint.<field> may contain PII — review before publishing"
+```
+
+### Warning codes
+
+All fingerprint warning codes appear in `validation_report.json` under the
+`checks` array:
+
+| Code | Severity | Condition |
+|---|---|---|
+| `FINGERPRINT_EMPTY_DATA` | L2 | `pcq.fingerprint(X, y)` called but X or y is None or empty; partial fingerprint emitted (modality/task_kind from args, stats null) |
+| `FINGERPRINT_DECLARED_PII_LIKE` | L3 | A declared/merged free-string field matches a hostname, email, or SSN-shape pattern |
+| `FINGERPRINT_DOMAIN_GATE_SKIP` | L2 | `pcq.fingerprint(X, y)` called on a gated domain (medical/financial/regulated); auto-detection disabled |
+| `FINGERPRINT_DOMAIN_SUSPECTED_MEDICAL` | L2 | Heuristic sniffer found medical-keyword column name(s) while `domain = "general"` |
+| `FINGERPRINT_DOMAIN_SUSPECTED_FINANCIAL` | L2 | Heuristic sniffer found financial-keyword column name(s) while `domain = "general"` |
+| `FINGERPRINT_SAMPLED` | L1 | Dataset exceeded sample threshold; statistics computed on a stratified sample |
+
+Warnings never block run execution. They appear in `validation_report.json` and
+are surfaced by `pcq validate-run`.
+
+### Agent-fillable (R13)
+
+`pcq agent install` writes agent runtime assets that include fingerprint
+auto-insertion guidance:
+
+```markdown
+## Fingerprint (agent-managed)
+
+After data load, ADD ONE LINE:
+
+```python
+import pcq
+X_train, y_train = load_data()
+pcq.fingerprint(X_train, y_train, modality="tabular", task_kind="classification")
+```
+
+Agent modality detection rules:
+- pandas DataFrame / numpy 2-D array → `modality="tabular"`
+- numpy array with shape `[N, H, W, C]` or `[N, H, W]` → `modality="image"`
+- `list[str]` or `list[list[str]]` → `modality="text"`
+- pandas Series or numpy 1-D with datetime index → `modality="time_series"`
+- numpy array with shape `[N, T]` where T is known sample count → `modality="audio"`
+- dict with keys `"edge_index"` or `"adjacency"` → `modality="graph"`
+- anything else → `modality="other"` + populate `modality_other.hint`
+```
+
+The agent runtime asset is written to `templates/AGENTS.pcq.md` (and the
+equivalent Codex file). It is the responsibility of agent models (Claude Code,
+Codex) reading these assets to insert the one-liner call after the data load
+step in `train.py`.
+
+### Passthrough to sibling schemas
+
+- **`pcq.compare_runs.diff`**: When `fingerprint` is present on both runs,
+  `pcq compare-runs A B --json` includes `fingerprint_changed: boolean` in its
+  `decision_facts` object — true if any top-level field in `fingerprint` differs.
+- **`pcq.run.envelope`**: `pcq run --json` carries `fingerprint` in the envelope
+  at the same path as `run_record.json`, populated at run-start time from any
+  detected or declared values available before training begins.
+
+### Backward compatibility
+
+The `fingerprint` field is **optional** on `run_record.json`. Existing records
+without it are valid; readers must treat absence as `null`. Both
+`fingerprint: null` and key-absent are valid representations (R7).
+
+### Scope of 1.0
+
+`fingerprint` 1.0 covers: modality classification, task kind, size class, domain
+gating, heuristic sniffing, PII 4-layer policy, sampling, determinism, and
+agent-fillable guidance.
+
+**Out of scope for 1.0** (reserved for future phases):
+
+- Raw value distributions / histogram bins (Phase 2, with k-anonymity / DP noise)
+- Column names (permanently out of scope — R10)
+- Sample preview (permanently out of scope — R10)
+- TheCommons-side fingerprint indexing and matchmaker engine (TC build)
+- Domain enum expansion beyond the 5 values above (legal, biotech, etc. — Phase 2)
+- Multi-target tabular (two or more target columns — Phase 2)
+- Formal multimodal support (Phase 2; absorbed via `modality="other"` in 1.0)
+- RL task kinds (Phase 2)
+- k-anonymity / differential privacy noise (Phase 2)
+- TheCommons matching evaluation accuracy measurement (separate cycle)
+
 ## Non-Goals
 
 - reimplementing Lightning, HF Trainer, PyCaret, W&B, MLflow, DVC, or CQ

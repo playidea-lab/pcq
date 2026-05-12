@@ -365,3 +365,190 @@ Its internal `schema_version` sub-field tracks the shape of the object:
 
 In practice: worker_spec additions ship as minor pcq releases with no outer
 `schema_version` change.
+
+## Fingerprint — env precedence + PII 4-layer + cgroups-style limitations
+
+This section is normative for the `fingerprint` object introduced in
+`run_record.json` / `pcq.describe_run.record`. See [`SPEC.md §
+Fingerprint`](./SPEC.md) for the schema, enum definitions, and field semantics.
+
+### Resolution priority
+
+When pcq writes `run_record.json`, it resolves each `fingerprint` field using
+the following precedence (first winning source is used, remaining sources are
+ignored for that field):
+
+```
+1. CLI flag (highest — e.g. --fingerprint-modality)
+2. CQ_FINGERPRINT_* environment variable
+3. cq.yaml  fingerprint.*  config block
+4. pcq.fingerprint() API call cache (from training script)
+5. NULL (field absent or null)    ← lowest
+```
+
+No source is mandatory. If all sources are absent, `fingerprint` itself is
+`null` in the output, which is valid under `schema_version: 1`.
+
+The `source` audit field reflects which sources contributed:
+
+- `"detected"` — every populated field came from `pcq.fingerprint()` on the
+  full dataset
+- `"detected_sampled"` — auto-detected on a stratified sample (large/huge);
+  `FINGERPRINT_SAMPLED` warning emitted
+- `"declared"` — every populated field came from step 2 or 3 (user-supplied)
+- `"merged"` — mix of auto-detected and user-supplied fields
+
+### Environment variables (CQ_FINGERPRINT_*)
+
+| Variable | Populated field |
+|---|---|
+| `CQ_FINGERPRINT_MODALITY` | `fingerprint.modality` (must be a valid enum value) |
+| `CQ_FINGERPRINT_TASK_KIND` | `fingerprint.task_kind` (must be a valid enum value) |
+| `CQ_FINGERPRINT_N_SAMPLES` | `fingerprint.n_samples` (integer) |
+| `CQ_FINGERPRINT_DOMAIN` | `fingerprint.domain` (must be a valid enum value; triggers domain gate when `medical`/`financial`/`regulated`) |
+| `CQ_FINGERPRINT_SAMPLE_ROWS` | sampling threshold override (default `100000`; applies to large/huge detection path) |
+
+`CQ_FINGERPRINT_MODALITY` and `CQ_FINGERPRINT_TASK_KIND` must match the closed
+enum values defined in `SPEC.md § Fingerprint`. Any invalid value should be
+rejected with a clear error at write time (R12).
+
+### `cq.yaml` fingerprint block (example)
+
+```yaml
+fingerprint:
+  modality: tabular
+  task_kind: classification
+  n_samples: 50000
+  domain: medical        # triggers R5 domain gate — auto-detection disabled
+  tabular:
+    n_columns: 25
+    type_counts:
+      numeric: 20
+      categorical: 5
+      datetime: 0
+      text: 0
+    target_balance: 0.91
+    n_classes: 2
+    missing_ratio_max: 0.15
+  source: declared
+```
+
+All sub-keys are optional. Omitted keys fall through to `pcq.fingerprint()` API
+call cache or NULL. Partial declarations produce `source: "merged"`.
+
+When `cq.yaml.fingerprint.domain ∈ {medical, financial, regulated}`, the full
+auto-detection path is disabled regardless of whether `pcq.fingerprint()` is
+called in the training script (R5 domain gate).
+
+### PII 4-layer policy
+
+`fingerprint` applies a four-layer PII barrier. Layers are ordered by where in
+the pipeline each applies:
+
+**Layer 1 — R10, auto-detection format prohibition (code level)**:
+Auto-detection code must NEVER write column names, raw values, value-level
+distributions, top-N frequent values, or any sample rows into any `fingerprint`
+field. This applies unconditionally to `source: "detected"` and
+`source: "detected_sampled"` paths. No opt-in overrides this prohibition.
+
+**Layer 2 — R5, domain gate (project-config level)**:
+When `domain ∈ {medical, financial, regulated}` is resolved from any precedence
+source (env var, cq.yaml, or CLI), the full `pcq.fingerprint()` auto-detection
+path is disabled. Only `modality` and `task_kind` from API call arguments are
+accepted; statistics fields are null unless explicitly declared.
+`FINGERPRINT_DOMAIN_GATE_SKIP` (severity L2) is emitted to `validation_report.json`.
+
+**Layer 3 — R5b, heuristic domain sniffer (detection-time internal)**:
+Before extracting any statistics, pcq internally checks column names against
+medical and financial keyword dictionaries. This check is **internal-only**:
+no matched column names, keyword lists, or sniffer results appear in any output
+object. On a keyword hit while `domain = "general"`:
+- `FINGERPRINT_DOMAIN_SUSPECTED_MEDICAL` or
+  `FINGERPRINT_DOMAIN_SUSPECTED_FINANCIAL` is emitted (severity L2).
+- Auto-detection is **not** disabled by the sniffer alone; the warning is
+  advisory. The operator must set `domain: medical` or `domain: financial` to
+  activate the R5 gate.
+
+**Layer 4 — R14, declared path PII warning (validation level)**:
+User-supplied values (via `CQ_FINGERPRINT_*` or `cq.yaml.fingerprint.*`) are
+not subject to R10 filtering. However, at validation time, pcq inspects every
+free-string `fingerprint` field (including `modality_other.hint` and the
+serialized `modality_other.payload`) for patterns that resemble a hostname
+(`\b[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)+\b`), email address (`\S+@\S+\.\S+`), or
+SSN-shape (`\d{3}-\d{2}-\d{4}`). On a match, a severity-3 (L3) warning is
+added:
+
+```
+code: FINGERPRINT_DECLARED_PII_LIKE
+detail: "fingerprint.<field> may contain PII — review before publishing"
+```
+
+This warning is advisory. It does not block run execution, validation, or
+publication. Consumers (CQ Hub, TheCommons) must apply their own PII policy.
+
+### Sampling and the `detected_sampled` source
+
+For datasets where `n_samples ≥ 1 000 000` (size_class `large` or `huge`):
+
+- pcq automatically draws a stratified random sample of `sample_rows` rows
+  (default `100 000`) before computing any statistics.
+- The sample seed is derived from `n_samples` (deterministic: same dataset size
+  always produces the same sample positions on the same RNG implementation).
+- `source` is set to `"detected_sampled"` (not `"detected"`).
+- `FINGERPRINT_SAMPLED` warning (severity L1) is added to `validation_report.json`:
+  ```
+  code: FINGERPRINT_SAMPLED
+  detail: "Statistics computed on a stratified sample of <sample_rows> rows
+           from <n_samples> total — source=detected_sampled"
+  ```
+- Benchmark target: 1 M rows < 500 ms on a single CPU core (informational; not
+  a contractual guarantee).
+
+### Scope of 1.0 (cgroups-style limitation declaration)
+
+Following the same pattern as `worker_spec` cgroups-host-view limitation
+(DEC-011), pcq 1.x `fingerprint` has explicit scope boundaries:
+
+**Within scope of 1.0**:
+- modality (7 enum), task_kind (10 enum), size_class (4 buckets), domain (5
+  enum), source (4 enum)
+- Tabular, image, text, time_series, audio, graph modality sub-objects
+- `modality_other` free-form sub-object (multimodal Phase 2 absorption hook)
+- PII 4-layer policy (R10 + R5 + R5b + R14)
+- R15 deterministic output (byte-identical, sorted iteration, tie-break rules)
+- Stratified sampling for large/huge datasets (detected_sampled path)
+- Agent-fillable via `pcq agent install` assets (R13)
+- 6 warning codes
+
+**Out of scope for 1.0** (reserved for future phases):
+- k-anonymity / differential privacy noise on statistics (Phase 2)
+- Formal multimodal support beyond `modality_other` free-form (Phase 2)
+- RL task kinds (Phase 2)
+- Domain enum expansion: legal, biotech, etc. (Phase 2)
+- Multi-target tabular support (Phase 2)
+- TheCommons fingerprint indexing and matchmaker engine (TC build, separate
+  cycle)
+- TheCommons matching evaluation accuracy measurement (separate cycle — not a
+  pcq concern)
+- Raw value distributions / histogram bins (Phase 2)
+- Column names in any output (permanently excluded — R10)
+
+### Additive-only schema bump policy for `fingerprint`
+
+The `fingerprint` object is an optional additive field at `schema_version: 1`.
+Its internal `schema_version` sub-field tracks the shape of the object:
+
+- Adding new optional keys inside `fingerprint` (e.g. a new modality sub-object)
+  does **not** require a bump of the outer `schema_version`.
+- The `fingerprint.schema_version` counter increments only when a field inside
+  `fingerprint` is *removed or renamed*.
+- The four flat surface fields (`fingerprint_modality`, `fingerprint_task_kind`,
+  `fingerprint_n_samples`, `fingerprint_size_class`) are frozen once shipped;
+  new summary flat fields follow the same naming convention and may be added in
+  any minor pcq release.
+- Extending an enum (adding a new `modality` or `task_kind` value) is allowed
+  within `schema_version: 1` as long as existing consumers remain valid (open
+  enum extension rule in `JSON_CONTRACTS.md`).
+
+In practice: fingerprint additions ship as minor pcq releases with no outer
+`schema_version` change.
