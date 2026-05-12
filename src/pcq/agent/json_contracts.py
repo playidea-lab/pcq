@@ -215,6 +215,13 @@ JSON_CONTRACTS: dict[str, dict[str, Any]] = {
             "worker_spec_memory_gb": "number",
             "worker_spec_accelerator_kind": "string",
             "worker_spec_gpu_model_0": "string",
+            # fingerprint 중첩 객체 (T-WFP-2 additive)
+            "fingerprint": "object",
+            # fingerprint 플랫 표면 — 에이전트가 쿼리하기 쉽도록 최상위 노출
+            "fingerprint_modality": "string",
+            "fingerprint_task_kind": "string",
+            "fingerprint_n_samples": "int",
+            "fingerprint_size_class": "string",
         },
         # attribution 및 worker_spec 필드의 상세 JSON Schema — property_overrides가 단순 타입 표기를 덮어씀
         "property_overrides": {
@@ -335,6 +342,163 @@ JSON_CONTRACTS: dict[str, dict[str, Any]] = {
             "worker_spec_memory_gb": {"type": ["number", "null"]},
             "worker_spec_accelerator_kind": {"type": ["string", "null"]},
             "worker_spec_gpu_model_0": {"type": ["string", "null"]},
+            # fingerprint 풀 JSON Schema (T-WFP-2)
+            "fingerprint": {
+                "type": ["object", "null"],
+                "additionalProperties": False,
+                "properties": {
+                    "schema_version": {"type": "integer", "const": 1},
+                    "modality": {
+                        "type": "string",
+                        "enum": [
+                            "tabular",
+                            "image",
+                            "text",
+                            "time_series",
+                            "audio",
+                            "graph",
+                            "other",
+                        ],
+                    },
+                    "task_kind": {
+                        "type": "string",
+                        "enum": [
+                            "classification",
+                            "regression",
+                            "segmentation",
+                            "detection",
+                            "seq2seq",
+                            "generation",
+                            "forecasting",
+                            "anomaly_detection",
+                            "clustering",
+                            "other",
+                        ],
+                    },
+                    "n_samples": {"type": ["integer", "null"]},
+                    "size_class": {
+                        "type": "string",
+                        "enum": ["small", "medium", "large", "huge"],
+                    },
+                    "tabular": {
+                        "type": ["object", "null"],
+                        "additionalProperties": False,
+                        "properties": {
+                            "n_columns": {"type": ["integer", "null"]},
+                            "type_counts": {
+                                "type": ["object", "null"],
+                                "additionalProperties": False,
+                                "properties": {
+                                    "numeric": {"type": ["integer", "null"]},
+                                    "categorical": {"type": ["integer", "null"]},
+                                    "datetime": {"type": ["integer", "null"]},
+                                    "text": {"type": ["integer", "null"]},
+                                },
+                            },
+                            "target_balance": {"type": ["number", "null"]},
+                            "n_classes": {"type": ["integer", "null"]},
+                            "missing_ratio_max": {"type": ["number", "null"]},
+                            "sampled_rows": {"type": ["integer", "null"]},
+                        },
+                    },
+                    "image": {
+                        "type": ["object", "null"],
+                        "additionalProperties": False,
+                        "properties": {
+                            "input_shape": {
+                                "type": ["array", "null"],
+                                "items": {"type": "integer"},
+                            },
+                            "n_classes": {"type": ["integer", "null"]},
+                        },
+                    },
+                    "text": {
+                        "type": ["object", "null"],
+                        "additionalProperties": False,
+                        "properties": {
+                            "avg_token_len": {"type": ["number", "null"]},
+                            "vocab_kind": {
+                                "type": ["string", "null"],
+                                "enum": [
+                                    "english",
+                                    "korean",
+                                    "multilingual",
+                                    "code",
+                                    "other",
+                                    None,
+                                ],
+                            },
+                        },
+                    },
+                    "time_series": {
+                        "type": ["object", "null"],
+                        "additionalProperties": False,
+                        "properties": {
+                            "seq_len": {"type": ["integer", "null"]},
+                            "freq": {"type": ["string", "null"]},
+                        },
+                    },
+                    "audio": {
+                        "type": ["object", "null"],
+                        "additionalProperties": False,
+                        "properties": {
+                            "sample_rate": {"type": ["integer", "null"]},
+                            "avg_duration_sec": {"type": ["number", "null"]},
+                        },
+                    },
+                    "graph": {
+                        "type": ["object", "null"],
+                        "additionalProperties": False,
+                        "properties": {
+                            "n_nodes": {"type": ["integer", "null"]},
+                            "n_edges": {"type": ["integer", "null"]},
+                            "n_node_features": {"type": ["integer", "null"]},
+                        },
+                    },
+                    "other": {
+                        "type": ["object", "null"],
+                        "additionalProperties": True,
+                        "properties": {
+                            "hint": {"type": ["string", "null"]},
+                            "payload": {
+                                "type": ["object", "null"],
+                                "additionalProperties": True,
+                            },
+                        },
+                    },
+                    "domain": {
+                        "type": "string",
+                        "enum": [
+                            "general",
+                            "medical",
+                            "financial",
+                            "regulated",
+                            "other",
+                        ],
+                    },
+                    "source": {
+                        "type": "string",
+                        "enum": [
+                            "detected",
+                            "detected_sampled",
+                            "declared",
+                            "merged",
+                        ],
+                    },
+                },
+                "required": [
+                    "schema_version",
+                    "modality",
+                    "task_kind",
+                    "domain",
+                    "source",
+                ],
+            },
+            # fingerprint 플랫 표면 오버라이드 (null 허용)
+            "fingerprint_modality": {"type": ["string", "null"]},
+            "fingerprint_task_kind": {"type": ["string", "null"]},
+            "fingerprint_n_samples": {"type": ["integer", "null"]},
+            "fingerprint_size_class": {"type": ["string", "null"]},
         },
         "nested_required": {
             "decision_facts": {
