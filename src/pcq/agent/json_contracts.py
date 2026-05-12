@@ -34,6 +34,9 @@ JSON_CONTRACTS: dict[str, dict[str, Any]] = {
             "stdout_tail_truncated": "boolean",
             "stderr_tail_truncated": "boolean",
             "error": "string",
+            # attribution 패스스루 필드 (T-PCQ-ATTR-3 additive)
+            # describe-run 스키마의 attribution 객체와 동일한 형태로 전달됨
+            "attribution": "object",
         },
         "enums": {
             "status": ["completed", "failed", "config_only", "error"],
@@ -173,6 +176,11 @@ JSON_CONTRACTS: dict[str, dict[str, Any]] = {
             "failure": "object",
             "source": "object",
             "notes": "array",
+            # attribution diff 필드 (T-PCQ-ATTR-3 additive)
+            "attribution_diff": "object",
+            "attribution_author_changed": "boolean",
+            "attribution_committer_changed": "boolean",
+            "attribution_operator_changed": "boolean",
         },
         "nested_required": {
             "decision_facts": {
@@ -215,6 +223,12 @@ JSON_CONTRACTS: dict[str, dict[str, Any]] = {
         "optional": {
             "strictness": "int",
             "strictness_name": "string",
+            # operator_required: L2+ strictness에서 attribution.operator 필수 게이트
+            # 미설정 시 PII_PATTERN_DETECTED 경고 발생 가능 (R10 additive)
+            "operator_required": "boolean",
+            # warning_codes: 이번 보고서에서 발생한 경고 코드 목록
+            # 포함 가능 코드: "PII_PATTERN_DETECTED"
+            "warning_codes": "array",
         },
         "array_item_required": {
             "checks": {
@@ -226,6 +240,8 @@ JSON_CONTRACTS: dict[str, dict[str, Any]] = {
         },
         "enums": {
             "status": ["pass", "warn", "fail"],
+            # warning_codes의 알려진 값 — 추가 코드는 하위 호환으로 허용
+            # "PII_PATTERN_DETECTED": attribution.operator에 PII 패턴 감지
         },
     },
     "pcq.agent_install.result": {

@@ -19,6 +19,9 @@
     "checks": {
       "type": "array"
     },
+    "operator_required": {
+      "type": "boolean"
+    },
     "schema_version": {
       "type": "integer"
     },
@@ -35,6 +38,9 @@
     },
     "strictness_name": {
       "type": "string"
+    },
+    "warning_codes": {
+      "type": "array"
     },
     "warning_count": {
       "type": "integer"

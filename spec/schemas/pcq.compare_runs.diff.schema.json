@@ -40,6 +40,18 @@
     "artifacts": {
       "type": "object"
     },
+    "attribution_author_changed": {
+      "type": "boolean"
+    },
+    "attribution_committer_changed": {
+      "type": "boolean"
+    },
+    "attribution_diff": {
+      "type": "object"
+    },
+    "attribution_operator_changed": {
+      "type": "boolean"
+    },
     "b_is_ancestor_of_a": {
       "type": "boolean"
     },

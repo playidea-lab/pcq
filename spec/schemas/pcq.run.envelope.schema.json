@@ -13,6 +13,9 @@
     "status"
   ],
   "properties": {
+    "attribution": {
+      "type": "object"
+    },
     "cmd": {
       "type": "string"
     },
