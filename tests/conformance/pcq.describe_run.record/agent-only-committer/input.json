@@ -1,0 +1,11 @@
+{
+  "invocation": {
+    "kind": "cli",
+    "command": ["pcq", "describe-run", "FIXTURE_OUTPUT", "--json"]
+  },
+  "fixtures": {
+    "FIXTURE_OUTPUT": "fixtures/output"
+  },
+  "schema_version": 1,
+  "notes": "Attribution fixture: author.kind=human, committer.kind=agent (claude-opus-4-7), operator=alice-uuid. Tests mixed human/agent committer scenario."
+}

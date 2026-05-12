@@ -1,0 +1,11 @@
+{
+  "invocation": {
+    "kind": "cli",
+    "command": ["pcq", "describe-run", "FIXTURE_OUTPUT", "--json"]
+  },
+  "fixtures": {
+    "FIXTURE_OUTPUT": "fixtures/output"
+  },
+  "schema_version": 1,
+  "notes": "Attribution fixture: author=alice, committer=bob (different humans), operator=team-org-uuid. All three roles are distinct."
+}

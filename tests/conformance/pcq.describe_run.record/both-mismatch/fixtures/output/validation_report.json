@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "status": "pass",
+  "strictness": 2,
+  "strictness_name": "standard",
+  "checks": [
+    {
+      "id": "strictness_level",
+      "status": "pass",
+      "severity": "info",
+      "detail": "strictness=2 (standard)",
+      "evidence": {
+        "level": 2,
+        "name": "standard",
+        "required_evidence": {
+          "pre_run": [
+            "cq_yaml_exists",
+            "cq_yaml_parseable",
+            "cmd_defined",
+            "metrics_declared",
+            "artifacts_declared",
+            "cq_config_called",
+            "cq_log_called",
+            "standard_artifacts_helper",
+            "recipe_importable",
+            "recipe_metrics_in_yaml",
+            "loss_label_ignore_index",
+            "model_dataset_channels",
+            "optional_extras_available",
+            "monitor_candidates_declared",
+            "manifest_evidence"
+          ],
+          "post_run": [
+            "manifest_present",
+            "manifest_parseable",
+            "metrics_present",
+            "metrics_well_formed",
+            "run_summary_present",
+            "run_summary_parseable",
+            "manifest_evidence",
+            "summary_metrics_consistent",
+            "run_record_complete"
+          ]
+        }
+      }
+    },
+    {
+      "id": "manifest_evidence",
+      "status": "pass",
+      "severity": "info",
+      "detail": "schema v2, 4 entries verified",
+      "evidence": {}
+    },
+    {
+      "id": "metrics_well_formed",
+      "status": "pass",
+      "severity": "info",
+      "detail": "1 epoch(s) recorded",
+      "evidence": {}
+    },
+    {
+      "id": "summary_metrics_consistent",
+      "status": "pass",
+      "severity": "info",
+      "detail": "run_summary best/last align with metrics history",
+      "evidence": {}
+    },
+    {
+      "id": "run_record_complete",
+      "status": "pass",
+      "severity": "info",
+      "detail": "run_record schema v1, all required keys present",
+      "evidence": {}
+    }
+  ],
+  "blocking_count": 0,
+  "warning_count": 0
+}

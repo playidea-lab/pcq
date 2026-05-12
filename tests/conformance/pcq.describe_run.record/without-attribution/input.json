@@ -1,0 +1,11 @@
+{
+  "invocation": {
+    "kind": "cli",
+    "command": ["pcq", "describe-run", "FIXTURE_OUTPUT", "--json"]
+  },
+  "fixtures": {
+    "FIXTURE_OUTPUT": "fixtures/output"
+  },
+  "schema_version": 1,
+  "notes": "Attribution fixture: no attribution field in run_record.json at all. describe-run should emit attribution=null and all 4 flat fields=null."
+}

@@ -1,0 +1,11 @@
+{
+  "invocation": {
+    "kind": "cli",
+    "command": ["pcq", "describe-run", "FIXTURE_OUTPUT", "--json"]
+  },
+  "fixtures": {
+    "FIXTURE_OUTPUT": "fixtures/output"
+  },
+  "schema_version": 1,
+  "notes": "Attribution fixture: run_record has operator set; author and committer are auto-inferred to operator with kind=human."
+}

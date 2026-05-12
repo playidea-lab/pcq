@@ -1,0 +1,11 @@
+{
+  "invocation": {
+    "kind": "cli",
+    "command": ["pcq", "describe-run", "FIXTURE_OUTPUT", "--json"]
+  },
+  "fixtures": {
+    "FIXTURE_OUTPUT": "fixtures/output"
+  },
+  "schema_version": 1,
+  "notes": "Attribution fixture: operator + author + committer all set with explicit fields. CQ_ATTRIBUTION_* env vars not required — attribution is baked directly into run_record.json."
+}
