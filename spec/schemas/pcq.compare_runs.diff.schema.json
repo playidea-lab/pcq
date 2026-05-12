@@ -88,6 +88,9 @@
     "failure": {
       "type": "object"
     },
+    "fingerprint_changed": {
+      "type": "boolean"
+    },
     "input_changes": {
       "type": "array"
     },

@@ -43,7 +43,7 @@
       "type": "array",
       "items": {
         "type": "string",
-        "description": "\uc54c\ub824\uc9c4 \uacbd\uace0 \ucf54\ub4dc: PII_PATTERN_DETECTED \u2014 attribution.operator\uc5d0 PII \ud328\ud134 \uac10\uc9c0; WORKER_PSUTIL_MISSING \u2014 psutil \ubbf8\uc124\uce58\ub85c CPU/\uba54\ubaa8\ub9ac \uc815\ubcf4 \uc218\uc9d1 \ubd88\uac00; WORKER_PSUTIL_PARTIAL \u2014 psutil \uc124\uce58\ub410\uc73c\ub098 \uc77c\ubd80 \uc815\ubcf4 \ub204\ub77d (\uad8c\ud55c \ubd80\uc871 \ub4f1); WORKER_TORCH_MISSING \u2014 torch \ubbf8\uc124\uce58\ub85c GPU \uc815\ubcf4 \uc218\uc9d1 \ubd88\uac00; WORKER_CGROUP_DENIED \u2014 cgroup \uc811\uadfc \uac70\ubd80\ub85c \ucee8\ud14c\uc774\ub108 \uba54\ubaa8\ub9ac \ud55c\ub3c4 \ud655\uc778 \ubd88\uac00; WORKER_CONTAINER_AMBIGUOUS \u2014 \ucee8\ud14c\uc774\ub108 \ud0d0\uc9c0 \uacb0\uacfc \ubd88\ud655\uc2e4 (\ubcf5\uc218 \ud78c\ud2b8 \ucda9\ub3cc); WORKER_DECLARED_PII_LIKE \u2014 declared worker_spec\uc5d0 PII \ud328\ud134 \uc758\uc2ec\uac12 \ud3ec\ud568",
+        "description": "\uc54c\ub824\uc9c4 \uacbd\uace0 \ucf54\ub4dc: PII_PATTERN_DETECTED \u2014 attribution.operator\uc5d0 PII \ud328\ud134 \uac10\uc9c0; WORKER_PSUTIL_MISSING \u2014 psutil \ubbf8\uc124\uce58\ub85c CPU/\uba54\ubaa8\ub9ac \uc815\ubcf4 \uc218\uc9d1 \ubd88\uac00; WORKER_PSUTIL_PARTIAL \u2014 psutil \uc124\uce58\ub410\uc73c\ub098 \uc77c\ubd80 \uc815\ubcf4 \ub204\ub77d (\uad8c\ud55c \ubd80\uc871 \ub4f1); WORKER_TORCH_MISSING \u2014 torch \ubbf8\uc124\uce58\ub85c GPU \uc815\ubcf4 \uc218\uc9d1 \ubd88\uac00; WORKER_CGROUP_DENIED \u2014 cgroup \uc811\uadfc \uac70\ubd80\ub85c \ucee8\ud14c\uc774\ub108 \uba54\ubaa8\ub9ac \ud55c\ub3c4 \ud655\uc778 \ubd88\uac00; WORKER_CONTAINER_AMBIGUOUS \u2014 \ucee8\ud14c\uc774\ub108 \ud0d0\uc9c0 \uacb0\uacfc \ubd88\ud655\uc2e4 (\ubcf5\uc218 \ud78c\ud2b8 \ucda9\ub3cc); WORKER_DECLARED_PII_LIKE \u2014 declared worker_spec\uc5d0 PII \ud328\ud134 \uc758\uc2ec\uac12 \ud3ec\ud568; FINGERPRINT_EMPTY_DATA \u2014 pcq.fingerprint() \ud638\ucd9c \uc2dc X/y\uac00 None \ub610\ub294 \ube44\uc5b4\uc788\uc74c (R11); FINGERPRINT_DECLARED_PII_LIKE \u2014 declared/merged \uacbd\ub85c \uc790\uc720 \ubb38\uc790\uc5f4\uc5d0 PII \ud328\ud134 \uc758\uc2ec (R14); FINGERPRINT_DOMAIN_GATE_SKIP \u2014 domain \uac8c\uc774\ud2b8 \uc801\uc6a9\uc73c\ub85c \uc790\ub3d9 \uac10\uc9c0 \ube44\ud65c\uc131 (R5); FINGERPRINT_DOMAIN_SUSPECTED_MEDICAL \u2014 domain=medical \uc758\uc2ec\uc73c\ub85c \uac8c\uc774\ud2b8 \ud65c\uc131; FINGERPRINT_DOMAIN_SUSPECTED_FINANCIAL \u2014 domain=financial \uc758\uc2ec\uc73c\ub85c \uac8c\uc774\ud2b8 \ud65c\uc131; FINGERPRINT_SAMPLED \u2014 \ub300\uc6a9\ub7c9 \ub370\uc774\ud130\ub85c \uc778\ud55c \uc0d8\ud50c\ub9c1 \uc801\uc6a9 (\ud1b5\uacc4 \uadfc\uc0ac\uac12)",
         "x-pcq-known-values": [
           "PII_PATTERN_DETECTED",
           "WORKER_PSUTIL_MISSING",
@@ -51,7 +51,13 @@
           "WORKER_TORCH_MISSING",
           "WORKER_CGROUP_DENIED",
           "WORKER_CONTAINER_AMBIGUOUS",
-          "WORKER_DECLARED_PII_LIKE"
+          "WORKER_DECLARED_PII_LIKE",
+          "FINGERPRINT_EMPTY_DATA",
+          "FINGERPRINT_DECLARED_PII_LIKE",
+          "FINGERPRINT_DOMAIN_GATE_SKIP",
+          "FINGERPRINT_DOMAIN_SUSPECTED_MEDICAL",
+          "FINGERPRINT_DOMAIN_SUSPECTED_FINANCIAL",
+          "FINGERPRINT_SAMPLED"
         ]
       }
     },

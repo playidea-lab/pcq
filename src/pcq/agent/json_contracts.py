@@ -40,8 +40,11 @@ JSON_CONTRACTS: dict[str, dict[str, Any]] = {
             # worker_spec 패스스루 필드 (T-WSPEC-3 additive)
             # describe-run 스키마의 worker_spec 객체와 동일한 중첩 형태로 전달됨
             "worker_spec": "object",
+            # fingerprint 패스스루 필드 (T-WFP-3 additive)
+            # describe-run 스키마의 fingerprint 객체와 동일한 중첩 형태로 전달됨
+            "fingerprint": "object",
         },
-        # worker_spec 풀 JSON Schema — describe_run.record의 property_overrides와 동일한 구조
+        # worker_spec / fingerprint 풀 JSON Schema — describe_run.record의 property_overrides와 동일한 구조
         "property_overrides": {
             "worker_spec": {
                 "type": ["object", "null"],
@@ -119,6 +122,158 @@ JSON_CONTRACTS: dict[str, dict[str, Any]] = {
                     },
                 },
                 "required": ["schema_version", "accelerator", "container", "source"],
+            },
+            # fingerprint 패스스루 풀 JSON Schema (T-WFP-3) — describe_run.record의 fingerprint와 동일한 구조
+            "fingerprint": {
+                "type": ["object", "null"],
+                "additionalProperties": False,
+                "properties": {
+                    "schema_version": {"type": "integer", "const": 1},
+                    "modality": {
+                        "type": "string",
+                        "enum": [
+                            "tabular",
+                            "image",
+                            "text",
+                            "time_series",
+                            "audio",
+                            "graph",
+                            "other",
+                        ],
+                    },
+                    "task_kind": {
+                        "type": "string",
+                        "enum": [
+                            "classification",
+                            "regression",
+                            "segmentation",
+                            "detection",
+                            "seq2seq",
+                            "generation",
+                            "forecasting",
+                            "anomaly_detection",
+                            "clustering",
+                            "other",
+                        ],
+                    },
+                    "n_samples": {"type": ["integer", "null"]},
+                    "size_class": {
+                        "type": "string",
+                        "enum": ["small", "medium", "large", "huge"],
+                    },
+                    "tabular": {
+                        "type": ["object", "null"],
+                        "additionalProperties": False,
+                        "properties": {
+                            "n_columns": {"type": ["integer", "null"]},
+                            "type_counts": {
+                                "type": ["object", "null"],
+                                "additionalProperties": False,
+                                "properties": {
+                                    "numeric": {"type": ["integer", "null"]},
+                                    "categorical": {"type": ["integer", "null"]},
+                                    "datetime": {"type": ["integer", "null"]},
+                                    "text": {"type": ["integer", "null"]},
+                                },
+                            },
+                            "target_balance": {"type": ["number", "null"]},
+                            "n_classes": {"type": ["integer", "null"]},
+                            "missing_ratio_max": {"type": ["number", "null"]},
+                            "sampled_rows": {"type": ["integer", "null"]},
+                        },
+                    },
+                    "image": {
+                        "type": ["object", "null"],
+                        "additionalProperties": False,
+                        "properties": {
+                            "input_shape": {
+                                "type": ["array", "null"],
+                                "items": {"type": "integer"},
+                            },
+                            "n_classes": {"type": ["integer", "null"]},
+                        },
+                    },
+                    "text": {
+                        "type": ["object", "null"],
+                        "additionalProperties": False,
+                        "properties": {
+                            "avg_token_len": {"type": ["number", "null"]},
+                            "vocab_kind": {
+                                "type": ["string", "null"],
+                                "enum": [
+                                    "english",
+                                    "korean",
+                                    "multilingual",
+                                    "code",
+                                    "other",
+                                    None,
+                                ],
+                            },
+                        },
+                    },
+                    "time_series": {
+                        "type": ["object", "null"],
+                        "additionalProperties": False,
+                        "properties": {
+                            "seq_len": {"type": ["integer", "null"]},
+                            "freq": {"type": ["string", "null"]},
+                        },
+                    },
+                    "audio": {
+                        "type": ["object", "null"],
+                        "additionalProperties": False,
+                        "properties": {
+                            "sample_rate": {"type": ["integer", "null"]},
+                            "avg_duration_sec": {"type": ["number", "null"]},
+                        },
+                    },
+                    "graph": {
+                        "type": ["object", "null"],
+                        "additionalProperties": False,
+                        "properties": {
+                            "n_nodes": {"type": ["integer", "null"]},
+                            "n_edges": {"type": ["integer", "null"]},
+                            "n_node_features": {"type": ["integer", "null"]},
+                        },
+                    },
+                    "other": {
+                        "type": ["object", "null"],
+                        "additionalProperties": True,
+                        "properties": {
+                            "hint": {"type": ["string", "null"]},
+                            "payload": {
+                                "type": ["object", "null"],
+                                "additionalProperties": True,
+                            },
+                        },
+                    },
+                    "domain": {
+                        "type": "string",
+                        "enum": [
+                            "general",
+                            "medical",
+                            "financial",
+                            "regulated",
+                            "other",
+                        ],
+                    },
+                    "source": {
+                        "type": "string",
+                        "enum": [
+                            "detected",
+                            "detected_sampled",
+                            "declared",
+                            "merged",
+                        ],
+                    },
+                },
+                "required": [
+                    "schema_version",
+                    "modality",
+                    "task_kind",
+                    "domain",
+                    "source",
+                ],
             },
         },
         "enums": {
@@ -565,6 +720,9 @@ JSON_CONTRACTS: dict[str, dict[str, Any]] = {
             # worker_spec diff 필드 (T-WSPEC-3 additive)
             # True: 두 run의 worker_spec 객체가 다름 (하드웨어/컨테이너 환경 불일치)
             "worker_spec_changed": "boolean",
+            # fingerprint diff 필드 (T-WFP-3 additive)
+            # True: 두 run의 fingerprint 객체가 다름 (데이터 형태 불일치)
+            "fingerprint_changed": "boolean",
         },
         "nested_required": {
             "decision_facts": {
@@ -638,7 +796,13 @@ JSON_CONTRACTS: dict[str, dict[str, Any]] = {
                         "WORKER_TORCH_MISSING — torch 미설치로 GPU 정보 수집 불가; "
                         "WORKER_CGROUP_DENIED — cgroup 접근 거부로 컨테이너 메모리 한도 확인 불가; "
                         "WORKER_CONTAINER_AMBIGUOUS — 컨테이너 탐지 결과 불확실 (복수 힌트 충돌); "
-                        "WORKER_DECLARED_PII_LIKE — declared worker_spec에 PII 패턴 의심값 포함"
+                        "WORKER_DECLARED_PII_LIKE — declared worker_spec에 PII 패턴 의심값 포함; "
+                        "FINGERPRINT_EMPTY_DATA — pcq.fingerprint() 호출 시 X/y가 None 또는 비어있음 (R11); "
+                        "FINGERPRINT_DECLARED_PII_LIKE — declared/merged 경로 자유 문자열에 PII 패턴 의심 (R14); "
+                        "FINGERPRINT_DOMAIN_GATE_SKIP — domain 게이트 적용으로 자동 감지 비활성 (R5); "
+                        "FINGERPRINT_DOMAIN_SUSPECTED_MEDICAL — domain=medical 의심으로 게이트 활성; "
+                        "FINGERPRINT_DOMAIN_SUSPECTED_FINANCIAL — domain=financial 의심으로 게이트 활성; "
+                        "FINGERPRINT_SAMPLED — 대용량 데이터로 인한 샘플링 적용 (통계 근사값)"
                     ),
                     "x-pcq-known-values": [
                         "PII_PATTERN_DETECTED",
@@ -648,6 +812,12 @@ JSON_CONTRACTS: dict[str, dict[str, Any]] = {
                         "WORKER_CGROUP_DENIED",
                         "WORKER_CONTAINER_AMBIGUOUS",
                         "WORKER_DECLARED_PII_LIKE",
+                        "FINGERPRINT_EMPTY_DATA",
+                        "FINGERPRINT_DECLARED_PII_LIKE",
+                        "FINGERPRINT_DOMAIN_GATE_SKIP",
+                        "FINGERPRINT_DOMAIN_SUSPECTED_MEDICAL",
+                        "FINGERPRINT_DOMAIN_SUSPECTED_FINANCIAL",
+                        "FINGERPRINT_SAMPLED",
                     ],
                 },
             },
