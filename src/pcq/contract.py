@@ -1429,6 +1429,183 @@ def build_worker_spec_object(
     return worker_spec, warnings
 
 
+# ---------------------------------------------------------------------------
+# fingerprint 빌더 — T-WFP-4
+# ---------------------------------------------------------------------------
+
+_VALID_FINGERPRINT_MODALITIES: frozenset[str] = frozenset({
+    "tabular", "image", "text", "time_series", "audio", "graph", "other",
+})
+_VALID_FINGERPRINT_TASK_KINDS: frozenset[str] = frozenset({
+    "classification", "regression", "segmentation", "detection", "seq2seq",
+    "generation", "forecasting", "anomaly_detection", "clustering", "other",
+})
+_VALID_FINGERPRINT_DOMAINS: frozenset[str] = frozenset({
+    "general", "medical", "financial", "regulated", "other",
+})
+_VALID_FINGERPRINT_SOURCES: frozenset[str] = frozenset({
+    "detected", "detected_sampled", "declared", "merged",
+})
+_VALID_SIZE_CLASSES: frozenset[str] = frozenset({
+    "small", "medium", "large", "huge",
+})
+
+
+def build_fingerprint_object(
+    cli_args: dict | None = None,
+    cfg: dict | None = None,
+    detected_cache: dict | None = None,
+) -> tuple[dict | None, list[dict]]:
+    """fingerprint 객체를 생성하고 반환합니다.
+
+    우선순위: CLI > cfg(declared) > detected_cache > None.
+
+    도메인 게이트 (R5): domain ∈ {medical, financial, regulated} 이면
+    detected_cache를 무시하고 declared 값만 사용합니다.
+
+    source 결정:
+      - detected_cache만 → "detected" 또는 "detected_sampled" (cache 표시 기준)
+      - cfg만 → "declared"
+      - 둘 다 → "merged"
+
+    Args:
+        cli_args: CLI에서 명시된 fingerprint 필드 dict.
+        cfg: cq.yaml 전체 dict. fingerprint.* 섹션을 탐색합니다.
+        detected_cache: pcq.fingerprint() 호출 결과 캐시 dict.
+            {"modality": ..., "task_kind": ..., "n_samples": ...,
+             "size_class": ..., "sampled": bool, "<modality>": {...},
+             "warnings": [...]} 형태.
+
+    Returns:
+        (fingerprint_dict, warnings) 튜플.
+        fingerprint_dict: dict(schema_version=1) 또는 None(아무 입력 없음).
+        warnings: [{code, message, field?}] 목록.
+
+    Raises:
+        ValueError: modality, task_kind, domain, size_class, source 가 유효하지 않은 경우.
+    """
+    warnings: list[dict] = []
+    cli = cli_args or {}
+
+    # cfg에서 fingerprint.* 섹션 추출
+    fp_cfg: dict = {}
+    if cfg is not None:
+        raw_fp = cfg.get("fingerprint", {})
+        if isinstance(raw_fp, dict):
+            fp_cfg = raw_fp
+
+    # 도메인 게이트 (R5): declared domain ∈ {medical, financial, regulated} 이면 cache 무시
+    declared_domain = cli.get("domain") or fp_cfg.get("domain")
+    regulated_domains = {"medical", "financial", "regulated"}
+    if declared_domain in regulated_domains:
+        # 규제 도메인: detected_cache 무시
+        detected_cache = None
+
+    # 입력이 아무것도 없으면 None 반환
+    has_cli = bool(cli)
+    has_cfg = bool(fp_cfg)
+    has_cache = bool(detected_cache)
+    if not has_cli and not has_cfg and not has_cache:
+        return None, []
+
+    # source 결정
+    has_declared = has_cli or has_cfg
+    if has_declared and has_cache:
+        source_raw = "merged"
+    elif has_declared and not has_cache:
+        source_raw = "declared"
+    elif has_cache and not has_declared:
+        # cache가 sampled 표시했는지 확인
+        if detected_cache and detected_cache.get("sampled"):
+            source_raw = "detected_sampled"
+        else:
+            source_raw = "detected"
+    else:
+        source_raw = "detected"
+
+    def _resolve(field: str, default: object = None) -> object:
+        """CLI > cfg > detected_cache > default 순서로 값을 결정합니다."""
+        if field in cli and cli[field] is not None:
+            return cli[field]
+        if field in fp_cfg and fp_cfg[field] is not None:
+            return fp_cfg[field]
+        if has_cache and detected_cache and field in detected_cache:
+            return detected_cache[field]
+        return default
+
+    # 핵심 필드 결정
+    modality = _resolve("modality")
+    task_kind = _resolve("task_kind")
+    n_samples = _resolve("n_samples")
+    size_class = _resolve("size_class")
+    domain = _resolve("domain", "general")
+
+    # enum 검증 (R12)
+    if modality is not None and str(modality) not in _VALID_FINGERPRINT_MODALITIES:
+        raise ValueError(
+            f"modality must be one of {sorted(_VALID_FINGERPRINT_MODALITIES)!r}, "
+            f"got {modality!r}"
+        )
+    if task_kind is not None and str(task_kind) not in _VALID_FINGERPRINT_TASK_KINDS:
+        raise ValueError(
+            f"task_kind must be one of {sorted(_VALID_FINGERPRINT_TASK_KINDS)!r}, "
+            f"got {task_kind!r}"
+        )
+    if domain is not None and str(domain) not in _VALID_FINGERPRINT_DOMAINS:
+        raise ValueError(
+            f"domain must be one of {sorted(_VALID_FINGERPRINT_DOMAINS)!r}, "
+            f"got {domain!r}"
+        )
+    if size_class is not None and str(size_class) not in _VALID_SIZE_CLASSES:
+        raise ValueError(
+            f"size_class must be one of {sorted(_VALID_SIZE_CLASSES)!r}, "
+            f"got {size_class!r}"
+        )
+    if source_raw not in _VALID_FINGERPRINT_SOURCES:
+        raise ValueError(
+            f"source must be one of {sorted(_VALID_FINGERPRINT_SOURCES)!r}, "
+            f"got {source_raw!r}"
+        )
+
+    # 모달리티별 서브객체 결정 (cache 우선, cfg declared로 보완)
+    modality_sub: dict | None = None
+    if modality is not None:
+        modality_str = str(modality)
+        # cache에서 서브객체
+        cache_sub = (detected_cache or {}).get(modality_str)
+        # cfg에서 서브객체
+        cfg_sub = fp_cfg.get(modality_str)
+        if cache_sub and cfg_sub:
+            modality_sub = {**cache_sub, **cfg_sub}
+        elif cache_sub:
+            modality_sub = dict(cache_sub)
+        elif cfg_sub:
+            modality_sub = dict(cfg_sub)
+
+    # detected_cache warnings 수집
+    if detected_cache and "warnings" in detected_cache:
+        for w in detected_cache["warnings"]:
+            if isinstance(w, dict):
+                warnings.append(w)
+
+    # fingerprint 객체 조립 (R15: sorted keys)
+    fingerprint: dict = {
+        "domain": str(domain) if domain is not None else "general",
+        "modality": str(modality) if modality is not None else None,
+        "n_samples": int(n_samples) if n_samples is not None else None,
+        "schema_version": 1,
+        "size_class": str(size_class) if size_class is not None else None,
+        "source": source_raw,
+        "task_kind": str(task_kind) if task_kind is not None else None,
+    }
+
+    # 모달리티 서브객체 추가 (modality 이름 키로)
+    if modality is not None and modality_sub is not None:
+        fingerprint[str(modality)] = modality_sub
+
+    return fingerprint, warnings
+
+
 _VALID_ATTRIBUTION_KINDS: frozenset[str] = frozenset({"human", "agent"})
 
 
@@ -1541,6 +1718,8 @@ def finalize_run(
     attribution: dict | None = None,
     worker_spec: dict | None = None,
     worker_spec_warnings: list[dict] | None = None,
+    fingerprint: dict | None = None,
+    fingerprint_warnings: list[dict] | None = None,
 ) -> Path:
     """run_record.json + validation_report.json 작성.
 
@@ -1569,6 +1748,11 @@ def finalize_run(
                      dict. run_record 의 worker_spec 필드로 그대로 전달.
                      None 이면 worker_spec 필드 생략 (옛 record 호환).
         worker_spec_warnings: build_worker_spec_object() 에서 반환된 warnings 목록.
+                              None 또는 [] 이면 validation_report 에 추가 없음.
+        fingerprint: T-WFP-4 — build_fingerprint_object() 반환값 또는 동일 형태
+                     dict. run_record 의 fingerprint 필드로 그대로 전달.
+                     None 이면 fingerprint 필드 생략 (옛 record 호환).
+        fingerprint_warnings: build_fingerprint_object() 에서 반환된 warnings 목록.
                               None 또는 [] 이면 validation_report 에 추가 없음.
 
     Returns:
@@ -1614,15 +1798,20 @@ def finalize_run(
     # T-WSPEC-4: worker_spec 필드를 run_record dict 에 추가 (있을 때만).
     if worker_spec is not None:
         record_dict["worker_spec"] = worker_spec
+    # T-WFP-4: fingerprint 필드를 run_record dict 에 추가 (있을 때만).
+    if fingerprint is not None:
+        record_dict["fingerprint"] = fingerprint
     # v2.11: atomic write — partial RunRecord 와 동일한 보장.
     _atomic_write_json(rr_path, record_dict)
 
     # post-run validation 실행 후 validation_report.json + run_record.validation patch
+    # fingerprint_warnings 를 extra_warnings 에 포함 (worker_spec_warnings 와 합산).
+    combined_extra_warnings = list(worker_spec_warnings or []) + list(fingerprint_warnings or [])
     _run_post_validation_and_patch(
         out,
         rr_path,
         strictness=cfg.get("strictness"),
-        extra_warnings=worker_spec_warnings or [],
+        extra_warnings=combined_extra_warnings,
     )
 
     return rr_path
