@@ -87,6 +87,12 @@ class RunDescription:
     worker_spec_memory_gb: float | None = None
     worker_spec_accelerator_kind: str | None = None
     worker_spec_gpu_model_0: str | None = None
+    # fingerprint — T-WFP-5: 중첩 객체 + 플랫 표면 (에이전트 쿼리 편의)
+    fingerprint: dict | None = None
+    fingerprint_modality: str | None = None
+    fingerprint_task_kind: str | None = None
+    fingerprint_n_samples: int | None = None
+    fingerprint_size_class: str | None = None
 
     def to_dict(self) -> dict:
         out: dict = {}
@@ -395,6 +401,16 @@ def describe_run(output_dir: str | Path) -> RunDescription:
         desc.worker_spec_accelerator_kind = accelerator.get("kind") or None
         gpu_0 = gpus[0] if gpus else {}
         desc.worker_spec_gpu_model_0 = gpu_0.get("model") or None if isinstance(gpu_0, dict) else None
+
+    # fingerprint — T-WFP-5: run_record 의 중첩 객체를 그대로 보존하고 플랫 표면도 노출.
+    raw_fingerprint = rr.get("fingerprint")
+    if isinstance(raw_fingerprint, dict):
+        desc.fingerprint = raw_fingerprint
+        desc.fingerprint_modality = raw_fingerprint.get("modality") or None
+        desc.fingerprint_task_kind = raw_fingerprint.get("task_kind") or None
+        n_samples = raw_fingerprint.get("n_samples")
+        desc.fingerprint_n_samples = int(n_samples) if isinstance(n_samples, (int, float)) else None
+        desc.fingerprint_size_class = raw_fingerprint.get("size_class") or None
 
     desc.decision_facts = _decision_facts(desc)
 

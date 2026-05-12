@@ -27,6 +27,17 @@ from pcq.agent.strictness import (
     strictness_name,
 )
 
+# R14: declared/merged fingerprint 자유 문자열 필드에서 PII 유사 패턴을 탐지하는 정규식.
+# hostname-shape, email, SSN 등을 감지한다 (warn only).
+_FINGERPRINT_PII_PATTERNS: list[re.Pattern[str]] = [
+    re.compile(r"\b[a-zA-Z][a-zA-Z0-9-]+\.local\b"),          # hostname.local 패턴
+    re.compile(r"\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b"),  # 이메일 주소
+    re.compile(r"\b\d{3}-\d{2}-\d{4}\b"),                     # SSN (미국)
+    re.compile(r"/home/[a-zA-Z][a-zA-Z0-9_-]+/"),             # /home/<username>/ 경로
+    re.compile(r"/Users/[a-zA-Z][a-zA-Z0-9_-]+/"),            # /Users/<username>/ 경로 (macOS)
+    re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b"),               # IP 주소
+]
+
 # R14: declared/merged worker_spec 에서 PII 유사 패턴을 탐지하는 정규식.
 # hostname, MacBook 모델명, 사용자명 포함 경로 등을 감지한다 (warn only).
 _WORKER_PII_PATTERNS: list[re.Pattern[str]] = [
@@ -95,6 +106,75 @@ def _check_worker_spec_pii(
             suggested_fix=(
                 "worker_spec 의 cpu.model, os.release, container.image 등에서 "
                 "hostname, 경로, IP 등 개인 식별 정보를 제거하거나 일반화하세요."
+            ),
+        ))
+
+
+def _collect_fingerprint_strings(obj: Any, prefix: str = "") -> list[tuple[str, str]]:
+    """fingerprint dict 에서 문자열 필드를 재귀적으로 수집한다.
+
+    modality / task_kind / domain / source / size_class 는 enum 이므로 안전.
+    그 외 자유 문자열(예: modality.other.hint 등)을 수집한다.
+
+    Returns:
+        [(field_path, value)] 리스트.
+    """
+    # 안전 enum 필드 — PII 검사에서 제외
+    _SAFE_TOP_KEYS = frozenset({"modality", "task_kind", "domain", "source", "size_class", "schema_version"})
+
+    results: list[tuple[str, str]] = []
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            path = f"{prefix}.{k}" if prefix else k
+            # 최상위 enum 필드 건너뜀
+            if not prefix and k in _SAFE_TOP_KEYS:
+                continue
+            results.extend(_collect_fingerprint_strings(v, path))
+    elif isinstance(obj, list):
+        for i, item in enumerate(obj):
+            path = f"{prefix}[{i}]"
+            results.extend(_collect_fingerprint_strings(item, path))
+    elif isinstance(obj, str) and obj:
+        results.append((prefix, obj))
+    return results
+
+
+def _check_fingerprint_pii(
+    report: ValidationReport,
+    fingerprint_obj: dict,
+) -> None:
+    """R14: declared/merged fingerprint 자유 문자열 필드에서 PII 유사 패턴 탐지.
+
+    감지 시 warning_code=FINGERPRINT_DECLARED_PII_LIKE 추가 (warn only, exit_code 영향 없음).
+    source ∈ {declared, merged} 일 때만 발동.
+    """
+    source = fingerprint_obj.get("source", "")
+    # declared 또는 merged source 일 때만 검사
+    if source not in ("declared", "merged"):
+        return
+
+    string_fields = _collect_fingerprint_strings(fingerprint_obj)
+    pii_hits: list[str] = []
+
+    for field_path, value in string_fields:
+        for pattern in _FINGERPRINT_PII_PATTERNS:
+            if pattern.search(value):
+                pii_hits.append(f"{field_path}={value!r}")
+                break
+
+    if pii_hits:
+        report.add(ValidationCheck(
+            id="fingerprint_pii",
+            status="warn",
+            severity="warning",
+            detail=(
+                f"FINGERPRINT_DECLARED_PII_LIKE: declared fingerprint 에 PII 패턴 의심값 포함 "
+                f"({len(pii_hits)} 필드): {pii_hits[:3]}"
+            ),
+            evidence={"warning_code": "FINGERPRINT_DECLARED_PII_LIKE", "fields": pii_hits},
+            suggested_fix=(
+                "fingerprint 의 자유 문자열 필드에서 "
+                "hostname, 경로, IP, 이메일, SSN 등 개인 식별 정보를 제거하거나 일반화하세요."
             ),
         ))
 
@@ -592,6 +672,15 @@ def _add_project_reproducibility_gates(
             _check_worker_spec_pii(report, _ws_obj)
     except Exception:  # noqa: BLE001
         pass  # worker_spec 생성 실패 시 PII 게이트 skip (다른 게이트에 영향 없음)
+
+    # R14: L3+ declared fingerprint PII 유사 패턴 탐지 (warn only).
+    try:
+        from pcq.contract import build_fingerprint_object as _build_fp
+        _fp_obj, _ = _build_fp(cli_args=None, cfg=cfg)
+        if isinstance(_fp_obj, dict):
+            _check_fingerprint_pii(report, _fp_obj)
+    except Exception:  # noqa: BLE001
+        pass  # fingerprint 생성 실패 시 PII 게이트 skip (다른 게이트에 영향 없음)
 
     if strictness < 4:
         return

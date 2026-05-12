@@ -283,3 +283,154 @@ def worker_spec() -> dict | None:
         cfg = {}
     spec, _ = build_worker_spec_object(cli_args=None, cfg=cfg)
     return spec
+
+
+# ---------------------------------------------------------------------------
+# T-WFP-5: pcq.fingerprint() — 데이터 핑거프린트 공개 API
+# ---------------------------------------------------------------------------
+
+# 모듈 레벨 캐시 (save_all 자동 픽업용). None 이면 호출된 적 없음.
+_fingerprint_cache: dict | None = None
+_fingerprint_warnings: list[dict] = []
+
+# 규제 도메인 — R5 게이트 (fingerprint.py와 동일 정의)
+_REGULATED_DOMAINS: frozenset[str] = frozenset({"medical", "financial", "regulated"})
+
+# 허용 모달리티 (R12) — contract._VALID_FINGERPRINT_MODALITIES와 동일
+_VALID_MODALITIES: frozenset[str] = frozenset({
+    "tabular", "image", "text", "time_series", "audio", "graph", "other",
+})
+
+
+def fingerprint(
+    X: Any,
+    y: Any,
+    modality: str,
+    task_kind: str | None = None,
+    domain: str = "general",
+    sample_rows: int = 100_000,
+) -> dict | None:
+    """데이터 핑거프린트를 추출하고 모듈 캐시에 저장한다 (T-WFP-5).
+
+    save_all() 이 캐시를 자동으로 픽업하여 run_record.json 의 fingerprint 섹션을 채운다.
+    사용자는 save_all() 이전에 이 함수를 한 번 호출하면 된다.
+
+    Args:
+        X: 입력 데이터 (DataFrame, ndarray, list, dict 등 모달리티에 따라 다름).
+        y: 타겟 레이블 또는 None.
+        modality: 데이터 모달리티 — tabular|image|text|time_series|audio|graph|other (R12).
+        task_kind: 태스크 종류 — classification|regression|... (선택).
+        domain: 도메인 컨텍스트 — general|medical|financial|regulated|other.
+                medical/financial/regulated 이면 R5 게이트 적용으로 추출 생략.
+        sample_rows: 대용량 tabular 데이터 샘플링 한계 (기본 100_000).
+
+    Returns:
+        캐시된 detected_cache dict (save_all 픽업용). caller 가 직접 사용 가능.
+        R5 게이트 적용 시 hints-only dict 반환.
+
+    Raises:
+        ValueError: modality 가 유효하지 않은 경우 (R12).
+    """
+    global _fingerprint_cache, _fingerprint_warnings
+
+    # R12: modality enum 검증
+    if modality not in _VALID_MODALITIES:
+        raise ValueError(
+            f"modality must be one of {sorted(_VALID_MODALITIES)!r}, got {modality!r}"
+        )
+
+    warnings: list[dict] = []
+
+    # R5: 규제 도메인이면 추출 생략 → hints only + FINGERPRINT_DOMAIN_GATE_SKIP 경고
+    if domain in _REGULATED_DOMAINS:
+        hints_cache: dict = {
+            "modality": modality,
+            "task_kind": task_kind,
+            "domain": domain,
+            "sampled": False,
+            "warnings": [{
+                "code": "FINGERPRINT_DOMAIN_GATE_SKIP",
+                "message": (
+                    f"domain={domain!r}은 규제 도메인입니다. "
+                    "자동 통계 추출을 생략하고 declared 경로를 사용합니다. "
+                    "cq.yaml 의 fingerprint 섹션에 메타데이터를 명시하세요."
+                ),
+            }],
+        }
+        _fingerprint_cache = hints_cache
+        _fingerprint_warnings = hints_cache["warnings"]
+        print(
+            "[cq] warning: FINGERPRINT_DOMAIN_GATE_SKIP — "
+            f"domain={domain!r} 규제 도메인으로 자동 추출 비활성.",
+            file=sys.stderr,
+        )
+        return hints_cache
+
+    # 모달리티별 추출 함수 디스패치
+    from pcq.fingerprint import (
+        extract_audio,
+        extract_graph,
+        extract_image,
+        extract_tabular,
+        extract_text,
+        extract_time_series,
+    )
+
+    _extractor_map = {
+        "tabular": lambda: extract_tabular(X, y, sample_rows=sample_rows, domain=domain),
+        "image": lambda: extract_image(X, y),
+        "text": lambda: extract_text(X, y),
+        "time_series": lambda: extract_time_series(X, y),
+        "audio": lambda: extract_audio(X, y),
+        "graph": lambda: extract_graph(X, y),
+        "other": lambda: ({}, []),  # other 는 추출 없음 (hints only)
+    }
+
+    extractor = _extractor_map[modality]
+    sub_dict, sub_warnings = extractor()
+    warnings.extend(sub_warnings)
+
+    # n_samples / size_class 결정
+    n_samples: int | None = None
+    sampled = False
+    try:
+        n_samples = int(len(X))  # type: ignore[arg-type]
+    except (TypeError, AttributeError):
+        pass
+
+    # size_class 계산 (fingerprint._size_class 재사용)
+    size_class: str | None = None
+    if n_samples is not None:
+        from pcq.fingerprint import _size_class
+        size_class = _size_class(n_samples)
+
+    # sampled 여부 — sub_dict 에 sampled_rows 가 있으면 샘플링된 것
+    if sub_dict.get("sampled_rows") is not None:
+        sampled = True
+
+    # detected_cache 조립 (build_fingerprint_object 가 읽는 형식)
+    detected_cache: dict = {
+        "modality": modality,
+        "task_kind": task_kind,
+        "domain": domain,
+        "n_samples": n_samples,
+        "size_class": size_class,
+        "sampled": sampled,
+        "warnings": warnings,
+    }
+    # 모달리티 서브객체 추가 (예: "tabular": {...})
+    if sub_dict:
+        detected_cache[modality] = sub_dict
+
+    # 캐시 저장 (save_all 픽업용)
+    _fingerprint_cache = detected_cache
+    _fingerprint_warnings = warnings
+
+    return detected_cache
+
+
+def _reset_fingerprint_cache() -> None:
+    """테스트용 fingerprint 캐시 리셋."""
+    global _fingerprint_cache, _fingerprint_warnings
+    _fingerprint_cache = None
+    _fingerprint_warnings = []

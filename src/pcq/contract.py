@@ -1958,6 +1958,21 @@ def save_all(
             cli_args=None,
             cfg=_wspec_cfg,
         )
+        # T-WFP-5: fingerprint 캐시 자동 픽업 (pcq.fingerprint() 호출 결과).
+        # 호출된 적 없으면 None → build_fingerprint_object 가 cfg declared 만 사용.
+        try:
+            from pcq.core import _fingerprint_cache as _fp_cache
+            from pcq.core import _fingerprint_warnings as _fp_warnings
+        except ImportError:
+            _fp_cache = None
+            _fp_warnings = []
+        fingerprint_obj, fingerprint_warnings = build_fingerprint_object(
+            cli_args=None,
+            cfg=_wspec_cfg,
+            detected_cache=_fp_cache,
+        )
+        # detected_cache 의 warnings 는 build_fingerprint_object 가 이미 수집하므로
+        # 중복 방지를 위해 _fp_warnings 는 별도 병합하지 않음
         rr_path = finalize_run(
             history=history,
             status=status,
@@ -1972,6 +1987,8 @@ def save_all(
             attribution=attribution_obj,
             worker_spec=worker_spec_obj,
             worker_spec_warnings=worker_spec_warnings,
+            fingerprint=fingerprint_obj,
+            fingerprint_warnings=fingerprint_warnings,
         )
         paths["run_record"] = rr_path
         vr_path = rr_path.parent / "validation_report.json"

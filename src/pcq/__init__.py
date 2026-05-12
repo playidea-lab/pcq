@@ -32,7 +32,7 @@ from pcq.contract import (
     save_partial_run_record,
     save_run_summary,
 )
-from pcq.core import config, input_dir, log, output_dir, seed_everything
+from pcq.core import config, fingerprint, input_dir, log, output_dir, seed_everything, worker_spec
 
 
 __version__ = "4.3.0"
@@ -44,6 +44,7 @@ __all__ = [
     "config",
     "describe_run",
     "finalize_run",
+    "fingerprint",
     "input_dir",
     "inspect_project",
     "log",
@@ -59,4 +60,5 @@ __all__ = [
     "seed_everything",
     "summarize_run",
     "validate_project",
+    "worker_spec",
 ]
