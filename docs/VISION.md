@@ -141,6 +141,31 @@ not the framework. The required part is the contract around the run.
 - lineage lets an agent understand experiment ancestry
 - `apply-plan` can start the next iteration without editing pcq internals
 
+## Three Metadata Fields (v4.4–4.6)
+
+pcq treats three fields as first-class evidence: they record *who made the run*
+(`attribution`), *what execution environment was used* (`worker_spec`), and
+*which version of code and data produced the result* (`fingerprint`). Together
+they turn a bare metrics file into a traceable, reproducible record — an agent
+or auditor can reconstruct the exact conditions without reading prose or hunting
+through logs. PII exposure is handled through a layered policy: attribution may
+be omitted or anonymised when the evidence is shared externally.
+
+| Field | Captures |
+|---|---|
+| `attribution` | author / agent identity that initiated the run |
+| `worker_spec` | runtime environment — hardware, OS, driver, container |
+| `fingerprint` | content hash of code tree and declared data inputs |
+
+## External Consumers
+
+pcq's evidence artifacts may be consumed by services that orchestrate runs
+(e.g., CQ) or aggregate evidence (e.g., The Commons — a separate open-source
+project in development). pcq itself defines only the format and contract;
+downstream consumers decide what to do with the evidence. Matching runs to
+goals, routing work to workers, or presenting results in a UI are not pcq
+concerns — they belong to the consumer layer.
+
 ## North Star
 
 ```text
