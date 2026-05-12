@@ -740,6 +740,46 @@ pcq.save_all(history=history, artifacts={"model": "model"})</code></pre>
         </div>
       </section>
 
+      <section id="evidence-metadata" class="section">
+        <div class="section-heading">
+          <p class="eyebrow">Evidence Metadata (v4.4–4.6)</p>
+          <h2>Evidence Now Captures Who / Where / What</h2>
+          <p class="section-lead">
+            Three new metadata fields — added across pcq v4.4, v4.5, and v4.6 —
+            attach structured context to every run record: who ran it, on what
+            hardware, and over what kind of data. All three are
+            <strong>agent-fillable</strong>: Claude Code, Codex, and any
+            MCP-aware agent populate them automatically.
+          </p>
+        </div>
+        <div class="metadata-cards">
+          <article class="metadata-card">
+            <h3><code>attribution</code> <span class="badge">v4.4</span></h3>
+            <p class="metadata-axis">Who</p>
+            <p>Records the author, committer, or operator identity that initiated the run. Useful for audit trails and agent-loop accountability.</p>
+            <p class="metadata-link"><a href="https://github.com/playidea-lab/pcq/blob/main/spec/SPEC.md#attribution">SPEC.md #attribution &rarr;</a></p>
+          </article>
+          <article class="metadata-card">
+            <h3><code>worker_spec</code> <span class="badge">v4.5</span></h3>
+            <p class="metadata-axis">Where</p>
+            <p>Captures the execution environment: CPU model, GPU type and count, available memory. Auto-detected when called without arguments.</p>
+            <p class="metadata-link"><a href="https://github.com/playidea-lab/pcq/blob/main/spec/SPEC.md#worker-spec">SPEC.md #worker-spec &rarr;</a></p>
+          </article>
+          <article class="metadata-card">
+            <h3><code>fingerprint</code> <span class="badge">v4.6</span></h3>
+            <p class="metadata-axis">What</p>
+            <p>Records data modality, task kind, and PII-safe statistics (row count, column count, hash). No raw data leaves the machine.</p>
+            <p class="metadata-link"><a href="https://github.com/playidea-lab/pcq/blob/main/spec/SPEC.md#fingerprint">SPEC.md #fingerprint &rarr;</a></p>
+          </article>
+        </div>
+        <pre><code>pcq.attribution(operator="alice")
+pcq.worker_spec()  # auto-detect
+pcq.fingerprint(X, y, modality="tabular", task_kind="classification")</code></pre>
+        <p class="metadata-note">
+          <strong>agent-fillable</strong> — Claude Code, Codex automatically populate these.
+        </p>
+      </section>
+
       <section id="agents" class="section split-section">
         <div>
           <p class="eyebrow">Agent-operable by design</p>
