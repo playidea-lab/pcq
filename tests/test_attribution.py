@@ -285,7 +285,7 @@ def test_R10_pii_pattern_operator_warns_with_code(tmp_path: Path, monkeypatch):
     }))
 
     report = validate_run(tmp_path, strictness=3)
-    report_dict = report.to_dict()
+    report.to_dict()  # 직렬화 가능 검증 (반환값 미사용)
 
     # PII 검사 결과 확인
     pii_checks = [

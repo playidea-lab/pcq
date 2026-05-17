@@ -11,11 +11,9 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
-import pcq
 import pcq.core as _pcq_core
 from pcq.core import fingerprint as pcq_fingerprint  # 함수 직접 import (모듈명 충돌 방지)
 from pcq.agent.describe import describe_run
@@ -571,7 +569,6 @@ def test_MED3_large_data_sample():
     """
     pytest.importorskip("pandas", reason="pandas 미설치")
     import pandas as pd
-    import numpy as np
 
     # 1M 행 대신 mock DataFrame 사용 (메모리 절약)
     # extract_tabular 에서 n=1_000_000 이면 large → 샘플링 경로 실행됨
