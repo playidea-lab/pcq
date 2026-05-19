@@ -2003,6 +2003,17 @@ def finalize_run(
     # T-PCQ2X-3: intent, integrity, contract_version 추가 (additive — 1.x 호환).
     if run_intent is not None:
         record_dict["intent"] = run_intent
+
+    # T-PCQ2X-5: integrity 자동 계산 — run_integrity 가 명시 전달되지 않고 intent 가 있을 때
+    # record_dict 가 완전히 조립된 후 (intent 포함, integrity 제외) 해시 계산.
+    # anti-recursion 은 build_integrity_object 내부가 보장 ("integrity" 키 제외).
+    _auto_integrity: dict | None = None
+    _auto_integrity_warnings: list[dict] = []
+    if run_integrity is None and run_intent is not None:
+        _auto_integrity, _auto_integrity_warnings = build_integrity_object(record_dict)
+        run_integrity = _auto_integrity
+        run_integrity_warnings = list(run_integrity_warnings or []) + _auto_integrity_warnings
+
     if run_integrity is not None:
         record_dict["integrity"] = run_integrity
     # contract_version "2.0" 은 intent 또는 integrity 가 있을 때만 emit.
@@ -2101,6 +2112,11 @@ def save_all(
     session_id: str | None = None,
     persona_id_author: str | None = None,
     persona_id_committer: str | None = None,
+    # T-PCQ2X-5: intent 2.x 입력 — 명시 인자 우선, 없으면 CQ_INTENT_* 환경변수 폴백,
+    # 그 다음 cq.yaml의 intent.* 섹션. 셋 모두 없으면 build_intent_object 가 None 반환.
+    intent_goal: str | None = None,
+    intent_expected_baseline: dict | None = None,
+    intent_tolerance: dict | None = None,
 ) -> dict[str, Path]:
     """5+ 개 표준 artifact 묶음 작성. contract script 마지막 한 줄로 사용.
 
@@ -2113,6 +2129,9 @@ def save_all(
     v2.5: output_dir / project_root 명시 인자 — finalize_run 으로 그대로 전달.
     v3.0: attribution 인자 — build_attribution_object() 로 결정 후 finalize_run 에 전달.
           명시 인자 없으면 환경변수(CQ_ATTRIBUTION_*) 자동 폴백. 둘 다 없으면 생략.
+    T-PCQ2X-5: intent_goal/intent_expected_baseline/intent_tolerance — build_intent_object()
+          로 결정 후 finalize_run 에 전달. 명시 인자 없으면 CQ_INTENT_* 환경변수 폴백,
+          없으면 cq.yaml intent.* 섹션. 셋 모두 null 이면 intent 생략 (1.x 호환).
 
     Returns:
         {"config", "metrics", "manifest", "run_summary"} 항상.
@@ -2185,6 +2204,51 @@ def save_all(
         )
         # detected_cache 의 warnings 는 build_fingerprint_object 가 이미 수집하므로
         # 중복 방지를 위해 _fp_warnings 는 별도 병합하지 않음
+
+        # T-PCQ2X-5: intent 2.x 객체 결정.
+        # 우선순위: 명시 인자 > CQ_INTENT_* 환경변수 > cq.yaml intent.* 섹션.
+        _intent_cfg: dict = {}
+        if isinstance(_wspec_cfg.get("intent"), dict):
+            _intent_cfg = _wspec_cfg["intent"]
+
+        _resolved_goal = (
+            intent_goal
+            or os.environ.get("CQ_INTENT_GOAL")
+            or _intent_cfg.get("goal")
+            or None
+        )
+        # expected_baseline: 명시 인자 > 환경변수(metric+value 조합) > cfg
+        _resolved_baseline: dict | None = intent_expected_baseline
+        if _resolved_baseline is None:
+            _eb_metric = os.environ.get("CQ_INTENT_EXPECTED_BASELINE_METRIC")
+            _eb_value_str = os.environ.get("CQ_INTENT_EXPECTED_BASELINE_VALUE")
+            if _eb_metric and _eb_value_str:
+                try:
+                    _resolved_baseline = {"metric": _eb_metric, "value": float(_eb_value_str)}
+                except (ValueError, TypeError):
+                    _resolved_baseline = None
+        if _resolved_baseline is None and isinstance(_intent_cfg.get("expected_baseline"), dict):
+            _resolved_baseline = _intent_cfg["expected_baseline"]
+
+        # tolerance: 명시 인자 > 환경변수(direction+margin 조합) > cfg
+        _resolved_tolerance: dict | None = intent_tolerance
+        if _resolved_tolerance is None:
+            _tol_dir = os.environ.get("CQ_INTENT_TOLERANCE_DIRECTION")
+            _tol_margin_str = os.environ.get("CQ_INTENT_TOLERANCE_MARGIN")
+            if _tol_dir and _tol_margin_str:
+                try:
+                    _resolved_tolerance = {"direction": _tol_dir, "margin": float(_tol_margin_str)}
+                except (ValueError, TypeError):
+                    _resolved_tolerance = None
+        if _resolved_tolerance is None and isinstance(_intent_cfg.get("tolerance"), dict):
+            _resolved_tolerance = _intent_cfg["tolerance"]
+
+        intent_obj, intent_warnings = build_intent_object(
+            goal=_resolved_goal,
+            expected_baseline=_resolved_baseline,
+            tolerance=_resolved_tolerance,
+        )
+
         rr_path = finalize_run(
             history=history,
             status=status,
@@ -2201,6 +2265,8 @@ def save_all(
             worker_spec_warnings=worker_spec_warnings,
             fingerprint=fingerprint_obj,
             fingerprint_warnings=fingerprint_warnings,
+            run_intent=intent_obj,
+            run_intent_warnings=intent_warnings,
         )
         paths["run_record"] = rr_path
         vr_path = rr_path.parent / "validation_report.json"

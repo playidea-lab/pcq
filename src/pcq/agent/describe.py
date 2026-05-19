@@ -93,6 +93,14 @@ class RunDescription:
     fingerprint_task_kind: str | None = None
     fingerprint_n_samples: int | None = None
     fingerprint_size_class: str | None = None
+    # intent — T-PCQ2X-5: 중첩 객체 + 플랫 표면 (에이전트 쿼리 편의)
+    intent: dict | None = None
+    intent_goal: str | None = None
+    # integrity — T-PCQ2X-5: 중첩 객체 + 플랫 표면 (에이전트 쿼리 편의)
+    integrity: dict | None = None
+    integrity_content_hash: str | None = None
+    # contract_version — T-PCQ2X-5: Evidence 양식 버전 (부재 = 1.x)
+    contract_version: str | None = None
 
     def to_dict(self) -> dict:
         out: dict = {}
@@ -411,6 +419,23 @@ def describe_run(output_dir: str | Path) -> RunDescription:
         n_samples = raw_fingerprint.get("n_samples")
         desc.fingerprint_n_samples = int(n_samples) if isinstance(n_samples, (int, float)) else None
         desc.fingerprint_size_class = raw_fingerprint.get("size_class") or None
+
+    # intent — T-PCQ2X-5: run_record 의 중첩 객체를 그대로 보존하고 플랫 표면도 노출.
+    raw_intent = rr.get("intent")
+    if isinstance(raw_intent, dict):
+        desc.intent = raw_intent
+        desc.intent_goal = raw_intent.get("goal") or None
+
+    # integrity — T-PCQ2X-5: run_record 의 중첩 객체를 그대로 보존하고 플랫 표면도 노출.
+    raw_integrity = rr.get("integrity")
+    if isinstance(raw_integrity, dict):
+        desc.integrity = raw_integrity
+        desc.integrity_content_hash = raw_integrity.get("content_hash") or None
+
+    # contract_version — T-PCQ2X-5: 부재 = 1.x (None 으로 표현).
+    raw_contract_version = rr.get("contract_version")
+    if isinstance(raw_contract_version, str):
+        desc.contract_version = raw_contract_version
 
     desc.decision_facts = _decision_facts(desc)
 
