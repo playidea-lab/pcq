@@ -333,6 +333,61 @@ from any detected or declared values available before training begins.
 Inference metrics (latency, throughput, memory, etc.) live in `metrics.json`
 under recommended key names — see [SPEC.md#inference-metrics](SPEC.md).
 
+#### `intent`, `integrity`, and `contract_version` in `pcq.describe_run.record`
+
+These three fields are introduced by pcq 2.x and are **optional** siblings of
+`attribution`, `worker_spec`, and `fingerprint` in `pcq.describe_run.record`
+(and in the underlying `run_record.json`). Absence is not a contract violation —
+records without these fields are valid 1.x records.
+
+**`intent`** — optional nested object; all sub-fields null-permitted:
+
+```json
+"intent": {
+  "goal": "<enum string>" | null,
+  "expected_baseline": { "metric": "<string>", "value": <number> } | null,
+  "tolerance": { "direction": "<string>", "margin": <number> } | null
+}
+```
+
+**`integrity`** — optional nested object:
+
+```json
+"integrity": {
+  "content_hash": "sha256:<hex>",
+  "hashed_fields": ["<leaf path>", ...]
+}
+```
+
+`hashed_fields` is a **leaf path allowlist** — it enumerates only the exact
+field paths that were included in the `content_hash` computation. Object-level
+wholesale paths (e.g. bare `"attribution"`) are not allowed; use explicit leaf
+paths such as `"attribution.author"`, `"attribution.committer"`,
+`"attribution.operator"`.
+
+**Anti-recursion rule**: `attribution.signature` and `integrity` itself are
+always excluded from `hashed_fields`. This ensures:
+
+1. Adding `attribution.signature` in Phase 2 does not invalidate existing hashes.
+2. The hash field is not part of its own pre-image (circular dependency
+   prevention).
+
+**`contract_version`** — optional string:
+
+```json
+"contract_version": "2.0"
+```
+
+Cross-reference to the three-axis version table: see
+[SPEC.md § pcq 2.x Contract](SPEC.md).
+
+Absence of `contract_version` means the record is a 1.x record. Readers must
+treat absence as `"1.x"` and process the record as valid legacy evidence.
+
+**Flat surface**: No additional top-level flat fields are defined for `intent`,
+`integrity`, or `contract_version` in the current contract. The nested form
+is the only guaranteed surface.
+
 ### `pcq compare-runs A B --json`
 
 Contract name: `pcq.compare_runs.diff`

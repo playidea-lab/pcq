@@ -141,6 +141,60 @@ golden pair under
 [`tests/conformance/<contract>/`](../tests/conformance/) demonstrating
 the new shape — see [`CONFORMANCE.md`](./CONFORMANCE.md).
 
+## pcq 2.x — Three-Axis Version Policy
+
+pcq uses three independent version axes. They evolve separately and must not be
+conflated.
+
+### Three axes
+
+| Axis | Example | Lives in | Meaning |
+|---|---|---|---|
+| Package (PyPI) | `4.3.0` | `pcq.__version__` | Install target; follows semver |
+| `JSON_CONTRACT_VERSION` | `1` | `schema_version` field in every JSON output | MCP tool / agent JSON surface freeze |
+| `contract_version` | `"2.0"` | `run_record.json` top-level field | Evidence form (양식) version |
+
+### `contract_version` — evidence form version
+
+`contract_version` is a string field on `run_record.json` that identifies which
+evidence form (양식) the record was produced with:
+
+- `"2.0"` — pcq 2.x record: contains `intent`, `integrity`, and
+  `contract_version` fields.
+- Absent — 1.x record: `intent`, `integrity`, and `contract_version` are not
+  present.
+
+**Absence means 1.x.** Readers must treat a missing `contract_version` field as
+equivalent to `"1.x"` and process the record as valid legacy evidence. No
+migration or rejection is required.
+
+### 1.x ↔ 2.x backward compatibility
+
+pcq 2.x is **additive-only** relative to 1.x:
+
+- Every 1.x `run_record.json` is a valid 2.x record (fields absent = null).
+- No 1.x required field is removed or renamed in 2.x.
+- No 1.x enum value is removed in 2.x.
+- `contract_version`, `intent`, and `integrity` are new **optional** fields;
+  1.x readers that do not know these fields must silently ignore them.
+- The `JSON_CONTRACT_VERSION` (`schema_version` integer on agent-facing JSON
+  outputs) does not change when `contract_version` is added or bumped.
+
+The additive-only policy also applies within 2.x itself: future 2.x records
+may add new optional fields without bumping `contract_version` to `"3.0"`.
+A `contract_version` bump to `"3.0"` would only occur for a breaking change
+to the evidence form structure (removing or renaming a required 2.x field).
+
+### Independent evolution examples
+
+| Change | Package bump? | `schema_version` bump? | `contract_version` bump? |
+|---|---|---|---|
+| Add optional field to `run_record.json` | minor | no | no |
+| Add pcq 2.x `intent`/`integrity` | minor | no | `"1.x"` → `"2.0"` |
+| Remove a `pcq describe-run --json` required field | major | `1` → `2` | yes if evidence form changes |
+| Add a new CLI command | minor | no | no |
+| Fix a bug in hash computation | patch | no | no (hash algo unchanged) |
+
 ## Attribution field — env precedence and PII guidance
 
 This section is normative for the `attribution` object introduced in
