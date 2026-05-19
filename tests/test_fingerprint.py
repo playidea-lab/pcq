@@ -652,3 +652,218 @@ def test_invalid_size_class_value_error():
 
     with pytest.raises(ValueError, match="size_class"):
         build_fingerprint_object(cfg=cfg)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# T-PCQ2X-4: band 표현 + R4 PHI 게이트 시나리오 테스트
+# ─────────────────────────────────────────────────────────────────────────────
+
+def test_band_sample_count_buckets():
+    """_sample_count_band: 반열림 경계 결정성 검증 (R15 정합).
+
+    각 버킷 경계값에서 정확한 band가 반환되는지 확인.
+    n=0 → "0-1k", n=999 → "0-1k", n=1000 → "1k-10k", n=10_000_000 → "10M+".
+    """
+    from pcq.fingerprint import _sample_count_band
+
+    # 버킷 경계 하한: n < 1000 → "0-1k"
+    assert _sample_count_band(0) == "0-1k"
+    assert _sample_count_band(999) == "0-1k"
+    # 경계 초과: n=1000 → "1k-10k"
+    assert _sample_count_band(1_000) == "1k-10k"
+    assert _sample_count_band(9_999) == "1k-10k"
+    assert _sample_count_band(10_000) == "10k-100k"
+    assert _sample_count_band(99_999) == "10k-100k"
+    assert _sample_count_band(100_000) == "100k-1M"
+    assert _sample_count_band(999_999) == "100k-1M"
+    assert _sample_count_band(1_000_000) == "1M-10M"
+    assert _sample_count_band(9_999_999) == "1M-10M"
+    # 최대 버킷 초과 → "10M+"
+    assert _sample_count_band(10_000_000) == "10M+"
+    assert _sample_count_band(99_999_999) == "10M+"
+
+
+def test_band_class_balance_buckets():
+    """_class_balance_band: majority ratio → 비율 버킷 결정성 검증."""
+    from pcq.fingerprint import _class_balance_band
+
+    assert _class_balance_band(0.40) == "35-50%"
+    assert _class_balance_band(0.499) == "35-50%"
+    assert _class_balance_band(0.50) == "50-65%"
+    assert _class_balance_band(0.649) == "50-65%"
+    assert _class_balance_band(0.65) == "65-80%"
+    assert _class_balance_band(0.80) == "80-95%"
+    assert _class_balance_band(0.94) == "80-95%"
+    assert _class_balance_band(0.95) == "95%+"
+    assert _class_balance_band(1.0) == "95%+"
+
+
+def test_band_missing_pct_buckets():
+    """_missing_pct_band: missing_ratio_max → 결측 비율 버킷 결정성 검증."""
+    from pcq.fingerprint import _missing_pct_band
+
+    assert _missing_pct_band(0.0) == "0-5%"
+    assert _missing_pct_band(0.049) == "0-5%"
+    assert _missing_pct_band(0.05) == "5-20%"
+    assert _missing_pct_band(0.199) == "5-20%"
+    assert _missing_pct_band(0.20) == "20%+"
+    assert _missing_pct_band(0.99) == "20%+"
+
+
+def test_band_fields_emitted_general_domain():
+    """일반 도메인에서 extract_tabular 결과에 band 필드와 정확값이 공존해야 한다.
+
+    Arrange: pandas DataFrame (100행) + domain="general"
+    Act: extract_tabular 직접 호출
+    Assert: sample_count_band="0-1k", class_balance_band 존재, 정확값 target_balance도 존재
+    """
+    pytest.importorskip("pandas", reason="pandas 미설치")
+    import pandas as pd
+    from pcq.fingerprint import extract_tabular
+
+    # Arrange — 100행, 균형 이진 레이블
+    df = pd.DataFrame({"feat": list(range(100))})
+    y = [0] * 50 + [1] * 50
+
+    # Act
+    sub, warnings = extract_tabular(df, y, domain="general")
+
+    # Assert — band 필드 존재
+    assert "sample_count_band" in sub, "sample_count_band 필드 없음"
+    assert sub["sample_count_band"] == "0-1k", (
+        f"n=100 → '0-1k' 예상, 실제: {sub['sample_count_band']!r}"
+    )
+    assert "class_balance_band" in sub, "class_balance_band 필드 없음"
+    assert sub["class_balance_band"] is not None
+
+    # Assert — 정확값도 공존 (일반 도메인)
+    assert sub["target_balance"] is not None, "일반 도메인에서 target_balance가 None이면 안 됨"
+
+
+def test_band_phi_gate_medical_domain():
+    """R4 PHI 게이트: domain="medical"이면 정확값 None, band만 emit.
+
+    Arrange: pandas DataFrame (500행) + domain="medical"
+    Act: extract_tabular 직접 호출
+    Assert: target_balance=None, missing_ratio_max=None, sample_count_band 존재
+    """
+    pytest.importorskip("pandas", reason="pandas 미설치")
+    import pandas as pd
+    from pcq.fingerprint import extract_tabular
+
+    # Arrange — 500행
+    df = pd.DataFrame({
+        "feat_a": list(range(500)),
+        "feat_b": [float(i) for i in range(500)],
+    })
+    y = [0] * 250 + [1] * 250
+
+    # Act
+    sub, warnings = extract_tabular(df, y, domain="medical")
+
+    # Assert — 정확값은 None (PHI 게이트)
+    assert sub["target_balance"] is None, (
+        "PHI 도메인에서 target_balance는 None이어야 함"
+    )
+    assert sub["missing_ratio_max"] is None, (
+        "PHI 도메인에서 missing_ratio_max는 None이어야 함"
+    )
+
+    # Assert — band는 존재 (band만 emit)
+    assert "sample_count_band" in sub, "sample_count_band 필드 없음"
+    assert sub["sample_count_band"] == "0-1k", (
+        f"n=500 → '0-1k' 예상, 실제: {sub['sample_count_band']!r}"
+    )
+
+
+def test_band_phi_gate_financial_domain():
+    """R4 PHI 게이트: domain="financial"이면 정확값 None, band만 emit.
+
+    Arrange: numpy array (2000행) + domain="financial"
+    Act: extract_tabular 직접 호출
+    Assert: target_balance=None, sample_count_band="1k-10k"
+    """
+    import numpy as np
+    from pcq.fingerprint import extract_tabular
+
+    # Arrange — 2000행 numpy array
+    rng = np.random.default_rng(0)
+    X = rng.standard_normal((2_000, 5))
+    y = rng.integers(0, 2, size=2_000)
+
+    # Act
+    sub, warnings = extract_tabular(X, y, domain="financial")
+
+    # Assert — 정확값 마스킹
+    assert sub["target_balance"] is None, "financial 도메인에서 target_balance는 None이어야 함"
+
+    # Assert — band 확인
+    assert sub["sample_count_band"] == "1k-10k", (
+        f"n=2000 → '1k-10k' 예상, 실제: {sub['sample_count_band']!r}"
+    )
+
+
+def test_band_phi_gate_regulated_domain():
+    """R4 PHI 게이트: domain="regulated"이면 정확값 None, band만 emit.
+
+    Arrange: numpy array (15_000행) + domain="regulated"
+    Act: extract_tabular 직접 호출
+    Assert: target_balance=None, sample_count_band="10k-100k"
+    """
+    import numpy as np
+    from pcq.fingerprint import extract_tabular
+
+    # Arrange — 15,000행
+    rng = np.random.default_rng(1)
+    X = rng.standard_normal((15_000, 3))
+    y = rng.integers(0, 3, size=15_000)
+
+    # Act
+    sub, warnings = extract_tabular(X, y, domain="regulated")
+
+    # Assert — 정확값 마스킹
+    assert sub["target_balance"] is None, "regulated 도메인에서 target_balance는 None이어야 함"
+
+    # Assert — band
+    assert sub["sample_count_band"] == "10k-100k", (
+        f"n=15000 → '10k-100k' 예상, 실제: {sub['sample_count_band']!r}"
+    )
+
+
+def test_band_deterministic_r15():
+    """R15: 동일 n에 대해 _sample_count_band는 항상 동일한 band를 반환해야 한다 (결정성).
+
+    100회 반복 호출 시 결과가 변하지 않아야 한다.
+    """
+    from pcq.fingerprint import _sample_count_band
+
+    test_ns = [0, 500, 1_000, 5_000, 50_000, 500_000, 5_000_000, 50_000_000]
+    for n in test_ns:
+        first = _sample_count_band(n)
+        for _ in range(99):
+            assert _sample_count_band(n) == first, (
+                f"n={n}: 결정성 위반 — {_sample_count_band(n)!r} != {first!r}"
+            )
+
+
+def test_band_missing_pct_band_null_when_no_missing():
+    """missing_pct_band: 결측이 없을 때 null이 아닌 "0-5%"가 emit되어야 한다.
+
+    Arrange: 결측 없는 DataFrame (missing_ratio_max=0.0)
+    Act: extract_tabular 호출
+    Assert: missing_pct_band="0-5%", missing_ratio_max=0.0 (일반 도메인)
+    """
+    pytest.importorskip("pandas", reason="pandas 미설치")
+    import pandas as pd
+    from pcq.fingerprint import extract_tabular
+
+    # Arrange — 결측 없는 100행
+    df = pd.DataFrame({"feat": list(range(100))})
+
+    # Act
+    sub, _ = extract_tabular(df, None, domain="general")
+
+    # Assert — 결측 없으면 band="0-5%"
+    assert sub.get("missing_pct_band") == "0-5%", (
+        f"결측 없을 때 missing_pct_band='0-5%' 예상, 실제: {sub.get('missing_pct_band')!r}"
+    )

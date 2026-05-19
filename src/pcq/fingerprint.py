@@ -5,10 +5,18 @@ PII 정책 (R10):
 - raw value, value distribution top-N, sample preview 절대 금지.
 - 안전 필드만 emit: shape, type_counts, target_balance ratio, missing_ratio_max.
 
-도메인 게이트 (R5 / R5b):
+도메인 게이트 (R5 / R5b / R4 PHI 게이트):
 - domain ∈ {medical, financial, regulated} 시 자동 추출 비활성.
 - R5b heuristic sniffer: X.columns에 의료/금융 키워드 포함 + domain=="general" 시
   추출 차단 + FINGERPRINT_DOMAIN_SUSPECTED_MEDICAL 경고 emit.
+- R4 PHI 게이트: domain ∈ {medical, financial, regulated} 시 band 필드만 emit,
+  정확값(n_samples, target_balance, missing_ratio_max) → None.
+
+Band 표현 (R15 결정성):
+- sample_count_band: n_samples → 반열림 버킷 (n < threshold 기준).
+- class_balance_band: majority ratio → 비율 버킷.
+- missing_pct_band: missing_ratio_max → 결측 비율 버킷.
+- 정확값과 band는 공존 (일반 도메인). PHI 도메인에서는 정확값 None, band만 emit.
 
 결정성 (R15): 모든 dict 키는 sorted 순서로 조립.
 """
@@ -33,6 +41,63 @@ SIZE_BUCKETS: list[tuple[str, int]] = [
     ("medium", 1_000_000),
     ("large", 100_000_000),
 ]  # else → "huge"
+
+
+# 샘플 수 band 버킷 (순서 중요: 반열림 n < threshold)
+SAMPLE_COUNT_BUCKETS: list[tuple[str, int]] = [
+    ("0-1k", 1_000),
+    ("1k-10k", 10_000),
+    ("10k-100k", 100_000),
+    ("100k-1M", 1_000_000),
+    ("1M-10M", 10_000_000),
+]  # else → "10M+"
+
+# class_balance band 버킷 (majority ratio 기준, 반열림 r < threshold)
+CLASS_BALANCE_BUCKETS: list[tuple[str, float]] = [
+    ("35-50%", 0.50),
+    ("50-65%", 0.65),
+    ("65-80%", 0.80),
+    ("80-95%", 0.95),
+]  # else → "95%+"
+
+# missing_pct band 버킷 (missing_ratio_max 기준, 반열림 r < threshold)
+MISSING_PCT_BUCKETS: list[tuple[str, float]] = [
+    ("0-5%", 0.05),
+    ("5-20%", 0.20),
+]  # else → "20%+"
+
+# PHI 도메인: 정확값 emit 금지, band만 허용
+PHI_DOMAINS: frozenset[str] = frozenset({"medical", "financial", "regulated"})
+
+
+def _sample_count_band(n: int) -> str:
+    """샘플 수를 SAMPLE_COUNT_BUCKETS 기준 band로 분류합니다 (R15: 결정적)."""
+    for name, threshold in SAMPLE_COUNT_BUCKETS:
+        if n < threshold:
+            return name
+    return "10M+"
+
+
+def _pct_band(
+    ratio: float,
+    buckets: list[tuple[str, float]],
+    fallback: str,
+) -> str:
+    """비율(0.0~1.0)을 주어진 buckets 기준 band로 분류합니다 (R15: 결정적, 반열림)."""
+    for name, threshold in buckets:
+        if ratio < threshold:
+            return name
+    return fallback
+
+
+def _class_balance_band(majority_ratio: float) -> str:
+    """majority class ratio를 CLASS_BALANCE_BUCKETS 기준 band로 분류합니다."""
+    return _pct_band(majority_ratio, CLASS_BALANCE_BUCKETS, "95%+")
+
+
+def _missing_pct_band(missing_ratio: float) -> str:
+    """결측 비율을 MISSING_PCT_BUCKETS 기준 band로 분류합니다."""
+    return _pct_band(missing_ratio, MISSING_PCT_BUCKETS, "20%+")
 
 
 def _make_warning(code: str, message: str, field: str | None = None) -> dict:
@@ -280,13 +345,34 @@ def extract_tabular(
     except Exception:  # noqa: BLE001
         effective_n = n
 
+    # R4 PHI 게이트: PHI 도메인이면 정확값 None, band만 emit
+    is_phi = domain in PHI_DOMAINS
+
+    # band 계산 (항상 수행 — PHI/일반 공통)
+    sample_count_band_val: str | None = _sample_count_band(n)
+
+    class_balance_band_val: str | None = None
+    if target_balance is not None:
+        class_balance_band_val = _class_balance_band(target_balance)
+
+    missing_pct_band_val: str | None = None
+    if missing_ratio_max is not None:
+        missing_pct_band_val = _missing_pct_band(missing_ratio_max)
+
+    # PHI 도메인: 정확값 마스킹
+    emit_target_balance = None if is_phi else target_balance
+    emit_missing_ratio_max = None if is_phi else missing_ratio_max
+
     # 결과 조립 (R15: sorted keys)
     result: dict = {
-        "missing_ratio_max": missing_ratio_max,
+        "class_balance_band": class_balance_band_val,
+        "missing_pct_band": missing_pct_band_val,
+        "missing_ratio_max": emit_missing_ratio_max,
         "n_classes": n_classes,
         "n_columns": n_columns,
+        "sample_count_band": sample_count_band_val,
         "sampled_rows": effective_n if sampled else None,
-        "target_balance": target_balance,
+        "target_balance": emit_target_balance,
         "type_counts": type_counts,
     }
     # sampled_rows 없을 때 키 제거 (None은 유지 — schema 호환성)
