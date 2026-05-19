@@ -94,6 +94,12 @@
     "input_changes": {
       "type": "array"
     },
+    "integrity_changed": {
+      "type": "boolean"
+    },
+    "intent_changed": {
+      "type": "boolean"
+    },
     "last": {
       "type": "object"
     },

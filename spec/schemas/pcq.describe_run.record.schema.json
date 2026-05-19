@@ -138,6 +138,12 @@
     "cmd": {
       "type": "string"
     },
+    "contract_version": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "decision_facts": {
       "type": "object"
     },
@@ -476,6 +482,96 @@
     },
     "git_sha": {
       "type": "string"
+    },
+    "integrity": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "content_hash": {
+          "type": "string"
+        },
+        "hashed_fields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "content_hash",
+        "hashed_fields"
+      ]
+    },
+    "integrity_content_hash": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "intent": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "goal": {
+          "type": "string",
+          "enum": [
+            "baseline_reproduction",
+            "sota_challenge",
+            "ablation",
+            "hyperparam_sweep",
+            "exploration"
+          ]
+        },
+        "expected_baseline": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "metric": {
+              "type": "string"
+            },
+            "value": {
+              "type": "number"
+            }
+          }
+        },
+        "tolerance": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "direction": {
+              "type": "string",
+              "enum": [
+                "higher_is_better",
+                "lower_is_better"
+              ]
+            },
+            "margin": {
+              "type": "number"
+            }
+          }
+        }
+      },
+      "required": [
+        "goal"
+      ]
+    },
+    "intent_goal": {
+      "type": [
+        "string",
+        "null"
+      ]
     },
     "last": {
       "type": "object"

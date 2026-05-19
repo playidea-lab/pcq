@@ -43,6 +43,14 @@ JSON_CONTRACTS: dict[str, dict[str, Any]] = {
             # fingerprint 패스스루 필드 (T-WFP-3 additive)
             # describe-run 스키마의 fingerprint 객체와 동일한 중첩 형태로 전달됨
             "fingerprint": "object",
+            # intent 패스스루 필드 (T-PCQ2X-2 additive)
+            # describe-run 스키마의 intent 객체와 동일한 형태로 전달됨
+            "intent": "object",
+            # integrity 패스스루 필드 (T-PCQ2X-2 additive)
+            # describe-run 스키마의 integrity 객체와 동일한 형태로 전달됨
+            "integrity": "object",
+            # contract_version 패스스루 필드 (T-PCQ2X-2 additive)
+            "contract_version": "string",
         },
         # worker_spec / fingerprint 풀 JSON Schema — describe_run.record의 property_overrides와 동일한 구조
         "property_overrides": {
@@ -123,6 +131,58 @@ JSON_CONTRACTS: dict[str, dict[str, Any]] = {
                 },
                 "required": ["schema_version", "accelerator", "container", "source"],
             },
+            # intent 패스스루 풀 JSON Schema (T-PCQ2X-2) — describe_run.record의 intent와 동일한 구조
+            "intent": {
+                "type": ["object", "null"],
+                "additionalProperties": False,
+                "properties": {
+                    "goal": {
+                        "type": "string",
+                        "enum": [
+                            "baseline_reproduction",
+                            "sota_challenge",
+                            "ablation",
+                            "hyperparam_sweep",
+                            "exploration",
+                        ],
+                    },
+                    "expected_baseline": {
+                        "type": ["object", "null"],
+                        "additionalProperties": False,
+                        "properties": {
+                            "metric": {"type": "string"},
+                            "value": {"type": "number"},
+                        },
+                    },
+                    "tolerance": {
+                        "type": ["object", "null"],
+                        "additionalProperties": False,
+                        "properties": {
+                            "direction": {
+                                "type": "string",
+                                "enum": ["higher_is_better", "lower_is_better"],
+                            },
+                            "margin": {"type": "number"},
+                        },
+                    },
+                },
+                "required": ["goal"],
+            },
+            # integrity 패스스루 풀 JSON Schema (T-PCQ2X-2)
+            "integrity": {
+                "type": ["object", "null"],
+                "additionalProperties": False,
+                "properties": {
+                    "content_hash": {"type": "string"},
+                    "hashed_fields": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
+                },
+                "required": ["content_hash", "hashed_fields"],
+            },
+            # contract_version 패스스루 (null 허용)
+            "contract_version": {"type": ["string", "null"]},
             # fingerprint 패스스루 풀 JSON Schema (T-WFP-3) — describe_run.record의 fingerprint와 동일한 구조
             "fingerprint": {
                 "type": ["object", "null"],
@@ -377,6 +437,16 @@ JSON_CONTRACTS: dict[str, dict[str, Any]] = {
             "fingerprint_task_kind": "string",
             "fingerprint_n_samples": "int",
             "fingerprint_size_class": "string",
+            # intent 중첩 객체 (T-PCQ2X-2 additive) — 실험 목표/기대치 선언
+            "intent": "object",
+            # intent 플랫 표면 — 에이전트가 쿼리하기 쉽도록 최상위 노출
+            "intent_goal": "string",
+            # integrity 중첩 객체 (T-PCQ2X-2 additive) — 레코드 무결성 해시
+            "integrity": "object",
+            # integrity 플랫 표면
+            "integrity_content_hash": "string",
+            # contract_version: 이 레코드를 생성한 pcq 컨트랙트 버전
+            "contract_version": "string",
         },
         # attribution 및 worker_spec 필드의 상세 JSON Schema — property_overrides가 단순 타입 표기를 덮어씀
         "property_overrides": {
@@ -654,6 +724,62 @@ JSON_CONTRACTS: dict[str, dict[str, Any]] = {
             "fingerprint_task_kind": {"type": ["string", "null"]},
             "fingerprint_n_samples": {"type": ["integer", "null"]},
             "fingerprint_size_class": {"type": ["string", "null"]},
+            # intent 풀 JSON Schema (T-PCQ2X-2) — 실험 목표/기대치/허용오차
+            "intent": {
+                "type": ["object", "null"],
+                "additionalProperties": False,
+                "properties": {
+                    "goal": {
+                        "type": "string",
+                        "enum": [
+                            "baseline_reproduction",
+                            "sota_challenge",
+                            "ablation",
+                            "hyperparam_sweep",
+                            "exploration",
+                        ],
+                    },
+                    "expected_baseline": {
+                        "type": ["object", "null"],
+                        "additionalProperties": False,
+                        "properties": {
+                            "metric": {"type": "string"},
+                            "value": {"type": "number"},
+                        },
+                    },
+                    "tolerance": {
+                        "type": ["object", "null"],
+                        "additionalProperties": False,
+                        "properties": {
+                            "direction": {
+                                "type": "string",
+                                "enum": ["higher_is_better", "lower_is_better"],
+                            },
+                            "margin": {"type": "number"},
+                        },
+                    },
+                },
+                "required": ["goal"],
+            },
+            # intent 플랫 표면 오버라이드 (null 허용)
+            "intent_goal": {"type": ["string", "null"]},
+            # integrity 풀 JSON Schema (T-PCQ2X-2) — 레코드 무결성 해시
+            "integrity": {
+                "type": ["object", "null"],
+                "additionalProperties": False,
+                "properties": {
+                    "content_hash": {"type": "string"},
+                    "hashed_fields": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
+                },
+                "required": ["content_hash", "hashed_fields"],
+            },
+            # integrity 플랫 표면 오버라이드 (null 허용)
+            "integrity_content_hash": {"type": ["string", "null"]},
+            # contract_version: null 허용 (옛 1.x record 하위 호환)
+            "contract_version": {"type": ["string", "null"]},
         },
         "nested_required": {
             "decision_facts": {
@@ -723,6 +849,12 @@ JSON_CONTRACTS: dict[str, dict[str, Any]] = {
             # fingerprint diff 필드 (T-WFP-3 additive)
             # True: 두 run의 fingerprint 객체가 다름 (데이터 형태 불일치)
             "fingerprint_changed": "boolean",
+            # intent diff 필드 (T-PCQ2X-2 additive)
+            # True: 두 run의 intent 객체가 다름 (실험 목표/기대치 불일치)
+            "intent_changed": "boolean",
+            # integrity diff 필드 (T-PCQ2X-2 additive)
+            # True: 두 run의 integrity 해시가 다름 (레코드 내용 불일치)
+            "integrity_changed": "boolean",
         },
         "nested_required": {
             "decision_facts": {
@@ -802,7 +934,10 @@ JSON_CONTRACTS: dict[str, dict[str, Any]] = {
                         "FINGERPRINT_DOMAIN_GATE_SKIP — domain 게이트 적용으로 자동 감지 비활성 (R5); "
                         "FINGERPRINT_DOMAIN_SUSPECTED_MEDICAL — domain=medical 의심으로 게이트 활성; "
                         "FINGERPRINT_DOMAIN_SUSPECTED_FINANCIAL — domain=financial 의심으로 게이트 활성; "
-                        "FINGERPRINT_SAMPLED — 대용량 데이터로 인한 샘플링 적용 (통계 근사값)"
+                        "FINGERPRINT_SAMPLED — 대용량 데이터로 인한 샘플링 적용 (통계 근사값); "
+                        "INTENT_GOAL_INVALID — intent.goal 값이 알려진 열거형에 없음 (T-PCQ2X-2); "
+                        "INTENT_TOLERANCE_MALFORMED — intent.tolerance 구조가 유효하지 않음 (T-PCQ2X-2); "
+                        "INTEGRITY_HASH_UNCOMPUTABLE — 레코드 무결성 해시 계산 불가 (T-PCQ2X-2)"
                     ),
                     "x-pcq-known-values": [
                         "PII_PATTERN_DETECTED",
@@ -818,6 +953,9 @@ JSON_CONTRACTS: dict[str, dict[str, Any]] = {
                         "FINGERPRINT_DOMAIN_SUSPECTED_MEDICAL",
                         "FINGERPRINT_DOMAIN_SUSPECTED_FINANCIAL",
                         "FINGERPRINT_SAMPLED",
+                        "INTENT_GOAL_INVALID",
+                        "INTENT_TOLERANCE_MALFORMED",
+                        "INTEGRITY_HASH_UNCOMPUTABLE",
                     ],
                 },
             },
