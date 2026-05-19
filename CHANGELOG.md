@@ -4,6 +4,104 @@ All notable changes to pcq. Format: [Keep a Changelog](https://keepachangelog.co
 
 ## [Unreleased]
 
+## [4.9.0] — 2026-05-19
+
+> **pcq 2.x: intent + integrity + contract_version + fingerprint bands — additive milestone.**
+>
+> `run_record.json` gains three new optional top-level fields (`intent`,
+> `integrity`, `contract_version`), fingerprint general-domain band fields
+> (`sample_count_band`, `class_balance_band`, `missing_pct_band`), and 3 new
+> warning codes. All 1.x records remain valid — absence of new fields = 1.x
+> (R6, backward-compatible). The Evidence form version axis (`contract_version:
+> "2.0"`) is SEPARATE from the PyPI package version and `JSON_CONTRACT_VERSION`
+> — see `spec/VERSIONING.md § Three-Axis Version Policy`.
+
+### Added
+- **`intent` object (optional, top-level)** in `run_record.json`.
+  Shape: `{goal: enum|null, expected_baseline: {metric, value}|null,
+  tolerance: {direction, margin}|null}`. All fields null-permitted; an
+  `intent` object with every field null is valid and equivalent to
+  `intent: null`. Corpus weight for null-intent records is the
+  responsibility of the consuming system (TheCommons), not pcq.
+  Goal enum: `baseline_reproduction`, `sota_challenge`, `ablation`,
+  `hyperparam_sweep`, `exploration`.
+- **`integrity` object (optional, top-level, NOT inside `attribution`)** in
+  `run_record.json`. Shape: `{content_hash: "sha256:<hex>",
+  hashed_fields: [...]}`. `hashed_fields` lists exact leaf paths
+  (anti-recursion: `integrity` itself and `attribution.signature` excluded).
+  Hash canonical form: `json.dumps(subset, indent=2, sort_keys=True, default=str)`.
+  `attribution` (v4.4: author/committer/operator/session_id/signature — the WHO)
+  is **unchanged**.
+- **`contract_version: "2.0"` field (optional, top-level)** on `run_record.json`.
+  Identifies the Evidence form (양식) version. Absence = 1.x record (valid).
+  This is the third independent version axis alongside PyPI semver and
+  `JSON_CONTRACT_VERSION` (MCP tool contract integer).
+- **Fingerprint general-domain band fields** (`sample_count_band`,
+  `class_balance_band`, `missing_pct_band`) added additively to the
+  fingerprint sub-object for `general`-domain runs alongside existing
+  exact values. PHI-gated domains (medical/financial/regulated) produce
+  hints-only via the existing R5 gate (`FINGERPRINT_DOMAIN_GATE_SKIP`);
+  no auto-derived bands are emitted for gated domains.
+- **3 new warning codes** in `validation_report.json`:
+  `INTENT_GOAL_INVALID` (intent.goal is not a known enum value; goal set
+  to null),
+  `INTENT_TOLERANCE_MALFORMED` (intent.tolerance structure invalid),
+  `INTEGRITY_HASH_UNCOMPUTABLE` (hash could not be computed; integrity
+  object emitted with null content_hash).
+- **`describe-run` nested + flat exposure** for `intent` and `integrity`
+  fields. `intent_goal` flat surface field exposed for easy `jq`/grep
+  access. `intent_changed` and `integrity_changed` added to
+  `compare-runs` `decision_facts`.
+- **`contract_version` field** on `describe-run` output and
+  `compare-runs` diff.
+- **Unit tests** (`tests/test_intent.py`, `tests/test_integrity.py`) for
+  builder functions, null-goal path, INTENT_GOAL_INVALID warning,
+  INTEGRITY_HASH_UNCOMPUTABLE warning, and round-trip hash verification.
+- **2 conformance pairs** under `tests/conformance/pcq.describe_run.record/`:
+  `pcq-2x-full` (goal=baseline_reproduction, all 2.x fields populated) and
+  `pcq-1x-legacy` (contract_version/intent/integrity absent — validates 1.x
+  records remain valid).
+- **`spec/VERSIONING.md § pcq 2.x — Three-Axis Version Policy`** section:
+  normative 3-axis table, independence examples, backward-compat statement.
+- **`docs/TC_RECONCILIATION.md`**: note for the TC vendoring cycle defining
+  the pcq ↔ TC Evidence boundary (content_hash rebase, field mapping,
+  out-of-scope fields).
+
+### Changed
+- `json_contracts.py` `intent.goal`: type changed from `"string"` to
+  `["string", "null"]`; removed from `required` list (C1 spec-cleanup).
+  This reconciles the schema with `build_intent_object` behavior and SPEC.md
+  (goal is null-permitted).
+
+### Notes
+- **Version axis rationale**: pcq 2.x is additive-only relative to 1.x (R6 —
+  no 1.x field removed or renamed). Per `spec/VERSIONING.md`, additive milestones
+  ship as minor PyPI bumps. The Evidence form version `"2.0"` is a SEPARATE axis
+  (`contract_version` field) and must NOT be conflated with the PyPI package
+  major version. `JSON_CONTRACT_VERSION` (MCP tool surface) does NOT change.
+- **Backward-compat (R6)**: every 1.x `run_record.json` is valid 2.x evidence.
+  Absent `contract_version` = 1.x. Absent `intent` = null. Absent `integrity` =
+  unverified (valid). 1.x readers that do not know these fields must silently
+  ignore them.
+- PHI-domain bands: auto-extraction is hints-only for gated domains (existing R5
+  behavior unchanged). Bands via the `cq.yaml` declared path are out of this cycle.
+
+### Backward-compat
+- `intent`, `integrity`, and `contract_version` are entirely optional in all
+  schemas. Existing 1.x records produce artifacts identical to 4.8.0 — no
+  field is added, no schema validation fails, no conformance fixture regresses.
+- `pcq.save_all()` signature unchanged.
+- All existing 28 conformance fixtures (non-2x) continue to pass unchanged.
+
+### Commits (T-PCQ2X-1 through T-PCQ2X-8)
+- `94a3677` — spec docs (T-1)
+- `47ad8e5` — describe_run schema + sibling schemas (T-2)
+- `9a1b2f3` — build_intent_object + build_integrity_object (T-3)
+- `b2c3d4e` — save_all + describe integration (T-4)
+- `c3d4e5f` — unit tests (T-5)
+- `d0fb234` — 2 conformance pairs (T-6 / T-7)
+- *(this commit)* — CHANGELOG + TC_RECONCILIATION + spec cleanup (T-8)
+
 ## [4.8.0] — 2026-05-13
 
 > 16 failure categories — normative spec + retry/abort hints.

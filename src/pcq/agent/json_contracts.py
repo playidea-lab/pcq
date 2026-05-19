@@ -132,18 +132,20 @@ JSON_CONTRACTS: dict[str, dict[str, Any]] = {
                 "required": ["schema_version", "accelerator", "container", "source"],
             },
             # intent 패스스루 풀 JSON Schema (T-PCQ2X-2) — describe_run.record의 intent와 동일한 구조
+            # C1: goal은 null 허용 (SPEC + build_intent_object 동작과 일치) — required에서 제거.
             "intent": {
                 "type": ["object", "null"],
                 "additionalProperties": False,
                 "properties": {
                     "goal": {
-                        "type": "string",
+                        "type": ["string", "null"],
                         "enum": [
                             "baseline_reproduction",
                             "sota_challenge",
                             "ablation",
                             "hyperparam_sweep",
                             "exploration",
+                            None,
                         ],
                     },
                     "expected_baseline": {
@@ -166,7 +168,6 @@ JSON_CONTRACTS: dict[str, dict[str, Any]] = {
                         },
                     },
                 },
-                "required": ["goal"],
             },
             # integrity 패스스루 풀 JSON Schema (T-PCQ2X-2)
             "integrity": {
@@ -725,18 +726,20 @@ JSON_CONTRACTS: dict[str, dict[str, Any]] = {
             "fingerprint_n_samples": {"type": ["integer", "null"]},
             "fingerprint_size_class": {"type": ["string", "null"]},
             # intent 풀 JSON Schema (T-PCQ2X-2) — 실험 목표/기대치/허용오차
+            # C1: goal은 null 허용 (SPEC + build_intent_object 동작과 일치) — required에서 제거.
             "intent": {
                 "type": ["object", "null"],
                 "additionalProperties": False,
                 "properties": {
                     "goal": {
-                        "type": "string",
+                        "type": ["string", "null"],
                         "enum": [
                             "baseline_reproduction",
                             "sota_challenge",
                             "ablation",
                             "hyperparam_sweep",
                             "exploration",
+                            None,
                         ],
                     },
                     "expected_baseline": {
@@ -759,7 +762,6 @@ JSON_CONTRACTS: dict[str, dict[str, Any]] = {
                         },
                     },
                 },
-                "required": ["goal"],
             },
             # intent 플랫 표면 오버라이드 (null 허용)
             "intent_goal": {"type": ["string", "null"]},

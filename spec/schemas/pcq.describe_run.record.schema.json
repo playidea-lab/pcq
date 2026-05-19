@@ -519,13 +519,17 @@
       "additionalProperties": false,
       "properties": {
         "goal": {
-          "type": "string",
+          "type": [
+            "string",
+            "null"
+          ],
           "enum": [
             "baseline_reproduction",
             "sota_challenge",
             "ablation",
             "hyperparam_sweep",
-            "exploration"
+            "exploration",
+            null
           ]
         },
         "expected_baseline": {
@@ -562,10 +566,7 @@
             }
           }
         }
-      },
-      "required": [
-        "goal"
-      ]
+      }
     },
     "intent_goal": {
       "type": [

@@ -1168,13 +1168,14 @@ added without changing the `content_hash` of the underlying evidence.
 #### Hash computation
 
 ```python
-# canonical form: json.dumps over the selected subset, sort_keys=True
+# canonical form: json.dumps over the selected subset, indent=2, sort_keys=True, default=str
 subset = {path: resolve(run_record, path) for path in hashed_fields}
-canonical = json.dumps(subset, sort_keys=True, default=str)
+canonical = json.dumps(subset, indent=2, sort_keys=True, default=str)
 content_hash = "sha256:" + hashlib.sha256(canonical.encode()).hexdigest()
 ```
 
-This matches the form used in `src/pcq/contract.py` (`_atomic_write_json`).
+This matches the form used in `src/pcq/contract.py` (`build_integrity_object` / `_atomic_write_json`).
+Independent verifiers must use `indent=2` to reproduce pcq's hash byte-for-byte.
 
 The `integrity` field is **optional** on `run_record.json`. Existing records
 without it are valid (backward-compatible with 1.x).
