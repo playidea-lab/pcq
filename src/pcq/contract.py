@@ -1702,6 +1702,195 @@ def build_attribution_object(
     }
 
 
+# ---------------------------------------------------------------------------
+# intent 빌더 — T-PCQ2X-3
+# ---------------------------------------------------------------------------
+
+# goal 열거형 — json_contracts.py property_overrides 와 동일하게 유지.
+_VALID_INTENT_GOALS: frozenset[str] = frozenset({
+    "baseline_reproduction",
+    "sota_challenge",
+    "ablation",
+    "hyperparam_sweep",
+    "exploration",
+})
+
+# integrity 계산 시 해시 입력에 포함할 최상위 경로 목록 (anti-recursion 제외 적용).
+# "attribution.signature" 와 "integrity" 자체는 제외 — 순환 방지.
+_INTEGRITY_HASHED_FIELDS: list[str] = [
+    "intent",
+    "config",
+    "metrics",
+    "data_fingerprint",
+    "worker_spec",
+    "attribution.author",
+    "attribution.committer",
+    "attribution.operator",
+    "contract_version",
+]
+
+
+def build_intent_object(
+    goal: str | None = None,
+    expected_baseline: dict | None = None,
+    tolerance: dict | None = None,
+) -> tuple[dict | None, list[dict]]:
+    """intent 객체를 생성하고 반환합니다.
+
+    실험 실행 전 목적을 기록합니다. 모든 필드는 null 허용 (전부 None 이면 None 반환).
+
+    Args:
+        goal: 실험 목적 열거형 ("baseline_reproduction" | "sota_challenge" |
+              "ablation" | "hyperparam_sweep" | "exploration") 또는 None.
+              알 수 없는 값은 경고를 발생시키고 None 으로 처리.
+        expected_baseline: {"metric": str, "value": number} 형태 dict 또는 None.
+                           구조가 올바르지 않으면 경고 발생.
+        tolerance: {"direction": str, "margin": number} 형태 dict 또는 None.
+                   구조가 올바르지 않으면 경고 발생.
+
+    Returns:
+        (intent_dict | None, warnings) 튜플.
+        intent_dict: goal/expected_baseline/tolerance 를 포함한 dict, 또는
+                     세 필드 모두 None 이면 None.
+        warnings: [{code, message, field?}] 목록.
+    """
+    warnings: list[dict] = []
+
+    # goal 검증 — 알 수 없는 값은 None 처리 + 경고 (예외 미발생).
+    resolved_goal: str | None = goal
+    if goal is not None and goal not in _VALID_INTENT_GOALS:
+        warnings.append({
+            "code": "INTENT_GOAL_INVALID",
+            "message": (
+                f"intent.goal 값이 알려진 열거형에 없습니다: {goal!r}. "
+                f"허용값: {sorted(_VALID_INTENT_GOALS)!r}"
+            ),
+            "field": "intent.goal",
+        })
+        resolved_goal = None
+
+    # expected_baseline 검증 — {metric: str, value: number} 구조 확인.
+    resolved_baseline: dict | None = None
+    if expected_baseline is not None:
+        metric = expected_baseline.get("metric") if isinstance(expected_baseline, dict) else None
+        value = expected_baseline.get("value") if isinstance(expected_baseline, dict) else None
+        if isinstance(metric, str) and isinstance(value, (int, float)):
+            resolved_baseline = {"metric": metric, "value": value}
+        else:
+            warnings.append({
+                "code": "INTENT_TOLERANCE_MALFORMED",
+                "message": (
+                    "intent.expected_baseline 구조가 유효하지 않습니다. "
+                    '{"metric": str, "value": number} 형태가 필요합니다.'
+                ),
+                "field": "intent.expected_baseline",
+            })
+
+    # tolerance 검증 — {direction: str, margin: number} 구조 확인.
+    resolved_tolerance: dict | None = None
+    if tolerance is not None:
+        direction = tolerance.get("direction") if isinstance(tolerance, dict) else None
+        margin = tolerance.get("margin") if isinstance(tolerance, dict) else None
+        if isinstance(direction, str) and isinstance(margin, (int, float)):
+            resolved_tolerance = {"direction": direction, "margin": margin}
+        else:
+            warnings.append({
+                "code": "INTENT_TOLERANCE_MALFORMED",
+                "message": (
+                    "intent.tolerance 구조가 유효하지 않습니다. "
+                    '{"direction": str, "margin": number} 형태가 필요합니다.'
+                ),
+                "field": "intent.tolerance",
+            })
+
+    # 세 필드 모두 None 이면 intent 생략.
+    if resolved_goal is None and resolved_baseline is None and resolved_tolerance is None:
+        return None, warnings
+
+    return {
+        "goal": resolved_goal,
+        "expected_baseline": resolved_baseline,
+        "tolerance": resolved_tolerance,
+    }, warnings
+
+
+# ---------------------------------------------------------------------------
+# integrity 빌더 — T-PCQ2X-3
+# ---------------------------------------------------------------------------
+
+
+def _resolve_dotted_path(payload: dict, path: str) -> object:
+    """점(.) 구분 경로로 payload 에서 값을 추출합니다.
+
+    예: "attribution.operator" → payload["attribution"]["operator"].
+    중간 키가 없거나 None 이면 None 반환.
+    """
+    parts = path.split(".")
+    current: object = payload
+    for part in parts:
+        if not isinstance(current, dict):
+            return None
+        current = current.get(part)
+    return current
+
+
+def build_integrity_object(
+    payload: dict,
+    hashed_fields: list[str] | None = None,
+) -> tuple[dict | None, list[dict]]:
+    """integrity 객체를 생성하고 반환합니다.
+
+    payload 에서 hashed_fields 경로 목록에 해당하는 값을 추출하여
+    canonical JSON 직렬화 후 sha256 해시를 계산합니다.
+
+    Anti-recursion:
+      - "attribution.signature" 는 hashed_fields 에 있어도 제거합니다 (Phase 2 예약).
+      - "integrity" 자체는 hashed_fields 에 있어도 제거합니다 (순환 방지).
+
+    Hash canonical form: json.dumps(subset, indent=2, sort_keys=True, default=str)
+    → _atomic_write_json 과 동일한 형식.
+
+    Args:
+        payload: 해시 계산 대상 run_record dict.
+        hashed_fields: 포함할 경로 목록. None 이면 _INTEGRITY_HASHED_FIELDS 사용.
+
+    Returns:
+        (integrity_dict, warnings) 튜플.
+        integrity_dict: {"content_hash": "sha256:...", "hashed_fields": [...]} 또는
+                        계산 실패 시 None.
+        warnings: [{code, message}] 목록.
+    """
+    warnings: list[dict] = []
+
+    # anti-recursion 제외 경로.
+    _EXCLUDED: frozenset[str] = frozenset({"attribution.signature", "integrity"})
+
+    fields_to_use = list(hashed_fields) if hashed_fields is not None else list(_INTEGRITY_HASHED_FIELDS)
+    # 제외 경로 필터링 — 순서 유지.
+    fields_to_use = [f for f in fields_to_use if f not in _EXCLUDED]
+
+    try:
+        # payload 에서 각 경로 값을 추출하여 부분집합 dict 구성.
+        # 경로가 점 구분이면 중첩 조회, 아니면 단순 키 조회.
+        subset: dict = {path: _resolve_dotted_path(payload, path) for path in fields_to_use}
+
+        # canonical 직렬화 — _atomic_write_json 과 동일한 형식.
+        canonical = json.dumps(subset, indent=2, sort_keys=True, default=str)
+        hex_digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+        content_hash = f"sha256:{hex_digest}"
+    except Exception:  # noqa: BLE001
+        warnings.append({
+            "code": "INTEGRITY_HASH_UNCOMPUTABLE",
+            "message": "integrity content_hash 계산에 실패했습니다.",
+        })
+        return None, warnings
+
+    return {
+        "content_hash": content_hash,
+        "hashed_fields": fields_to_use,
+    }, warnings
+
+
 def finalize_run(
     history: list[dict] | None = None,
     status: str = "completed",
@@ -1720,6 +1909,10 @@ def finalize_run(
     worker_spec_warnings: list[dict] | None = None,
     fingerprint: dict | None = None,
     fingerprint_warnings: list[dict] | None = None,
+    run_intent: dict | None = None,
+    run_intent_warnings: list[dict] | None = None,
+    run_integrity: dict | None = None,
+    run_integrity_warnings: list[dict] | None = None,
 ) -> Path:
     """run_record.json + validation_report.json 작성.
 
@@ -1754,6 +1947,12 @@ def finalize_run(
                      None 이면 fingerprint 필드 생략 (옛 record 호환).
         fingerprint_warnings: build_fingerprint_object() 에서 반환된 warnings 목록.
                               None 또는 [] 이면 validation_report 에 추가 없음.
+        run_intent: T-PCQ2X-3 — build_intent_object() 반환값 또는 동일 형태 dict.
+                    run_record 의 top-level intent 필드로 전달. None 이면 생략 (1.x 호환).
+        run_intent_warnings: build_intent_object() 에서 반환된 warnings 목록.
+        run_integrity: T-PCQ2X-3 — build_integrity_object() 반환값 또는 동일 형태 dict.
+                       run_record 의 top-level integrity 필드로 전달. None 이면 생략 (1.x 호환).
+        run_integrity_warnings: build_integrity_object() 에서 반환된 warnings 목록.
 
     Returns:
         run_record.json Path.
@@ -1801,12 +2000,25 @@ def finalize_run(
     # T-WFP-4: fingerprint 필드를 run_record dict 에 추가 (있을 때만).
     if fingerprint is not None:
         record_dict["fingerprint"] = fingerprint
+    # T-PCQ2X-3: intent, integrity, contract_version 추가 (additive — 1.x 호환).
+    if run_intent is not None:
+        record_dict["intent"] = run_intent
+    if run_integrity is not None:
+        record_dict["integrity"] = run_integrity
+    # contract_version "2.0" 은 intent 또는 integrity 가 있을 때만 emit.
+    if run_intent is not None or run_integrity is not None:
+        record_dict["contract_version"] = "2.0"
     # v2.11: atomic write — partial RunRecord 와 동일한 보장.
     _atomic_write_json(rr_path, record_dict)
 
     # post-run validation 실행 후 validation_report.json + run_record.validation patch
-    # fingerprint_warnings 를 extra_warnings 에 포함 (worker_spec_warnings 와 합산).
-    combined_extra_warnings = list(worker_spec_warnings or []) + list(fingerprint_warnings or [])
+    # fingerprint_warnings 를 extra_warnings 에 포함 (worker_spec_warnings + intent + integrity 합산).
+    combined_extra_warnings = (
+        list(worker_spec_warnings or [])
+        + list(fingerprint_warnings or [])
+        + list(run_intent_warnings or [])
+        + list(run_integrity_warnings or [])
+    )
     _run_post_validation_and_patch(
         out,
         rr_path,
