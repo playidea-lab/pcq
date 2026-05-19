@@ -2003,9 +2003,14 @@ def finalize_run(
     # T-PCQ2X-3: intent, integrity, contract_version 추가 (additive — 1.x 호환).
     if run_intent is not None:
         record_dict["intent"] = run_intent
+    # contract_version "2.0" 은 intent 또는 integrity 가 있을 때만 emit.
+    # 무결성 해시 계산 전에 설정해야 content_hash 가 contract_version 을 포함함.
+    # run_integrity 가 None 이어도 auto-compute 로 채워질 수 있으므로 조건 동일.
+    if run_intent is not None or run_integrity is not None:
+        record_dict["contract_version"] = "2.0"
 
     # T-PCQ2X-5: integrity 자동 계산 — run_integrity 가 명시 전달되지 않고 intent 가 있을 때
-    # record_dict 가 완전히 조립된 후 (intent 포함, integrity 제외) 해시 계산.
+    # record_dict 가 완전히 조립된 후 (intent + contract_version 포함, integrity 제외) 해시 계산.
     # anti-recursion 은 build_integrity_object 내부가 보장 ("integrity" 키 제외).
     _auto_integrity: dict | None = None
     _auto_integrity_warnings: list[dict] = []
@@ -2016,9 +2021,6 @@ def finalize_run(
 
     if run_integrity is not None:
         record_dict["integrity"] = run_integrity
-    # contract_version "2.0" 은 intent 또는 integrity 가 있을 때만 emit.
-    if run_intent is not None or run_integrity is not None:
-        record_dict["contract_version"] = "2.0"
     # v2.11: atomic write — partial RunRecord 와 동일한 보장.
     _atomic_write_json(rr_path, record_dict)
 
