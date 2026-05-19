@@ -740,94 +740,123 @@ def test_band_fields_emitted_general_domain():
     assert sub["target_balance"] is not None, "일반 도메인에서 target_balance가 None이면 안 됨"
 
 
-def test_band_phi_gate_medical_domain():
-    """R4 PHI 게이트: domain="medical"이면 정확값 None, band만 emit.
+def test_regulated_domain_medical_hints_only():
+    """SPEC.md R5 PII Layer 2: domain="medical"이면 core.fingerprint()가
+    hints-only를 반환하고 FINGERPRINT_DOMAIN_GATE_SKIP 경고를 emit해야 한다.
+    통계 키(sample_count_band, class_balance_band, missing_pct_band, target_balance 등)는
+    결과에 없어야 한다.
 
-    Arrange: pandas DataFrame (500행) + domain="medical"
-    Act: extract_tabular 직접 호출
-    Assert: target_balance=None, missing_ratio_max=None, sample_count_band 존재
+    Arrange: numpy array + domain="medical"
+    Act: core.fingerprint() (공개 진입점) 호출
+    Assert: FINGERPRINT_DOMAIN_GATE_SKIP 경고 존재,
+            band 및 정확값 통계 키 없음 (tabular 서브객체 없음)
     """
-    pytest.importorskip("pandas", reason="pandas 미설치")
-    import pandas as pd
-    from pcq.fingerprint import extract_tabular
+    import numpy as np
 
-    # Arrange — 500행
-    df = pd.DataFrame({
-        "feat_a": list(range(500)),
-        "feat_b": [float(i) for i in range(500)],
-    })
-    y = [0] * 250 + [1] * 250
+    # Arrange — 500행 tabular 데이터
+    rng = np.random.default_rng(0)
+    X = rng.standard_normal((500, 3))
+    y = rng.integers(0, 2, size=500).tolist()
 
-    # Act
-    sub, warnings = extract_tabular(df, y, domain="medical")
+    # Act — core.fingerprint() 실제 진입점 사용
+    result = pcq_fingerprint(X, y, modality="tabular", domain="medical")
 
-    # Assert — 정확값은 None (PHI 게이트)
-    assert sub["target_balance"] is None, (
-        "PHI 도메인에서 target_balance는 None이어야 함"
-    )
-    assert sub["missing_ratio_max"] is None, (
-        "PHI 도메인에서 missing_ratio_max는 None이어야 함"
+    # Assert — 게이트 경고 존재
+    assert result is not None
+    warning_codes = [w["code"] for w in result.get("warnings", [])]
+    assert "FINGERPRINT_DOMAIN_GATE_SKIP" in warning_codes, (
+        f"FINGERPRINT_DOMAIN_GATE_SKIP 경고 없음: {warning_codes}"
     )
 
-    # Assert — band는 존재 (band만 emit)
-    assert "sample_count_band" in sub, "sample_count_band 필드 없음"
-    assert sub["sample_count_band"] == "0-1k", (
-        f"n=500 → '0-1k' 예상, 실제: {sub['sample_count_band']!r}"
+    # Assert — 통계 서브객체(tabular) 없음 (선언 경로 전용)
+    assert "tabular" not in result, (
+        "규제 도메인에서 tabular 서브객체가 emit되면 안 됩니다 (SPEC.md R5)"
+    )
+
+    # Assert — band 및 정확값 통계 키 없음
+    stat_keys = {"sample_count_band", "class_balance_band", "missing_pct_band",
+                 "target_balance", "missing_ratio_max", "n_samples"}
+    emitted = stat_keys & set(result.keys())
+    assert not emitted, (
+        f"규제 도메인에서 통계 키가 emit되면 안 됩니다: {emitted}"
     )
 
 
-def test_band_phi_gate_financial_domain():
-    """R4 PHI 게이트: domain="financial"이면 정확값 None, band만 emit.
+def test_regulated_domain_financial_hints_only():
+    """SPEC.md R5 PII Layer 2: domain="financial"이면 core.fingerprint()가
+    hints-only를 반환하고 FINGERPRINT_DOMAIN_GATE_SKIP 경고를 emit해야 한다.
 
     Arrange: numpy array (2000행) + domain="financial"
-    Act: extract_tabular 직접 호출
-    Assert: target_balance=None, sample_count_band="1k-10k"
+    Act: core.fingerprint() (공개 진입점) 호출
+    Assert: FINGERPRINT_DOMAIN_GATE_SKIP 경고 존재, tabular 서브객체 없음
     """
     import numpy as np
-    from pcq.fingerprint import extract_tabular
 
     # Arrange — 2000행 numpy array
-    rng = np.random.default_rng(0)
+    rng = np.random.default_rng(1)
     X = rng.standard_normal((2_000, 5))
-    y = rng.integers(0, 2, size=2_000)
+    y = rng.integers(0, 2, size=2_000).tolist()
 
-    # Act
-    sub, warnings = extract_tabular(X, y, domain="financial")
+    # Act — core.fingerprint() 실제 진입점 사용
+    result = pcq_fingerprint(X, y, modality="tabular", domain="financial")
 
-    # Assert — 정확값 마스킹
-    assert sub["target_balance"] is None, "financial 도메인에서 target_balance는 None이어야 함"
+    # Assert — 게이트 경고 존재
+    assert result is not None
+    warning_codes = [w["code"] for w in result.get("warnings", [])]
+    assert "FINGERPRINT_DOMAIN_GATE_SKIP" in warning_codes, (
+        f"FINGERPRINT_DOMAIN_GATE_SKIP 경고 없음: {warning_codes}"
+    )
 
-    # Assert — band 확인
-    assert sub["sample_count_band"] == "1k-10k", (
-        f"n=2000 → '1k-10k' 예상, 실제: {sub['sample_count_band']!r}"
+    # Assert — 통계 서브객체 없음
+    assert "tabular" not in result, (
+        "financial 도메인에서 tabular 서브객체가 emit되면 안 됩니다"
+    )
+
+    # Assert — domain 힌트만 존재 (modality, task_kind, domain, sampled, warnings)
+    expected_hint_keys = {"modality", "task_kind", "domain", "sampled", "warnings"}
+    extra_keys = set(result.keys()) - expected_hint_keys
+    assert not extra_keys, (
+        f"financial 도메인에서 hints 외 키가 emit되면 안 됩니다: {extra_keys}"
     )
 
 
-def test_band_phi_gate_regulated_domain():
-    """R4 PHI 게이트: domain="regulated"이면 정확값 None, band만 emit.
+def test_regulated_domain_regulated_hints_only():
+    """SPEC.md R5 PII Layer 2: domain="regulated"이면 core.fingerprint()가
+    hints-only를 반환하고 FINGERPRINT_DOMAIN_GATE_SKIP 경고를 emit해야 한다.
 
     Arrange: numpy array (15_000행) + domain="regulated"
-    Act: extract_tabular 직접 호출
-    Assert: target_balance=None, sample_count_band="10k-100k"
+    Act: core.fingerprint() (공개 진입점) 호출
+    Assert: FINGERPRINT_DOMAIN_GATE_SKIP 경고 존재, tabular 서브객체 없음,
+            n_samples 키 없음 (자동 추출 완전 비활성)
     """
     import numpy as np
-    from pcq.fingerprint import extract_tabular
 
     # Arrange — 15,000행
-    rng = np.random.default_rng(1)
+    rng = np.random.default_rng(2)
     X = rng.standard_normal((15_000, 3))
-    y = rng.integers(0, 3, size=15_000)
+    y = rng.integers(0, 3, size=15_000).tolist()
 
-    # Act
-    sub, warnings = extract_tabular(X, y, domain="regulated")
+    # Act — core.fingerprint() 실제 진입점 사용
+    result = pcq_fingerprint(X, y, modality="tabular", domain="regulated")
 
-    # Assert — 정확값 마스킹
-    assert sub["target_balance"] is None, "regulated 도메인에서 target_balance는 None이어야 함"
-
-    # Assert — band
-    assert sub["sample_count_band"] == "10k-100k", (
-        f"n=15000 → '10k-100k' 예상, 실제: {sub['sample_count_band']!r}"
+    # Assert — 게이트 경고 존재
+    assert result is not None
+    warning_codes = [w["code"] for w in result.get("warnings", [])]
+    assert "FINGERPRINT_DOMAIN_GATE_SKIP" in warning_codes, (
+        f"FINGERPRINT_DOMAIN_GATE_SKIP 경고 없음: {warning_codes}"
     )
+
+    # Assert — 자동 추출 통계 키 모두 없음
+    assert "tabular" not in result, (
+        "regulated 도메인에서 tabular 서브객체가 emit되면 안 됩니다"
+    )
+    assert "n_samples" not in result, (
+        "regulated 도메인에서 n_samples가 emit되면 안 됩니다"
+    )
+
+    # Assert — domain 힌트 필드는 올바르게 반영
+    assert result.get("domain") == "regulated"
+    assert result.get("modality") == "tabular"
 
 
 def test_band_deterministic_r15():

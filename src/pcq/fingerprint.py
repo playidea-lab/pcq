@@ -5,18 +5,19 @@ PII 정책 (R10):
 - raw value, value distribution top-N, sample preview 절대 금지.
 - 안전 필드만 emit: shape, type_counts, target_balance ratio, missing_ratio_max.
 
-도메인 게이트 (R5 / R5b / R4 PHI 게이트):
-- domain ∈ {medical, financial, regulated} 시 자동 추출 비활성.
+도메인 게이트 (R5 / R5b — SPEC.md R5 PII Layer 2):
+- domain ∈ {medical, financial, regulated}: core.fingerprint()가 hints-only 캐시를
+  반환하고 FINGERPRINT_DOMAIN_GATE_SKIP 경고를 emit한 뒤 즉시 반환한다.
+  extract_tabular 는 규제 도메인에서 절대 호출되지 않는다 (declared 경로 전용).
+  extract_tabular 내부에 PHI 특수 처리가 없는 이유가 여기 있다.
 - R5b heuristic sniffer: X.columns에 의료/금융 키워드 포함 + domain=="general" 시
   추출 차단 + FINGERPRINT_DOMAIN_SUSPECTED_MEDICAL 경고 emit.
-- R4 PHI 게이트: domain ∈ {medical, financial, regulated} 시 band 필드만 emit,
-  정확값(n_samples, target_balance, missing_ratio_max) → None.
 
 Band 표현 (R15 결정성):
 - sample_count_band: n_samples → 반열림 버킷 (n < threshold 기준).
 - class_balance_band: majority ratio → 비율 버킷.
 - missing_pct_band: missing_ratio_max → 결측 비율 버킷.
-- 정확값과 band는 공존 (일반 도메인). PHI 도메인에서는 정확값 None, band만 emit.
+- 정확값과 band는 공존 (일반 도메인에서만 extract_tabular가 호출되므로).
 
 결정성 (R15): 모든 dict 키는 sorted 순서로 조립.
 """
@@ -65,10 +66,6 @@ MISSING_PCT_BUCKETS: list[tuple[str, float]] = [
     ("0-5%", 0.05),
     ("5-20%", 0.20),
 ]  # else → "20%+"
-
-# PHI 도메인: 정확값 emit 금지, band만 허용
-PHI_DOMAINS: frozenset[str] = frozenset({"medical", "financial", "regulated"})
-
 
 def _sample_count_band(n: int) -> str:
     """샘플 수를 SAMPLE_COUNT_BUCKETS 기준 band로 분류합니다 (R15: 결정적)."""
@@ -345,10 +342,7 @@ def extract_tabular(
     except Exception:  # noqa: BLE001
         effective_n = n
 
-    # R4 PHI 게이트: PHI 도메인이면 정확값 None, band만 emit
-    is_phi = domain in PHI_DOMAINS
-
-    # band 계산 (항상 수행 — PHI/일반 공통)
+    # band 계산 (일반 도메인 전용 — 규제 도메인은 core.fingerprint()가 이미 차단)
     sample_count_band_val: str | None = _sample_count_band(n)
 
     class_balance_band_val: str | None = None
@@ -359,20 +353,16 @@ def extract_tabular(
     if missing_ratio_max is not None:
         missing_pct_band_val = _missing_pct_band(missing_ratio_max)
 
-    # PHI 도메인: 정확값 마스킹
-    emit_target_balance = None if is_phi else target_balance
-    emit_missing_ratio_max = None if is_phi else missing_ratio_max
-
     # 결과 조립 (R15: sorted keys)
     result: dict = {
         "class_balance_band": class_balance_band_val,
         "missing_pct_band": missing_pct_band_val,
-        "missing_ratio_max": emit_missing_ratio_max,
+        "missing_ratio_max": missing_ratio_max,
         "n_classes": n_classes,
         "n_columns": n_columns,
         "sample_count_band": sample_count_band_val,
         "sampled_rows": effective_n if sampled else None,
-        "target_balance": emit_target_balance,
+        "target_balance": target_balance,
         "type_counts": type_counts,
     }
     # sampled_rows 없을 때 키 제거 (None은 유지 — schema 호환성)
