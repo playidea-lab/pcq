@@ -1,0 +1,11 @@
+{
+  "invocation": {
+    "kind": "cli",
+    "command": ["pcq", "describe-run", "FIXTURE_OUTPUT", "--json"]
+  },
+  "fixtures": {
+    "FIXTURE_OUTPUT": "fixtures/output"
+  },
+  "schema_version": 1,
+  "notes": "pcq 1.x legacy 픽스처: run_record.json에 intent/integrity/contract_version 세 필드가 모두 없는 경우 (옛 레코드). R6 하위 호환 — describe-run이 이런 레코드도 정상 처리하고, intent/integrity/contract_version 관련 필드를 출력에 포함하지 않아야 한다. (R8 T-PCQ2X-7)"
+}

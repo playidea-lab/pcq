@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "run_id": "...",
+  "name": "...",
+  "status": "completed",
+  "output_dir": "...",
+  "cmd": "uv run python train.py",
+  "target_metric": "eval_acc",
+  "mode": "max",
+  "best": {
+    "epoch": 0,
+    "value": 1.0,
+    "metrics": {
+      "eval_acc": 1.0
+    },
+    "checkpoint": "best.ckpt"
+  },
+  "best_value": 1.0,
+  "best_epoch": 0,
+  "last": {
+    "epoch": 0,
+    "value": 1.0,
+    "metrics": {
+      "eval_acc": 1.0
+    },
+    "checkpoint": "last.ckpt"
+  },
+  "last_value": 1.0,
+  "last_epoch": 0,
+  "epochs_completed": 1,
+  "partial": false,
+  "last_updated_at": "...",
+  "git_sha": "...",
+  "dirty": true,
+  "python": "...",
+  "platform": "...",
+  "validation_status": "pass",
+  "decision_facts": {
+    "run_completed": true,
+    "run_failed": false,
+    "run_partial": false,
+    "validation_passed": true,
+    "validation_failed": false,
+    "has_failure": false,
+    "has_target_metric": true,
+    "has_best": true,
+    "has_last": true,
+    "has_parent": false,
+    "artifact_count": 4,
+    "metric_count": 2,
+    "input_count": 0,
+    "dirty_source": true,
+    "has_lockfile": true,
+    "has_cq_yaml_hash": true
+  },
+  "intent": {
+    "goal": "baseline_reproduction",
+    "expected_baseline": {
+      "metric": "eval_acc",
+      "value": 0.95
+    },
+    "tolerance": {
+      "direction": "higher_is_better",
+      "margin": 0.02
+    }
+  },
+  "intent_goal": "baseline_reproduction",
+  "integrity": {
+    "content_hash": "...",
+    "hashed_fields": "..."
+  },
+  "integrity_content_hash": "...",
+  "contract_version": "2.0"
+}

@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "monitor": {
+    "name": "eval_acc",
+    "mode": "max"
+  },
+  "target": {
+    "name": "eval_acc",
+    "mode": "max"
+  },
+  "best": {
+    "epoch": 0,
+    "metrics": {
+      "eval_acc": 1.0
+    },
+    "checkpoint": "best.ckpt"
+  },
+  "last": {
+    "epoch": 0,
+    "metrics": {
+      "eval_acc": 1.0
+    },
+    "checkpoint": "last.ckpt"
+  },
+  "artifacts": {
+    "model": "model.pkl"
+  },
+  "provenance": {
+    "git_sha": "f0ce07c78aeb7fa114c2b8856e56a3a8d253305d",
+    "pcq_version": "1.5.0",
+    "overrides": []
+  },
+  "warnings": []
+}
